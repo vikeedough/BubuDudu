@@ -30,7 +30,8 @@ export default QuoteContainer;
 
 const styles = StyleSheet.create({
     container: {
-        marginTop: 30,
+        marginTop: 40,
+        marginBottom: 40,
         backgroundColor: "#B2FFFB",
         padding: 20,
         paddingHorizontal: 35,

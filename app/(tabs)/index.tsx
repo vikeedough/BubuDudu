@@ -1,10 +1,11 @@
-import { StyleSheet, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { useState, useEffect } from "react";
-import { Milestone } from "@/api/endpoints/types";
 import { fetchMilestones } from "@/api/endpoints/supabase";
+import { Milestone } from "@/api/endpoints/types";
+import Avatar from "@/components/home/Avatar";
 import MilestoneTracker from "@/components/home/MilestoneTracker";
 import QuoteContainer from "@/components/home/QuoteContainer";
+import { useEffect, useState } from "react";
+import { StyleSheet, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 const Home = () => {
     const [milestones, setMilestones] = useState<Milestone[]>([]);
@@ -45,6 +46,10 @@ const Home = () => {
                 </View>
             )}
             <QuoteContainer />
+            <View style={{ flexDirection: "row", gap: 20 }}>
+                <Avatar image={require("@/assets/images/dudu.jpg")} />
+                <Avatar image={require("@/assets/images/bubu.jpg")} />
+            </View>
         </SafeAreaView>
     );
 };
