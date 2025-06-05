@@ -1,15 +1,15 @@
 import { StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-const Home = () => {
+const Lists = () => {
     return (
         <SafeAreaView style={styles.container}>
-            <Text>Home</Text>
+            <Text>Lists</Text>
         </SafeAreaView>
     );
 };
 
-export default Home;
+export default Lists;
 
 const styles = StyleSheet.create({
     container: {
