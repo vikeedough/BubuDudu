@@ -3,3 +3,9 @@ export interface Milestone {
     title: string;
     date: string;
 }
+
+export interface Quote {
+    id: string;
+    created_at: string;
+    quote: string;
+}

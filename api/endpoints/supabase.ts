@@ -4,7 +4,7 @@ const fetchMilestones = async () => {
     const { data, error } = await supabase
         .from("milestones")
         .select("*")
-        .order("date", { ascending: true });
+        .order("id", { ascending: true });
 
     if (error) {
         console.error("Error fetching milestones:", error);
@@ -14,4 +14,15 @@ const fetchMilestones = async () => {
     return data;
 };
 
-export { fetchMilestones };
+const fetchQuote = async () => {
+    const { data, error } = await supabase.from("quotes").select("*");
+
+    if (error) {
+        console.error("Error fetching quotes:", error);
+        return [];
+    }
+
+    return data;
+};
+
+export { fetchMilestones, fetchQuote };
