@@ -3,16 +3,34 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 interface AvatarProps {
     image: any;
+    onPress: () => void;
+    isSelected: boolean;
+    hasAddMessageButton: boolean;
+    isBubu: boolean;
 }
 
-const Avatar = ({ image }: AvatarProps) => {
+const Avatar = ({
+    image,
+    onPress,
+    isSelected,
+    isBubu,
+    hasAddMessageButton,
+}: AvatarProps) => {
     return (
-        <View style={styles.container}>
-            <TouchableOpacity style={styles.addMessageButton}>
-                <Text>+</Text>
-            </TouchableOpacity>
-            <TouchableOpacity>
-                <Image source={image} style={styles.image} />
+        <View
+            style={[
+                styles.container,
+                isSelected && !isBubu && styles.selectedContainer,
+                isSelected && isBubu && styles.bubuSelectedContainer,
+            ]}
+        >
+            {hasAddMessageButton && (
+                <TouchableOpacity style={styles.addMessageButton}>
+                    <Text>+</Text>
+                </TouchableOpacity>
+            )}
+            <TouchableOpacity onPress={onPress}>
+                <Image source={{ uri: image }} style={styles.image} />
             </TouchableOpacity>
         </View>
     );
@@ -22,13 +40,19 @@ export default Avatar;
 
 const styles = StyleSheet.create({
     container: {
-        width: 135,
-        height: 135,
+        width: 145,
+        height: 145,
         borderRadius: 999,
         borderWidth: 1,
         backgroundColor: "white",
         justifyContent: "center",
         alignItems: "center",
+    },
+    selectedContainer: {
+        borderColor: "#b2e1de",
+        borderWidth: 5,
+        height: 145,
+        width: 145,
     },
     addMessageButton: {
         position: "absolute",
@@ -47,5 +71,17 @@ const styles = StyleSheet.create({
         width: 125,
         height: 125,
         borderRadius: 999,
+    },
+    bubuContainer: {
+        borderColor: "#b2e1de",
+        borderWidth: 5,
+        height: 145,
+        width: 145,
+    },
+    bubuSelectedContainer: {
+        borderColor: "#fdcfd0",
+        borderWidth: 5,
+        height: 145,
+        width: 145,
     },
 });

@@ -25,4 +25,18 @@ const fetchQuote = async () => {
     return data;
 };
 
-export { fetchMilestones, fetchQuote };
+const fetchUsers = async () => {
+    const { data, error } = await supabase
+        .from("users")
+        .select("*")
+        .order("id", { ascending: true });
+
+    if (error) {
+        console.error("Error fetching users:", error);
+        return [];
+    }
+
+    return data;
+};
+
+export { fetchMilestones, fetchQuote, fetchUsers };
