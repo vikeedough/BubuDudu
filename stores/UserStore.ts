@@ -13,6 +13,8 @@ interface UserStore {
     login: (user: User) => void;
     logout: () => void;
     isLoggedIn: boolean;
+    hasHydrated: boolean;
+    setHasHydrated: (v: boolean) => void;
 }
 
 export const useUserStore = create<UserStore>()(
@@ -22,10 +24,15 @@ export const useUserStore = create<UserStore>()(
             login: (user: User) => set({ currentUser: user, isLoggedIn: true }),
             logout: () => set({ currentUser: null, isLoggedIn: false }),
             isLoggedIn: false,
+            hasHydrated: false,
+            setHasHydrated: (v: boolean) => set({ hasHydrated: v }),
         }),
         {
             name: "user-storage",
             storage: createJSONStorage(() => AsyncStorage),
+            onRehydrateStorage: () => (state) => {
+                state?.setHasHydrated(true);
+            },
         }
     )
 );
