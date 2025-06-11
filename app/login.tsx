@@ -24,28 +24,26 @@ export default function Login() {
             <CustomText weight="bold" style={styles.title}>
                 BubuDudu
             </CustomText>
-            {users.length > 0 && (
-                <View style={{ flexDirection: "row", gap: 20 }}>
-                    <Avatar
-                        image={users[0].avatar_url}
-                        onPress={() => {
-                            setSelectedUser(users[0]);
-                        }}
-                        isSelected={selectedUser?.id === users[0].id}
-                        hasAddMessageButton={false}
-                        isBubu={false}
-                    />
-                    <Avatar
-                        image={users[1].avatar_url}
-                        onPress={() => {
-                            setSelectedUser(users[1]);
-                        }}
-                        isSelected={selectedUser?.id === users[1].id}
-                        hasAddMessageButton={false}
-                        isBubu={true}
-                    />
-                </View>
-            )}
+            <View style={{ flexDirection: "row", gap: 20 }}>
+                <Avatar
+                    image={users[0].avatar_url}
+                    onPress={() => {
+                        setSelectedUser(users[0]);
+                    }}
+                    isSelected={selectedUser?.id === users[0].id}
+                    hasAddMessageButton={false}
+                    isBubu={false}
+                />
+                <Avatar
+                    image={users[1].avatar_url}
+                    onPress={() => {
+                        setSelectedUser(users[1]);
+                    }}
+                    isSelected={selectedUser?.id === users[1].id}
+                    hasAddMessageButton={false}
+                    isBubu={true}
+                />
+            </View>
             <TouchableOpacity style={styles.button} onPress={handleLogin}>
                 <CustomText weight="regular" style={styles.buttonText}>
                     Login
