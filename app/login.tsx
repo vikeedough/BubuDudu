@@ -1,10 +1,11 @@
 import { User } from "@/api/endpoints/types";
+import CustomText from "@/components/CustomText";
 import Avatar from "@/components/home/Avatar";
 import { useAppStore } from "@/stores/AppStore";
 import { useUserStore } from "@/stores/UserStore";
 import { router } from "expo-router";
 import { useState } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, TouchableOpacity, View } from "react-native";
 
 export default function Login() {
     const { login } = useUserStore();
@@ -20,7 +21,9 @@ export default function Login() {
 
     return (
         <View style={styles.container}>
-            <Text style={styles.title}>BubuDudu</Text>
+            <CustomText weight="bold" style={styles.title}>
+                BubuDudu
+            </CustomText>
             {users.length > 0 && (
                 <View style={{ flexDirection: "row", gap: 20 }}>
                     <Avatar
@@ -44,7 +47,9 @@ export default function Login() {
                 </View>
             )}
             <TouchableOpacity style={styles.button} onPress={handleLogin}>
-                <Text style={styles.buttonText}>Login</Text>
+                <CustomText weight="regular" style={styles.buttonText}>
+                    Login
+                </CustomText>
             </TouchableOpacity>
         </View>
     );
@@ -55,12 +60,11 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: "center",
         alignItems: "center",
-        backgroundColor: "white",
+        backgroundColor: "#FFF0F5",
         gap: 40,
     },
     title: {
         fontSize: 48,
-        fontWeight: "bold",
         color: "black",
     },
     button: {
@@ -71,7 +75,6 @@ const styles = StyleSheet.create({
     },
     buttonText: {
         fontSize: 24,
-        fontWeight: "bold",
         color: "white",
     },
 });
