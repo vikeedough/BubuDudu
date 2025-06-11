@@ -1,12 +1,7 @@
+import { User } from "@/api/endpoints/types";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
-
-export interface User {
-    id: number;
-    name: string;
-    avatar_url: string;
-}
 
 interface UserStore {
     currentUser: User | null;

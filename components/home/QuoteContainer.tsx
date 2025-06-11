@@ -1,27 +1,21 @@
-import { fetchQuote } from "@/api/endpoints/supabase";
-import { Quote } from "@/api/endpoints/types";
+import { useAppStore } from "@/stores/AppStore";
 import { getToday, randomNumber } from "@/utils/home";
 import { useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 const QuoteContainer = () => {
     const today = getToday();
-    const [quote, setQuote] = useState<Quote[]>([]);
     const [rng, setRng] = useState<number>(0);
+    const quotes = useAppStore((state) => state.quotes);
 
     useEffect(() => {
-        const loadQuote = async () => {
-            const quote = await fetchQuote();
-            setQuote(quote);
-            setRng(randomNumber(0, quote.length - 1));
-        };
-        loadQuote();
-    }, []);
+        setRng(randomNumber(0, quotes.length - 1));
+    }, [quotes]);
 
     return (
         <View style={styles.container}>
             <Text style={styles.date}>{today}</Text>
-            <Text style={styles.quote}>"{quote[rng]?.quote}"</Text>
+            <Text style={styles.quote}>"{quotes[rng]?.quote}"</Text>
         </View>
     );
 };

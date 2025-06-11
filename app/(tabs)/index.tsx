@@ -1,31 +1,13 @@
-import { fetchMilestones, fetchUsers } from "@/api/endpoints/supabase";
-import { Milestone } from "@/api/endpoints/types";
 import Avatar from "@/components/home/Avatar";
 import MilestoneTracker from "@/components/home/MilestoneTracker";
 import QuoteContainer from "@/components/home/QuoteContainer";
-import { User } from "@/stores/UserStore";
-import { useEffect, useState } from "react";
+import { useAppStore } from "@/stores/AppStore";
 import { StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const Home = () => {
-    const [milestones, setMilestones] = useState<Milestone[]>([]);
-    const [users, setUsers] = useState<User[]>([]);
-
-    useEffect(() => {
-        const loadMilestones = async () => {
-            const milestones = await fetchMilestones();
-            console.log("Fetched milestones:", milestones);
-            setMilestones(milestones);
-        };
-        const loadUsers = async () => {
-            const users = await fetchUsers();
-            console.log("Fetched users:", users);
-            setUsers(users);
-        };
-        loadMilestones();
-        loadUsers();
-    }, []);
+    const milestones = useAppStore((state) => state.milestones);
+    const users = useAppStore((state) => state.users);
 
     return (
         <SafeAreaView style={styles.container}>

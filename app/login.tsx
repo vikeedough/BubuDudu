@@ -1,13 +1,14 @@
-import { fetchUsers } from "@/api/endpoints/supabase";
+import { User } from "@/api/endpoints/types";
 import Avatar from "@/components/home/Avatar";
-import { User, useUserStore } from "@/stores/UserStore";
+import { useAppStore } from "@/stores/AppStore";
+import { useUserStore } from "@/stores/UserStore";
 import { router } from "expo-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 export default function Login() {
     const { login } = useUserStore();
-    const [users, setUsers] = useState<User[]>([]);
+    const users = useAppStore((state) => state.users);
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
     const handleLogin = () => {
@@ -16,16 +17,6 @@ export default function Login() {
             router.replace("/");
         }
     };
-
-    useEffect(() => {
-        const getUsers = async () => {
-            const users = await fetchUsers();
-            console.log(users);
-            setUsers(users);
-        };
-
-        getUsers();
-    }, []);
 
     return (
         <View style={styles.container}>

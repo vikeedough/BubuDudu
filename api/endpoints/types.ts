@@ -9,3 +9,9 @@ export interface Quote {
     created_at: string;
     quote: string;
 }
+
+export interface User {
+    id: number;
+    name: string;
+    avatar_url: string;
+}

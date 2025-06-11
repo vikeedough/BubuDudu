@@ -1,12 +1,14 @@
+import { useAppBootstrap } from "@/hooks/useAppBootstrap";
 import { useUserStore } from "@/stores/UserStore";
 import { Stack } from "expo-router";
 import { ActivityIndicator, View } from "react-native";
 
 export default function RootLayout() {
+    const { loading } = useAppBootstrap();
     const hasHydrated = useUserStore((state) => state.hasHydrated);
     const isLoggedIn = useUserStore((state) => state.isLoggedIn);
 
-    if (!hasHydrated) {
+    if (!hasHydrated || loading) {
         return (
             <View
                 style={{
@@ -20,17 +22,13 @@ export default function RootLayout() {
         );
     }
 
-    if (!isLoggedIn) {
-        return (
-            <Stack>
-                <Stack.Screen name="login" options={{ headerShown: false }} />
-            </Stack>
-        );
-    }
-
     return (
         <Stack>
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            {isLoggedIn ? (
+                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            ) : (
+                <Stack.Screen name="login" options={{ headerShown: false }} />
+            )}
         </Stack>
     );
 }

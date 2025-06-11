@@ -14,7 +14,7 @@ const fetchMilestones = async () => {
     return data;
 };
 
-const fetchQuote = async () => {
+const fetchQuotes = async () => {
     const { data, error } = await supabase.from("quotes").select("*");
 
     if (error) {
@@ -39,4 +39,4 @@ const fetchUsers = async () => {
     return data;
 };
 
-export { fetchMilestones, fetchQuote, fetchUsers };
+export { fetchMilestones, fetchQuotes, fetchUsers };
