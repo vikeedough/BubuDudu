@@ -1,16 +1,34 @@
 import Avatar from "@/components/home/Avatar";
 import MilestoneTracker from "@/components/home/MilestoneTracker";
+import NoteModal from "@/components/home/NoteModal";
 import QuoteContainer from "@/components/home/QuoteContainer";
 import { useAppStore } from "@/stores/AppStore";
+import { useUserStore } from "@/stores/UserStore";
+import { useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const Home = () => {
     const milestones = useAppStore((state) => state.milestones);
     const users = useAppStore((state) => state.users);
+    const currentUser = useUserStore((state) => state.currentUser);
+
+    const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
+
+    const handleOpenNoteModal = () => {
+        setIsNoteModalOpen(true);
+    };
+
+    const handleCloseNoteModal = () => {
+        setIsNoteModalOpen(false);
+    };
 
     return (
         <SafeAreaView style={styles.container}>
+            <NoteModal
+                isOpen={isNoteModalOpen}
+                onClose={handleCloseNoteModal}
+            />
             <View style={{ gap: 20, alignItems: "center" }}>
                 <View style={{ flexDirection: "row", gap: 20 }}>
                     <MilestoneTracker
@@ -37,17 +55,21 @@ const Home = () => {
             <View style={{ flexDirection: "row", gap: 20 }}>
                 <Avatar
                     image={users[0].avatar_url}
-                    onPress={() => {}}
+                    onPressNoteButton={handleOpenNoteModal}
+                    onPressImage={() => {}}
                     isSelected={false}
-                    hasAddMessageButton={true}
+                    hasAddMessageButton={currentUser?.id === users[0].id}
                     isBubu={false}
+                    disabled={currentUser?.id !== users[0].id}
                 />
                 <Avatar
                     image={users[1].avatar_url}
-                    onPress={() => {}}
+                    onPressNoteButton={handleOpenNoteModal}
+                    onPressImage={() => {}}
                     isSelected={false}
-                    hasAddMessageButton={true}
+                    hasAddMessageButton={currentUser?.id === users[1].id}
                     isBubu={true}
+                    disabled={currentUser?.id !== users[1].id}
                 />
             </View>
         </SafeAreaView>

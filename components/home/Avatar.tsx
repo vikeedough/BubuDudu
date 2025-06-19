@@ -3,18 +3,22 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 interface AvatarProps {
     image: any;
-    onPress: () => void;
+    onPressNoteButton: () => void;
+    onPressImage: () => void;
     isSelected: boolean;
     hasAddMessageButton: boolean;
     isBubu: boolean;
+    disabled: boolean;
 }
 
 const Avatar = ({
     image,
-    onPress,
+    onPressNoteButton,
+    onPressImage,
     isSelected,
     isBubu,
     hasAddMessageButton,
+    disabled,
 }: AvatarProps) => {
     return (
         <View
@@ -25,11 +29,15 @@ const Avatar = ({
             ]}
         >
             {hasAddMessageButton && (
-                <TouchableOpacity style={styles.addMessageButton}>
+                <TouchableOpacity
+                    style={styles.addMessageButton}
+                    disabled={disabled}
+                    onPress={onPressNoteButton}
+                >
                     <Text>+</Text>
                 </TouchableOpacity>
             )}
-            <TouchableOpacity onPress={onPress}>
+            <TouchableOpacity onPress={onPressImage} disabled={disabled}>
                 <Image source={{ uri: image }} style={styles.image} />
             </TouchableOpacity>
         </View>

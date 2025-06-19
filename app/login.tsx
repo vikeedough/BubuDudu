@@ -27,21 +27,25 @@ export default function Login() {
             <View style={{ flexDirection: "row", gap: 20 }}>
                 <Avatar
                     image={users[0].avatar_url}
-                    onPress={() => {
+                    onPressNoteButton={() => {}}
+                    onPressImage={() => {
                         setSelectedUser(users[0]);
                     }}
                     isSelected={selectedUser?.id === users[0].id}
                     hasAddMessageButton={false}
                     isBubu={false}
+                    disabled={false}
                 />
                 <Avatar
                     image={users[1].avatar_url}
-                    onPress={() => {
+                    onPressNoteButton={() => {}}
+                    onPressImage={() => {
                         setSelectedUser(users[1]);
                     }}
                     isSelected={selectedUser?.id === users[1].id}
                     hasAddMessageButton={false}
                     isBubu={true}
+                    disabled={false}
                 />
             </View>
             <TouchableOpacity style={styles.button} onPress={handleLogin}>
