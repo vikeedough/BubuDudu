@@ -37,6 +37,7 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderRadius: 15,
         alignItems: "center",
+        zIndex: 100,
     },
     date: {
         fontSize: 17,

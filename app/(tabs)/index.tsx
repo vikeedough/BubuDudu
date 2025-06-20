@@ -6,6 +6,7 @@ import NoteModal from "@/components/home/NoteModal";
 import QuoteContainer from "@/components/home/QuoteContainer";
 import { useAppStore } from "@/stores/AppStore";
 import { useUserStore } from "@/stores/UserStore";
+import { pickAndUploadAvatar } from "@/utils/home";
 import { useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -68,7 +69,7 @@ const Home = () => {
                     <Avatar
                         image={users[0].avatar_url}
                         onPressNoteButton={handleOpenNoteModal}
-                        onPressImage={() => {}}
+                        onPressImage={() => pickAndUploadAvatar(users[0].id)}
                         isSelected={false}
                         hasAddMessageButton={currentUser?.id === users[0].id}
                         isBubu={false}
@@ -86,7 +87,7 @@ const Home = () => {
                     <Avatar
                         image={users[1].avatar_url}
                         onPressNoteButton={handleOpenNoteModal}
-                        onPressImage={() => {}}
+                        onPressImage={() => pickAndUploadAvatar(users[1].id)}
                         isSelected={false}
                         hasAddMessageButton={currentUser?.id === users[1].id}
                         isBubu={true}

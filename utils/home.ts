@@ -1,5 +1,12 @@
+import {
+    fetchUsers,
+    uploadAvatarAndUpdateUser,
+} from "@/api/endpoints/supabase";
+import { useAppStore } from "@/stores/AppStore";
 import dayjs from "dayjs";
 import advancedFormat from "dayjs/plugin/advancedFormat";
+import * as ImagePicker from "expo-image-picker";
+import { Alert } from "react-native";
 
 dayjs.extend(advancedFormat);
 
@@ -22,4 +29,41 @@ export const getToday = () => {
 
 export const randomNumber = (min: number, max: number) => {
     return Math.floor(Math.random() * (max - min + 1)) + min;
+};
+
+export const pickAndUploadAvatar = async (user_id: number) => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (!permission.granted) {
+        Alert.alert(
+            "Permission required",
+            "Please allow access to your gallery."
+        );
+        return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+    });
+
+    if (result.canceled) {
+        return;
+    }
+
+    const fileUri = result.assets[0].uri;
+    const publicUrl = await uploadAvatarAndUpdateUser(user_id, fileUri);
+
+    if (!publicUrl) {
+        Alert.alert(
+            "Upload failed",
+            "Something went wrong while uploading your image. Please try again later."
+        );
+        return;
+    }
+
+    const updatedUsers = await fetchUsers();
+    useAppStore.setState({ users: updatedUsers });
 };
