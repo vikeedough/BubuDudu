@@ -1,6 +1,7 @@
 import { User } from "@/api/endpoints/types";
 import CustomText from "@/components/CustomText";
 import Avatar from "@/components/home/Avatar";
+import Colors from "@/constants/colors";
 import { useAppStore } from "@/stores/AppStore";
 import { useUserStore } from "@/stores/UserStore";
 import { router } from "expo-router";
@@ -70,7 +71,7 @@ const styles = StyleSheet.create({
         color: "black",
     },
     button: {
-        backgroundColor: "#b2e1de",
+        backgroundColor: Colors.lightBlue,
         padding: 10,
         paddingHorizontal: 30,
         borderRadius: 15,

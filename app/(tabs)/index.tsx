@@ -1,3 +1,5 @@
+import { updateNote } from "@/api/endpoints/supabase";
+import CustomText from "@/components/CustomText";
 import Avatar from "@/components/home/Avatar";
 import MilestoneTracker from "@/components/home/MilestoneTracker";
 import NoteModal from "@/components/home/NoteModal";
@@ -28,6 +30,8 @@ const Home = () => {
             <NoteModal
                 isOpen={isNoteModalOpen}
                 onClose={handleCloseNoteModal}
+                updateNote={updateNote}
+                user_id={currentUser?.id ?? 0}
             />
             <View style={{ gap: 20, alignItems: "center" }}>
                 <View style={{ flexDirection: "row", gap: 20 }}>
@@ -53,24 +57,42 @@ const Home = () => {
             </View>
             <QuoteContainer />
             <View style={{ flexDirection: "row", gap: 20 }}>
-                <Avatar
-                    image={users[0].avatar_url}
-                    onPressNoteButton={handleOpenNoteModal}
-                    onPressImage={() => {}}
-                    isSelected={false}
-                    hasAddMessageButton={currentUser?.id === users[0].id}
-                    isBubu={false}
-                    disabled={currentUser?.id !== users[0].id}
-                />
-                <Avatar
-                    image={users[1].avatar_url}
-                    onPressNoteButton={handleOpenNoteModal}
-                    onPressImage={() => {}}
-                    isSelected={false}
-                    hasAddMessageButton={currentUser?.id === users[1].id}
-                    isBubu={true}
-                    disabled={currentUser?.id !== users[1].id}
-                />
+                <View>
+                    <View style={styles.messageBubble}>
+                        <CustomText>
+                            {users[0].note
+                                ? users[0].note
+                                : "Dudu has no note yet!"}
+                        </CustomText>
+                    </View>
+                    <Avatar
+                        image={users[0].avatar_url}
+                        onPressNoteButton={handleOpenNoteModal}
+                        onPressImage={() => {}}
+                        isSelected={false}
+                        hasAddMessageButton={currentUser?.id === users[0].id}
+                        isBubu={false}
+                        disabled={currentUser?.id !== users[0].id}
+                    />
+                </View>
+                <View>
+                    <View style={styles.messageBubble}>
+                        <CustomText>
+                            {users[1].note
+                                ? users[1].note
+                                : "Bubu has no note yet!"}
+                        </CustomText>
+                    </View>
+                    <Avatar
+                        image={users[1].avatar_url}
+                        onPressNoteButton={handleOpenNoteModal}
+                        onPressImage={() => {}}
+                        isSelected={false}
+                        hasAddMessageButton={currentUser?.id === users[1].id}
+                        isBubu={true}
+                        disabled={currentUser?.id !== users[1].id}
+                    />
+                </View>
             </View>
         </SafeAreaView>
     );
@@ -83,6 +105,18 @@ const styles = StyleSheet.create({
         paddingHorizontal: 25,
         backgroundColor: "#FFF0F5",
         alignItems: "center",
+    },
+    messageBubble: {
+        position: "absolute",
+        bottom: -40,
+        left: 0,
+        right: 0,
+        zIndex: 100,
+        backgroundColor: "#fff",
+        padding: 10,
+        borderRadius: 15,
+        maxWidth: "100%",
+        marginHorizontal: "auto",
     },
 });
 

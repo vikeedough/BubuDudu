@@ -1,3 +1,4 @@
+import Colors from "@/constants/colors";
 import { Image } from "expo-image";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
@@ -57,7 +58,7 @@ const styles = StyleSheet.create({
         alignItems: "center",
     },
     selectedContainer: {
-        borderColor: "#b2e1de",
+        borderColor: Colors.lightBlue,
         borderWidth: 5,
         height: 145,
         width: 145,
@@ -81,13 +82,13 @@ const styles = StyleSheet.create({
         borderRadius: 999,
     },
     bubuContainer: {
-        borderColor: "#b2e1de",
+        borderColor: Colors.lightBlue,
         borderWidth: 5,
         height: 145,
         width: 145,
     },
     bubuSelectedContainer: {
-        borderColor: "#fdcfd0",
+        borderColor: Colors.pink,
         borderWidth: 5,
         height: 145,
         width: 145,

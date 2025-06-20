@@ -39,4 +39,18 @@ const fetchUsers = async () => {
     return data;
 };
 
-export { fetchMilestones, fetchQuotes, fetchUsers };
+const updateNote = async (note: string, user_id: number) => {
+    const { error } = await supabase
+        .from("users")
+        .update({ note: note, note_updated_at: new Date().toISOString() })
+        .eq("id", user_id);
+
+    if (error) {
+        console.error("Error updating note:", error);
+        return false;
+    }
+
+    return true;
+};
+
+export { fetchMilestones, fetchQuotes, fetchUsers, updateNote };

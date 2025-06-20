@@ -14,4 +14,6 @@ export interface User {
     id: number;
     name: string;
     avatar_url: string;
+    note: string;
+    note_updated_at: string;
 }
