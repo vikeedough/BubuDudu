@@ -109,7 +109,7 @@ const styles = StyleSheet.create({
         marginBottom: 20,
     },
     deleteButton: {
-        backgroundColor: Colors.pink,
+        backgroundColor: Colors.red,
         padding: 10,
         borderRadius: 15,
     },
@@ -120,6 +120,7 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         fontSize: 24,
+        color: Colors.white,
     },
     title: {
         fontSize: 24,

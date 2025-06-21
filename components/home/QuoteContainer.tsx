@@ -38,6 +38,14 @@ const styles = StyleSheet.create({
         borderRadius: 15,
         alignItems: "center",
         zIndex: 100,
+        shadowColor: "#000",
+        shadowOffset: {
+            width: 0,
+            height: 5,
+        },
+        shadowOpacity: 0.25,
+        shadowRadius: 15,
+        elevation: 5,
     },
     date: {
         fontSize: 17,

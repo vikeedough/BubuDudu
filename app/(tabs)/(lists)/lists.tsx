@@ -71,6 +71,7 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         fontSize: 24,
+        color: Colors.white,
     },
     separator: {
         height: 15,

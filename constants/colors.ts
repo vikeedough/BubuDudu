@@ -4,6 +4,8 @@ const Colors = {
     backgroundPink: "#FFF0F5",
     white: "#fff",
     black: "#000",
+    gray: "#808080",
+    red: "#fa5050",
 };
 
 export default Colors;

@@ -56,6 +56,14 @@ const styles = StyleSheet.create({
         backgroundColor: "white",
         justifyContent: "center",
         alignItems: "center",
+        shadowColor: "#000",
+        shadowOffset: {
+            width: 0,
+            height: 2,
+        },
+        shadowOpacity: 0.25,
+        shadowRadius: 15,
+        elevation: 5,
     },
     selectedContainer: {
         borderColor: Colors.lightBlue,
