@@ -17,3 +17,9 @@ export interface User {
     note: string;
     note_updated_at: string;
 }
+
+export interface List {
+    id: number;
+    type: string;
+    content: string;
+}

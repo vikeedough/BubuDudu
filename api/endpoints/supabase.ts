@@ -39,6 +39,16 @@ const fetchUsers = async () => {
     return data;
 };
 
+const fetchLists = async () => {
+    const { data, error } = await supabase.from("lists").select("*");
+
+    if (error) {
+        console.error("Error fetching lists:", error);
+        return [];
+    }
+
+    return data;
+};
 const updateNote = async (note: string, user_id: number) => {
     const { error } = await supabase
         .from("users")
@@ -85,10 +95,50 @@ const uploadAvatarAndUpdateUser = async (user_id: number, fileUri: string) => {
     return publicUrl;
 };
 
+const addNewList = async (type: string) => {
+    const { error } = await supabase.from("lists").insert({ type: type });
+
+    if (error) {
+        console.error("Error adding new list:", error.message);
+        return false;
+    }
+
+    return true;
+};
+
+const deleteList = async (list_id: string) => {
+    const { error } = await supabase.from("lists").delete().eq("id", list_id);
+
+    if (error) {
+        console.error("Error deleting list:", error.message);
+        return false;
+    }
+
+    return true;
+};
+
+const updateList = async (list_id: string, type: string, content: string) => {
+    const { error } = await supabase
+        .from("lists")
+        .update({ type: type, content: content })
+        .eq("id", list_id);
+
+    if (error) {
+        console.error("Error updating list content:", error.message);
+        return false;
+    }
+
+    return true;
+};
+
 export {
+    addNewList,
+    deleteList,
+    fetchLists,
     fetchMilestones,
     fetchQuotes,
     fetchUsers,
+    updateList,
     updateNote,
     uploadAvatarAndUpdateUser,
 };

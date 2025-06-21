@@ -21,7 +21,7 @@ export default function TabLayout() {
                 }}
             />
             <Tabs.Screen
-                name="lists"
+                name="(lists)"
                 options={{
                     title: "Lists",
                 }}

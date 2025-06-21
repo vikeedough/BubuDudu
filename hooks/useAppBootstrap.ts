@@ -1,4 +1,5 @@
 import {
+    fetchLists,
     fetchMilestones,
     fetchQuotes,
     fetchUsers,
@@ -13,12 +14,13 @@ export const useAppBootstrap = () => {
     useEffect(() => {
         const bootstrap = async () => {
             try {
-                const [milestones, users, quotes] = await Promise.all([
+                const [milestones, users, quotes, lists] = await Promise.all([
                     fetchMilestones(),
                     fetchUsers(),
                     fetchQuotes(),
+                    fetchLists(),
                 ]);
-                setAllData({ milestones, users, quotes });
+                setAllData({ milestones, users, quotes, lists });
             } catch (error) {
                 console.error("Error fetching data:", error);
             } finally {
