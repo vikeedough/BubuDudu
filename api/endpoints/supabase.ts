@@ -131,14 +131,99 @@ const updateList = async (list_id: string, type: string, content: string) => {
     return true;
 };
 
+const addNewGallery = async (title: string, date: string) => {
+    const { error } = await supabase
+        .from("galleries")
+        .insert({ title: title, date: date });
+
+    if (error) {
+        console.error("Error adding new gallery:", error.message);
+        return false;
+    }
+
+    return true;
+};
+
+const getGalleryId = async (title: string) => {
+    const { data, error } = await supabase
+        .from("galleries")
+        .select("id")
+        .eq("title", title);
+
+    if (error) {
+        console.error("Error getting gallery id:", error.message);
+        return null;
+    }
+
+    return data[0].id;
+};
+
+const uploadGalleryImages = async (gallery_id: string, images: string[]) => {
+    console.log("Starting upload for gallery:", gallery_id);
+    console.log("Number of images to upload:", images.length);
+
+    const folderName = `${gallery_id}`;
+    let count = 0;
+    for (const image of images) {
+        console.log(`Uploading image ${count + 1}/${images.length}:`, image);
+        const fileName = `${count}.jpg`;
+
+        const { error: uploadError } = await supabase.storage
+            .from("gallery")
+            .upload(`${folderName}/${fileName}`, {
+                uri: image,
+                type: "image/jpeg",
+                name: fileName,
+            } as any);
+
+        if (uploadError) {
+            console.error(
+                "Error uploading gallery images:",
+                uploadError.message
+            );
+            return false;
+        }
+
+        console.log(`Successfully uploaded: ${folderName}/${fileName}`);
+
+        const { data } = supabase.storage
+            .from("gallery")
+            .getPublicUrl(`${folderName}/${fileName}`);
+        const publicUrl = data.publicUrl;
+
+        console.log("Public URL:", publicUrl);
+
+        const { data: insertData, error: updateError } = await supabase
+            .from("date_images")
+            .insert([
+                {
+                    gallery_id: gallery_id,
+                    url: publicUrl,
+                    created_at: new Date().toISOString(),
+                },
+            ]);
+        console.log("Insert data:", insertData);
+        console.log("Insert error:", updateError);
+
+        console.log(`Successfully inserted image record for: ${fileName}`);
+        count++;
+    }
+
+    console.log("All images uploaded successfully!");
+    return true;
+};
+
 export {
+    addNewGallery,
     addNewList,
     deleteList,
     fetchLists,
     fetchMilestones,
     fetchQuotes,
     fetchUsers,
+    getGalleryId,
     updateList,
     updateNote,
     uploadAvatarAndUpdateUser,
+    uploadGalleryImages,
 };

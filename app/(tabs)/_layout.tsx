@@ -40,7 +40,7 @@ export default function TabLayout() {
                 }}
             />
             <Tabs.Screen
-                name="gallery"
+                name="(gallery)"
                 options={{
                     title: "Gallery",
                     tabBarIcon: ({ focused }) => (
