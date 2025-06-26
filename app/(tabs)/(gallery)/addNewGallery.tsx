@@ -1,10 +1,12 @@
 import {
     addNewGallery,
+    fetchGalleries,
     getGalleryId,
     uploadGalleryImages,
 } from "@/api/endpoints/supabase";
 import CustomText from "@/components/CustomText";
 import Colors from "@/constants/colors";
+import { useAppStore } from "@/stores/AppStore";
 import { pickMultipleImages } from "@/utils/gallery";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Image } from "expo-image";
@@ -70,6 +72,8 @@ const AddNewGallery = () => {
             console.log("No images to upload");
         }
 
+        const updatedGalleries = await fetchGalleries();
+        useAppStore.setState({ galleries: updatedGalleries });
         router.push("/gallery");
     };
 

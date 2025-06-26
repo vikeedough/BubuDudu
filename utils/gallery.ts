@@ -28,3 +28,13 @@ export const pickMultipleImages = async () => {
 
     return images;
 };
+
+export const convertDate = (date: string) => {
+    const formatted = new Intl.DateTimeFormat("en-GB", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+    }).format(new Date(date));
+
+    return formatted;
+};

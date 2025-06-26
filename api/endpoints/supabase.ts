@@ -49,6 +49,18 @@ const fetchLists = async () => {
 
     return data;
 };
+
+const fetchGalleries = async () => {
+    const { data, error } = await supabase.from("galleries").select("*");
+
+    if (error) {
+        console.error("Error fetching galleries:", error);
+        return [];
+    }
+
+    return data;
+};
+
 const updateNote = async (note: string, user_id: number) => {
     const { error } = await supabase
         .from("users")
@@ -213,10 +225,26 @@ const uploadGalleryImages = async (gallery_id: string, images: string[]) => {
     return true;
 };
 
+const fetchGalleryImages = async (gallery_id: string) => {
+    const { data, error } = await supabase
+        .from("date_images")
+        .select("*")
+        .eq("gallery_id", gallery_id);
+
+    if (error) {
+        console.error("Error fetching gallery images:", error.message);
+        return [];
+    }
+
+    return data;
+};
+
 export {
     addNewGallery,
     addNewList,
     deleteList,
+    fetchGalleries,
+    fetchGalleryImages,
     fetchLists,
     fetchMilestones,
     fetchQuotes,

@@ -23,3 +23,17 @@ export interface List {
     type: string;
     content: string;
 }
+
+export interface Gallery {
+    id: string;
+    title: string;
+    date: string;
+    created_at: string;
+}
+
+export interface DateImage {
+    id: number;
+    gallery_id: string;
+    url: string;
+    created_at: string;
+}

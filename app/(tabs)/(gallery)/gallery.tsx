@@ -1,13 +1,29 @@
+import { Gallery as GalleryType } from "@/api/endpoints/types";
 import CustomText from "@/components/CustomText";
+import GalleryItem from "@/components/gallery/GalleryItem";
 import Colors from "@/constants/colors";
+import { useAppStore } from "@/stores/AppStore";
 import { router } from "expo-router";
-import { StyleSheet, TouchableOpacity, View } from "react-native";
+import { FlatList, StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const Gallery = () => {
+    const galleries = useAppStore((state) => state.galleries);
+
     const handleAddNewGallery = () => {
         router.push({
             pathname: "/(tabs)/(gallery)/addNewGallery",
+        });
+    };
+
+    const navigateToGalleryContent = (gallery: GalleryType) => {
+        router.push({
+            pathname: "/(tabs)/(gallery)/galleryContent",
+            params: {
+                galleryId: gallery.id,
+                galleryTitle: gallery.title,
+                galleryDate: gallery.date,
+            },
         });
     };
 
@@ -23,6 +39,16 @@ const Gallery = () => {
                     </CustomText>
                 </TouchableOpacity>
             </View>
+            <FlatList
+                data={galleries}
+                renderItem={({ item }: { item: GalleryType }) => (
+                    <GalleryItem
+                        gallery={item}
+                        onPress={() => navigateToGalleryContent(item)}
+                    />
+                )}
+                ItemSeparatorComponent={() => <View style={styles.separator} />}
+            />
         </SafeAreaView>
     );
 };
@@ -50,5 +76,8 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.lightBlue,
         padding: 10,
         borderRadius: 15,
+    },
+    separator: {
+        height: 15,
     },
 });
