@@ -171,15 +171,11 @@ const getGalleryId = async (title: string) => {
 };
 
 const uploadGalleryImages = async (gallery_id: string, images: string[]) => {
-    console.log("Starting upload for gallery:", gallery_id);
-    console.log("Number of images to upload:", images.length);
-
     const folderName = `${gallery_id}`;
 
     for (const image of images) {
         const timestamp = Date.now();
         const fileName = `${timestamp}.jpg`;
-        console.log(`Uploading image ${fileName}:`, image);
 
         const { error: uploadError } = await supabase.storage
             .from("gallery")
@@ -197,14 +193,10 @@ const uploadGalleryImages = async (gallery_id: string, images: string[]) => {
             return false;
         }
 
-        console.log(`Successfully uploaded: ${folderName}/${fileName}`);
-
         const { data } = supabase.storage
             .from("gallery")
             .getPublicUrl(`${folderName}/${fileName}`);
         const publicUrl = data.publicUrl;
-
-        console.log("Public URL:", publicUrl);
 
         const { data: insertData, error: updateError } = await supabase
             .from("date_images")
@@ -216,13 +208,8 @@ const uploadGalleryImages = async (gallery_id: string, images: string[]) => {
                     created_at: new Date().toISOString(),
                 },
             ]);
-        console.log("Insert data:", insertData);
-        console.log("Insert error:", updateError);
-
-        console.log(`Successfully inserted image record for: ${fileName}`);
     }
 
-    console.log("All images uploaded successfully!");
     return true;
 };
 

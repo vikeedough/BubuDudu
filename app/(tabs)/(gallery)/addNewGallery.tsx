@@ -39,18 +39,11 @@ const AddNewGallery = () => {
             return;
         }
 
-        console.log("Starting gallery creation process...");
-        console.log("Date name:", dateName);
-        console.log("Date:", date.toISOString());
-        console.log("Number of images:", images.length);
-
         const success = await addNewGallery(dateName, date.toISOString());
         if (!success) {
             Alert.alert("Error", "Failed to add gallery");
             return;
         }
-
-        console.log("Gallery created successfully, getting gallery ID...");
 
         const galleryId = await getGalleryId(dateName);
         if (!galleryId) {
@@ -58,18 +51,12 @@ const AddNewGallery = () => {
             return;
         }
 
-        console.log("Gallery ID:", galleryId);
-
         if (images.length > 0) {
-            console.log("Starting image upload...");
             const uploadSuccess = await uploadGalleryImages(galleryId, images);
             if (!uploadSuccess) {
                 Alert.alert("Error", "Failed to upload images");
                 return;
             }
-            console.log("Image upload completed successfully");
-        } else {
-            console.log("No images to upload");
         }
 
         const updatedGalleries = await fetchGalleries();
