@@ -209,6 +209,7 @@ const uploadGalleryImages = async (gallery_id: string, images: string[]) => {
             .from("date_images")
             .insert([
                 {
+                    id: Date.now().toString(),
                     gallery_id: gallery_id,
                     url: publicUrl,
                     created_at: new Date().toISOString(),
@@ -238,10 +239,49 @@ const fetchGalleryImages = async (gallery_id: string) => {
     return data;
 };
 
+const deleteOneGalleryImage = async (gallery_id: string, image_id: string) => {
+    const { error: bucketError } = await supabase.storage
+        .from("gallery")
+        .remove([`${gallery_id}/${image_id}.jpg`]);
+
+    if (bucketError) {
+        console.error(
+            "Error deleting gallery image from bucket:",
+            bucketError.message
+        );
+        return false;
+    }
+
+    const { error } = await supabase
+        .from("date_images")
+        .delete()
+        .eq("id", image_id);
+
+    if (error) {
+        console.error("Error deleting gallery image:", error.message);
+        return false;
+    }
+
+    return true;
+};
+
+const deleteMultipleGalleryImages = async (
+    gallery_id: string,
+    image_ids: string[]
+) => {
+    for (const image_id of image_ids) {
+        await deleteOneGalleryImage(gallery_id, image_id);
+    }
+
+    return true;
+};
+
 export {
     addNewGallery,
     addNewList,
     deleteList,
+    deleteMultipleGalleryImages,
+    deleteOneGalleryImage,
     fetchGalleries,
     fetchGalleryImages,
     fetchLists,

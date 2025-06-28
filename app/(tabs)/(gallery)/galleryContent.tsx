@@ -1,4 +1,5 @@
 import {
+    deleteMultipleGalleryImages,
     fetchGalleries,
     fetchGalleryImages,
     uploadGalleryImages,
@@ -29,6 +30,8 @@ const GalleryContent = () => {
     const [images, setImages] = useState<DateImage[]>([]);
     const [selectedImage, setSelectedImage] = useState<DateImage | null>(null);
     const [isImageModalOpen, setIsImageModalOpen] = useState(false);
+    const [editMode, setEditMode] = useState(false);
+    const [selectedImages, setSelectedImages] = useState<DateImage[]>([]);
 
     useEffect(() => {
         const fetchImages = async () => {
@@ -61,7 +64,36 @@ const GalleryContent = () => {
     };
 
     const handleEditGallery = () => {
-        console.log("Edit Gallery");
+        if (editMode) {
+            setSelectedImages([]);
+            setEditMode(false);
+            return;
+        }
+        setEditMode(true);
+        setSelectedImages([]);
+    };
+
+    const handleSelectImage = (image: DateImage) => {
+        if (selectedImages.includes(image)) {
+            setSelectedImages(selectedImages.filter((i) => i.id !== image.id));
+        } else {
+            setSelectedImages([...selectedImages, image]);
+        }
+    };
+
+    const handleDeleteImage = async () => {
+        const deletedImages = await deleteMultipleGalleryImages(
+            galleryId as string,
+            selectedImages.map((image) => image.id.toString())
+        );
+        if (deletedImages) {
+            const updatedGalleries = await fetchGalleries();
+            useAppStore.setState({ galleries: updatedGalleries });
+            const images = await fetchGalleryImages(galleryId as string);
+            setImages(images);
+            setSelectedImages([]);
+            setEditMode(false);
+        }
     };
 
     return (
@@ -72,6 +104,23 @@ const GalleryContent = () => {
                     imageUri={selectedImage.url}
                     onClose={() => setIsImageModalOpen(false)}
                 />
+            )}
+            {selectedImages.length > 0 && (
+                <View style={styles.selectedImagesContainer}>
+                    <CustomText>
+                        Selected Images: {selectedImages.length}
+                    </CustomText>
+                    <TouchableOpacity
+                        style={styles.deleteImagesButton}
+                        onPress={() => {
+                            handleDeleteImage();
+                        }}
+                    >
+                        <CustomText weight="bold" style={styles.buttonText}>
+                            Delete Images
+                        </CustomText>
+                    </TouchableOpacity>
+                </View>
             )}
             <View style={styles.header}>
                 <TouchableOpacity
@@ -84,7 +133,9 @@ const GalleryContent = () => {
                 </TouchableOpacity>
                 <TouchableOpacity
                     style={styles.deleteButton}
-                    onPress={() => {}}
+                    onPress={() => {
+                        console.log(selectedImages);
+                    }}
                 >
                     <CustomText weight="bold" style={styles.headerTitle}>
                         Delete Gallery
@@ -125,10 +176,28 @@ const GalleryContent = () => {
                     renderItem={({ item }) => (
                         <TouchableOpacity
                             onPress={() => {
+                                if (editMode) {
+                                    handleSelectImage(item);
+                                    return;
+                                }
                                 setSelectedImage(item);
                                 setIsImageModalOpen(true);
                             }}
                         >
+                            {editMode && (
+                                <TouchableOpacity
+                                    style={[
+                                        styles.editDeleteButton,
+                                        {
+                                            backgroundColor:
+                                                selectedImages.includes(item)
+                                                    ? Colors.white
+                                                    : "transparent",
+                                        },
+                                    ]}
+                                    onPress={() => handleSelectImage(item)}
+                                />
+                            )}
                             <Image
                                 source={{ uri: item.url }}
                                 style={styles.image}
@@ -136,6 +205,7 @@ const GalleryContent = () => {
                         </TouchableOpacity>
                     )}
                     numColumns={3}
+                    extraData={editMode}
                 />
             )}
         </SafeAreaView>
@@ -198,5 +268,37 @@ const styles = StyleSheet.create({
     buttonText: {
         fontSize: 16,
         color: Colors.white,
+    },
+    editDeleteButton: {
+        position: "absolute",
+        top: 5,
+        right: 5,
+        borderWidth: 1.5,
+        borderColor: Colors.pink,
+        padding: 12,
+        borderRadius: 999,
+        zIndex: 1000,
+    },
+    selectedImagesContainer: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        gap: 10,
+        paddingHorizontal: 15,
+        paddingVertical: 10,
+        alignItems: "center",
+        backgroundColor: Colors.white,
+        borderRadius: 15,
+        marginBottom: 20,
+        position: "absolute",
+        bottom: 10,
+        alignSelf: "center",
+        zIndex: 2000,
+        borderWidth: 1,
+        borderColor: Colors.lightBlue,
+    },
+    deleteImagesButton: {
+        backgroundColor: Colors.red,
+        padding: 10,
+        borderRadius: 15,
     },
 });
