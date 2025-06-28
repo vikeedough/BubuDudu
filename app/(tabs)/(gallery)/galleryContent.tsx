@@ -1,4 +1,5 @@
 import {
+    deleteGallery,
     deleteMultipleGalleryImages,
     fetchGalleries,
     fetchGalleryImages,
@@ -96,6 +97,14 @@ const GalleryContent = () => {
         }
     };
 
+    const handleDeleteGallery = async () => {
+        const deletedGallery = await deleteGallery(galleryId as string);
+        if (deletedGallery) {
+            router.back();
+            const updatedGalleries = await fetchGalleries();
+            useAppStore.setState({ galleries: updatedGalleries });
+        }
+    };
     return (
         <SafeAreaView style={styles.container}>
             {selectedImage && (
@@ -133,9 +142,7 @@ const GalleryContent = () => {
                 </TouchableOpacity>
                 <TouchableOpacity
                     style={styles.deleteButton}
-                    onPress={() => {
-                        console.log(selectedImages);
-                    }}
+                    onPress={handleDeleteGallery}
                 >
                     <CustomText weight="bold" style={styles.headerTitle}>
                         Delete Gallery
