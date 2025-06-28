@@ -1,4 +1,5 @@
 import Colors from "@/constants/colors";
+import { downloadAndSaveImage } from "@/utils/gallery";
 import { Image } from "expo-image";
 import React, { useEffect, useState } from "react";
 import {
@@ -13,12 +14,14 @@ import CustomText from "../CustomText";
 
 interface ImageModalProps {
     isOpen: boolean;
+    imageId: string;
     imageUri: string;
     onClose: () => void;
 }
 
 const ImageModal: React.FC<ImageModalProps> = ({
     isOpen,
+    imageId,
     imageUri,
     onClose,
 }) => {
@@ -57,11 +60,25 @@ const ImageModal: React.FC<ImageModalProps> = ({
             animationType="fade"
         >
             <View style={styles.modalOverlay}>
-                <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-                    <CustomText weight="bold" style={styles.buttonText}>
-                        Close
-                    </CustomText>
-                </TouchableOpacity>
+                <View style={styles.buttonContainer}>
+                    <TouchableOpacity
+                        style={styles.downloadButton}
+                        onPress={() => downloadAndSaveImage(imageId, imageUri)}
+                    >
+                        <CustomText weight="bold" style={styles.buttonText}>
+                            Download
+                        </CustomText>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={styles.closeButton}
+                        onPress={onClose}
+                    >
+                        <CustomText weight="bold" style={styles.buttonText}>
+                            Close
+                        </CustomText>
+                    </TouchableOpacity>
+                </View>
+
                 <View style={styles.modalContainer}>
                     {imageSize && (
                         <Image
@@ -114,5 +131,18 @@ const styles = StyleSheet.create({
     buttonText: {
         fontSize: 16,
         color: Colors.white,
+    },
+    buttonContainer: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        width: "100%",
+    },
+    downloadButton: {
+        backgroundColor: Colors.pink,
+        padding: 10,
+        borderRadius: 15,
+        alignSelf: "flex-start",
+        marginLeft: 25,
     },
 });

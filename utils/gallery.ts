@@ -1,4 +1,6 @@
+import * as FileSystem from "expo-file-system";
 import * as ImagePicker from "expo-image-picker";
+import * as MediaLibrary from "expo-media-library";
 import { Alert } from "react-native";
 
 export const pickMultipleImages = async () => {
@@ -37,4 +39,18 @@ export const convertDate = (date: string) => {
     }).format(new Date(date));
 
     return formatted;
+};
+
+export const downloadAndSaveImage = async (image_id: string, url: string) => {
+    const { status } = await MediaLibrary.requestPermissionsAsync();
+    if (status !== "granted") {
+        Alert.alert("Permission to save images was denied");
+        return;
+    }
+
+    const fileUri = FileSystem.documentDirectory + image_id + ".jpg";
+
+    const download = await FileSystem.downloadAsync(url, fileUri);
+    const asset = await MediaLibrary.createAssetAsync(download.uri);
+    await MediaLibrary.createAlbumAsync("BubuDudu", asset, false);
 };

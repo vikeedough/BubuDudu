@@ -110,6 +110,7 @@ const GalleryContent = () => {
             {selectedImage && (
                 <ImageModal
                     isOpen={isImageModalOpen}
+                    imageId={selectedImage.id.toString()}
                     imageUri={selectedImage.url}
                     onClose={() => setIsImageModalOpen(false)}
                 />
