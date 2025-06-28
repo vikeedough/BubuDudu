@@ -175,10 +175,10 @@ const uploadGalleryImages = async (gallery_id: string, images: string[]) => {
     console.log("Number of images to upload:", images.length);
 
     const folderName = `${gallery_id}`;
-    let count = 0;
+
     for (const image of images) {
-        console.log(`Uploading image ${count + 1}/${images.length}:`, image);
-        const fileName = `${count}.jpg`;
+        const fileName = `${Date.now()}.jpg`;
+        console.log(`Uploading image ${fileName}:`, image);
 
         const { error: uploadError } = await supabase.storage
             .from("gallery")
@@ -218,7 +218,6 @@ const uploadGalleryImages = async (gallery_id: string, images: string[]) => {
         console.log("Insert error:", updateError);
 
         console.log(`Successfully inserted image record for: ${fileName}`);
-        count++;
     }
 
     console.log("All images uploaded successfully!");

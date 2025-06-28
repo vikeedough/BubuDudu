@@ -1,9 +1,14 @@
-import { fetchGalleryImages } from "@/api/endpoints/supabase";
+import {
+    fetchGalleries,
+    fetchGalleryImages,
+    uploadGalleryImages,
+} from "@/api/endpoints/supabase";
 import { DateImage } from "@/api/endpoints/types";
 import CustomText from "@/components/CustomText";
 import ImageModal from "@/components/gallery/ImageModal";
 import Colors from "@/constants/colors";
-import { convertDate } from "@/utils/gallery";
+import { useAppStore } from "@/stores/AppStore";
+import { convertDate, pickMultipleImages } from "@/utils/gallery";
 import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
@@ -35,12 +40,28 @@ const GalleryContent = () => {
         fetchImages();
     }, []);
 
-    const handleAddImage = () => {
-        console.log("Add Image");
+    const handleAddImages = async () => {
+        const images = await pickMultipleImages();
+        if (images) {
+            const uploadedImages = await uploadGalleryImages(
+                galleryId as string,
+                images
+            );
+            if (uploadedImages) {
+                const updatedGalleries = await fetchGalleries();
+                useAppStore.setState({ galleries: updatedGalleries });
+                const images = await fetchGalleryImages(galleryId as string);
+                setImages(images);
+            }
+        }
     };
 
     const handleBack = () => {
         router.back();
+    };
+
+    const handleEditGallery = () => {
+        console.log("Edit Gallery");
     };
 
     return (
@@ -75,6 +96,25 @@ const GalleryContent = () => {
                     {galleryTitle}
                 </CustomText>
                 <CustomText>{convertDate(galleryDate as string)}</CustomText>
+            </View>
+
+            <View style={styles.buttonContainer}>
+                <TouchableOpacity
+                    style={styles.button}
+                    onPress={handleAddImages}
+                >
+                    <CustomText weight="bold" style={styles.buttonText}>
+                        Add Images
+                    </CustomText>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    style={styles.button}
+                    onPress={handleEditGallery}
+                >
+                    <CustomText weight="bold" style={styles.buttonText}>
+                        Edit Gallery
+                    </CustomText>
+                </TouchableOpacity>
             </View>
 
             {loading ? (
@@ -142,6 +182,21 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         fontSize: 24,
+        color: Colors.white,
+    },
+    buttonContainer: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: 20,
+    },
+    button: {
+        backgroundColor: Colors.lightBlue,
+        padding: 10,
+        borderRadius: 15,
+    },
+    buttonText: {
+        fontSize: 16,
         color: Colors.white,
     },
 });
