@@ -63,8 +63,8 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: "black",
         borderRadius: 15,
-        padding: 10,
-        paddingHorizontal: 20,
+        padding: 25,
+        paddingHorizontal: 10,
         overflow: "hidden",
         width: 160,
         height: 110,
@@ -76,6 +76,7 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 17,
         marginTop: 10,
+        marginBottom: 10,
     },
     daysText: {
         fontSize: 17,
