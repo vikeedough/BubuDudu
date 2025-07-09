@@ -1,6 +1,6 @@
 import Colors from "@/constants/colors";
 import { Image } from "expo-image";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, TouchableOpacity, View } from "react-native";
 
 interface AvatarProps {
     image: any;
@@ -25,11 +25,12 @@ const Avatar = ({
         <View
             style={[
                 styles.container,
+                isBubu && styles.bubuContainer,
                 isSelected && !isBubu && styles.selectedContainer,
                 isSelected && isBubu && styles.bubuSelectedContainer,
             ]}
         >
-            {hasAddMessageButton && (
+            {/* {hasAddMessageButton && (
                 <TouchableOpacity
                     style={styles.addMessageButton}
                     disabled={disabled}
@@ -37,7 +38,7 @@ const Avatar = ({
                 >
                     <Text>+</Text>
                 </TouchableOpacity>
-            )}
+            )} */}
             <TouchableOpacity onPress={onPressImage} disabled={disabled}>
                 <Image source={{ uri: image }} style={styles.image} />
             </TouchableOpacity>
@@ -49,10 +50,10 @@ export default Avatar;
 
 const styles = StyleSheet.create({
     container: {
-        width: 145,
-        height: 145,
+        width: 157,
+        height: 157,
         borderRadius: 999,
-        borderWidth: 1,
+        borderWidth: 18,
         backgroundColor: "white",
         justifyContent: "center",
         alignItems: "center",
@@ -64,12 +65,13 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.25,
         shadowRadius: 15,
         elevation: 5,
+        borderColor: Colors.lightBlue,
     },
     selectedContainer: {
         borderColor: Colors.lightBlue,
         borderWidth: 5,
-        height: 145,
-        width: 145,
+        height: 157,
+        width: 157,
     },
     addMessageButton: {
         position: "absolute",
@@ -85,20 +87,19 @@ const styles = StyleSheet.create({
         alignItems: "center",
     },
     image: {
-        width: 125,
-        height: 125,
+        width: 139,
+        height: 139,
         borderRadius: 999,
     },
     bubuContainer: {
-        borderColor: Colors.lightBlue,
-        borderWidth: 5,
-        height: 145,
-        width: 145,
+        borderColor: Colors.pink,
+        height: 157,
+        width: 157,
     },
     bubuSelectedContainer: {
         borderColor: Colors.pink,
         borderWidth: 5,
-        height: 145,
-        width: 145,
+        height: 157,
+        width: 157,
     },
 });

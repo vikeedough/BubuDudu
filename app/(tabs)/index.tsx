@@ -4,17 +4,20 @@ import Avatar from "@/components/home/Avatar";
 import MilestoneTracker from "@/components/home/MilestoneTracker";
 import NoteModal from "@/components/home/NoteModal";
 import QuoteContainer from "@/components/home/QuoteContainer";
+import Colors from "@/constants/colors";
 import { useAppStore } from "@/stores/AppStore";
 import { useUserStore } from "@/stores/UserStore";
-import { pickAndUploadAvatar } from "@/utils/home";
+import { getToday, pickAndUploadAvatar } from "@/utils/home";
+import { Image } from "expo-image";
 import { useState } from "react";
-import { StyleSheet, View } from "react-native";
+import { StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const Home = () => {
     const milestones = useAppStore((state) => state.milestones);
     const users = useAppStore((state) => state.users);
     const currentUser = useUserStore((state) => state.currentUser);
+    const today = getToday();
 
     const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
 
@@ -34,38 +37,29 @@ const Home = () => {
                 updateNote={updateNote}
                 user_id={currentUser?.id ?? 0}
             />
-            <View style={{ gap: 20, alignItems: "center" }}>
-                <View style={{ flexDirection: "row", gap: 20 }}>
-                    <MilestoneTracker
-                        id={milestones[1].id}
-                        title={milestones[1].title}
-                        date={milestones[1].date}
-                        image={require("@/assets/images/dudu.jpg")}
-                    />
-                    <MilestoneTracker
-                        id={milestones[0].id}
-                        title={milestones[0].title}
-                        date={milestones[0].date}
-                        image={require("@/assets/images/bubu.jpg")}
-                    />
-                </View>
-                <MilestoneTracker
-                    id={milestones[2].id}
-                    title={milestones[2].title}
-                    date={milestones[2].date}
-                    image={require("@/assets/images/anniversary.jpg")}
-                />
+            <View style={styles.header}>
+                <CustomText weight="extrabold" style={styles.headerText}>
+                    Hello {currentUser?.name}!
+                </CustomText>
+                <CustomText weight="medium" style={styles.dateText}>
+                    {today}
+                </CustomText>
             </View>
-            <QuoteContainer />
-            <View style={{ flexDirection: "row", gap: 20 }}>
+            <View style={styles.avatarsContainer}>
                 <View>
-                    <View style={styles.messageBubble}>
-                        <CustomText>
+                    <TouchableOpacity
+                        style={[styles.messageBubble, styles.duduMessageBubble]}
+                        onPress={handleOpenNoteModal}
+                    >
+                        <CustomText
+                            weight="semibold"
+                            style={styles.messageText}
+                        >
                             {users[0].note
                                 ? users[0].note
                                 : "Dudu has no note yet!"}
                         </CustomText>
-                    </View>
+                    </TouchableOpacity>
                     <Avatar
                         image={users[0].avatar_url}
                         onPressNoteButton={handleOpenNoteModal}
@@ -77,13 +71,18 @@ const Home = () => {
                     />
                 </View>
                 <View>
-                    <View style={styles.messageBubble}>
-                        <CustomText>
+                    <TouchableOpacity
+                        style={[styles.messageBubble, styles.bubuMessageBubble]}
+                    >
+                        <CustomText
+                            weight="semibold"
+                            style={styles.messageText}
+                        >
                             {users[1].note
                                 ? users[1].note
                                 : "Bubu has no note yet!"}
                         </CustomText>
-                    </View>
+                    </TouchableOpacity>
                     <Avatar
                         image={users[1].avatar_url}
                         onPressNoteButton={handleOpenNoteModal}
@@ -95,6 +94,46 @@ const Home = () => {
                     />
                 </View>
             </View>
+            <View style={{ gap: 20 }}>
+                <View style={{ flexDirection: "row", gap: 20 }}>
+                    <MilestoneTracker
+                        id={milestones[1].id}
+                        title={milestones[1].title}
+                        date={milestones[1].date}
+                        image={require("@/assets/images/dudu.jpg")}
+                        milestoneKey={0}
+                    />
+                    <MilestoneTracker
+                        id={milestones[0].id}
+                        title={milestones[0].title}
+                        date={milestones[0].date}
+                        image={require("@/assets/images/bubu.jpg")}
+                        milestoneKey={1}
+                    />
+                </View>
+                <View
+                    style={{
+                        justifyContent: "center",
+                        alignItems: "center",
+                    }}
+                >
+                    <MilestoneTracker
+                        id={milestones[2].id}
+                        title={milestones[2].title}
+                        date={milestones[2].date}
+                        image={require("@/assets/images/anniversary.jpg")}
+                        milestoneKey={2}
+                    />
+                </View>
+            </View>
+            <QuoteContainer />
+            <View style={styles.debonContainer}>
+                <Image
+                    source={require("@/assets/images/debon-lying-down.png")}
+                    style={styles.debonImage}
+                    resizeMode="contain"
+                />
+            </View>
         </SafeAreaView>
     );
 };
@@ -102,14 +141,22 @@ const Home = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        paddingVertical: 70,
+        paddingTop: 20,
         paddingHorizontal: 25,
-        backgroundColor: "#FFF0F5",
-        alignItems: "center",
+        backgroundColor: Colors.backgroundPink,
+    },
+    header: {
+        marginBottom: 20,
+    },
+    headerText: {
+        fontSize: 24,
+    },
+    dateText: {
+        fontSize: 12,
     },
     messageBubble: {
         position: "absolute",
-        bottom: -40,
+        bottom: -27,
         left: 0,
         right: 0,
         zIndex: 100,
@@ -126,6 +173,33 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.25,
         shadowRadius: 15,
         elevation: 5,
+    },
+    avatarsContainer: {
+        flexDirection: "row",
+        gap: 20,
+        marginBottom: 40,
+        justifyContent: "center",
+    },
+    duduMessageBubble: {
+        backgroundColor: Colors.lightBlue,
+    },
+    bubuMessageBubble: {
+        backgroundColor: Colors.pink,
+    },
+    messageText: {
+        fontSize: 11,
+        color: Colors.white,
+    },
+    debonContainer: {
+        marginHorizontal: -25,
+        backgroundColor: "red",
+    },
+    debonImage: {
+        width: 150,
+        height: 150,
+        position: "absolute",
+        bottom: -60,
+        right: 0,
     },
 });
 

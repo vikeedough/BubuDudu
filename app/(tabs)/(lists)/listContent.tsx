@@ -128,11 +128,11 @@ const styles = StyleSheet.create({
     contentInput: {
         fontSize: 16,
         paddingVertical: 10,
-        fontFamily: "Baloo2-Regular",
+        fontFamily: "Raleway-Regular",
     },
     titleInput: {
         fontSize: 24,
-        fontFamily: "Baloo2-Bold",
+        fontFamily: "Raleway-Bold",
         paddingVertical: 10,
     },
 });

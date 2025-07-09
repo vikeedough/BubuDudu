@@ -213,7 +213,7 @@ const styles = StyleSheet.create({
         borderRadius: 15,
         fontSize: 16,
         marginBottom: 10,
-        fontFamily: "Baloo2-Regular",
+        fontFamily: "Raleway-Regular",
     },
     datePicker: {
         backgroundColor: Colors.white,

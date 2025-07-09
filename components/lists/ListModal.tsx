@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
         minWidth: "80%",
         maxWidth: "80%",
         height: 70,
-        fontFamily: "Baloo2-Regular",
+        fontFamily: "Raleway-Regular",
     },
     buttonContainer: {
         flexDirection: "row",

@@ -6,11 +6,11 @@ interface CustomTextProps extends TextProps {
 }
 
 const fontMap = {
-    regular: "Baloo2-Regular",
-    medium: "Baloo2-Medium",
-    semibold: "Baloo2-SemiBold",
-    bold: "Baloo2-Bold",
-    extrabold: "Baloo2-ExtraBold",
+    regular: "Raleway-Regular",
+    medium: "Raleway-Medium",
+    semibold: "Raleway-SemiBold",
+    bold: "Raleway-Bold",
+    extrabold: "Raleway-ExtraBold",
 };
 
 const CustomText: React.FC<CustomTextProps> = ({
@@ -21,6 +21,7 @@ const CustomText: React.FC<CustomTextProps> = ({
 }) => {
     return (
         <Text
+            allowFontScaling={false}
             style={[styles.text, { fontFamily: fontMap[weight] }, style]}
             {...props}
         >

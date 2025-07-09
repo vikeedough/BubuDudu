@@ -1,3 +1,4 @@
+import Colors from "@/constants/colors";
 import { useAppStore } from "@/stores/AppStore";
 import { getToday, randomNumber } from "@/utils/home";
 import { useEffect, useState } from "react";
@@ -15,12 +16,10 @@ const QuoteContainer = () => {
 
     return (
         <View style={styles.container}>
-            <CustomText weight="bold" style={styles.date}>
-                {today}
-            </CustomText>
-            <CustomText weight="regular" style={styles.quote}>
+            <CustomText weight="semibold" style={styles.quote}>
                 "{quotes[rng]?.quote}"
             </CustomText>
+            <View style={styles.tail} />
         </View>
     );
 };
@@ -29,13 +28,13 @@ export default QuoteContainer;
 
 const styles = StyleSheet.create({
     container: {
-        marginTop: 40,
+        marginTop: 20,
         marginBottom: 40,
-        backgroundColor: "#B2FFFB",
+        backgroundColor: Colors.yellow,
         padding: 20,
-        paddingHorizontal: 35,
-        borderWidth: 1,
+        width: 190,
         borderRadius: 15,
+        borderBottomRightRadius: 0,
         alignItems: "center",
         zIndex: 100,
         shadowColor: "#000",
@@ -47,11 +46,21 @@ const styles = StyleSheet.create({
         shadowRadius: 15,
         elevation: 5,
     },
-    date: {
-        fontSize: 17,
-    },
     quote: {
-        marginTop: 10,
-        fontSize: 17,
+        fontSize: 15,
+        textAlign: "center",
+    },
+    tail: {
+        position: "absolute",
+        right: -10,
+        bottom: 0,
+        width: 0,
+        height: 0,
+        borderBottomWidth: 15,
+        borderBottomColor: Colors.yellow,
+        borderRightWidth: 15,
+        borderRightColor: "transparent",
+        borderLeftWidth: 0,
+        borderLeftColor: "transparent",
     },
 });

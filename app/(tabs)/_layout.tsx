@@ -2,6 +2,8 @@ import Colors from "@/constants/colors";
 import { AntDesign } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
 import React from "react";
+import { StyleSheet } from "react-native";
+
 export default function TabLayout() {
     return (
         <Tabs
@@ -10,20 +12,8 @@ export default function TabLayout() {
                 tabBarInactiveTintColor: Colors.black,
                 headerShown: false,
                 tabBarShowLabel: false,
-                tabBarStyle: {
-                    backgroundColor: Colors.white,
-                    borderTopWidth: 0,
-                    shadowColor: "#000",
-                    shadowOffset: {
-                        width: 0,
-                        height: 0,
-                    },
-                    shadowOpacity: 0.25,
-                    shadowRadius: 15,
-                    elevation: 5,
-                    height: 100,
-                    paddingTop: 10,
-                },
+                tabBarStyle: styles.tabBar,
+                tabBarItemStyle: styles.tabBarItem,
             }}
         >
             <Tabs.Screen
@@ -34,7 +24,7 @@ export default function TabLayout() {
                         <AntDesign
                             name="home"
                             size={24}
-                            color={focused ? Colors.lightBlue : Colors.gray}
+                            color={focused ? Colors.white : Colors.gray}
                         />
                     ),
                 }}
@@ -47,7 +37,7 @@ export default function TabLayout() {
                         <AntDesign
                             name="picture"
                             size={24}
-                            color={focused ? Colors.lightBlue : Colors.gray}
+                            color={focused ? Colors.white : Colors.gray}
                         />
                     ),
                 }}
@@ -60,7 +50,7 @@ export default function TabLayout() {
                         <AntDesign
                             name="folderopen"
                             size={24}
-                            color={focused ? Colors.lightBlue : Colors.gray}
+                            color={focused ? Colors.white : Colors.gray}
                         />
                     ),
                 }}
@@ -73,7 +63,7 @@ export default function TabLayout() {
                         <AntDesign
                             name="questioncircleo"
                             size={24}
-                            color={focused ? Colors.lightBlue : Colors.gray}
+                            color={focused ? Colors.white : Colors.gray}
                         />
                     ),
                 }}
@@ -81,3 +71,22 @@ export default function TabLayout() {
         </Tabs>
     );
 }
+
+const styles = StyleSheet.create({
+    tabBar: {
+        position: "absolute",
+        backgroundColor: Colors.green,
+        shadowColor: "#000",
+        borderTopLeftRadius: 60,
+        borderTopRightRadius: 60,
+        borderBottomLeftRadius: 60,
+        borderBottomRightRadius: 60,
+        bottom: 35,
+        height: 51,
+        alignSelf: "center",
+        marginHorizontal: 30,
+    },
+    tabBarItem: {
+        marginTop: 5,
+    },
+});
