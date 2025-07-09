@@ -10,11 +10,11 @@ export default function RootLayout() {
     const isLoggedIn = useUserStore((state) => state.isLoggedIn);
 
     const [fontsLoaded] = useFonts({
-        "Baloo2-Regular": require("@/assets/fonts/Baloo2-Regular.ttf"),
-        "Baloo2-Medium": require("@/assets/fonts/Baloo2-Medium.ttf"),
-        "Baloo2-SemiBold": require("@/assets/fonts/Baloo2-SemiBold.ttf"),
-        "Baloo2-Bold": require("@/assets/fonts/Baloo2-Bold.ttf"),
-        "Baloo2-ExtraBold": require("@/assets/fonts/Baloo2-ExtraBold.ttf"),
+        "Raleway-Regular": require("@/assets/fonts/Raleway-Regular.ttf"),
+        "Raleway-Medium": require("@/assets/fonts/Raleway-Medium.ttf"),
+        "Raleway-SemiBold": require("@/assets/fonts/Raleway-SemiBold.ttf"),
+        "Raleway-Bold": require("@/assets/fonts/Raleway-Bold.ttf"),
+        "Raleway-ExtraBold": require("@/assets/fonts/Raleway-ExtraBold.ttf"),
     });
 
     if (!hasHydrated || loading || !fontsLoaded) {

@@ -196,7 +196,7 @@ const styles = StyleSheet.create({
         borderRadius: 15,
     },
     headerTitle: {
-        fontSize: 24,
+        fontSize: 12,
         color: Colors.white,
     },
     form: {

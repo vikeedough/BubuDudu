@@ -127,7 +127,7 @@ const GalleryContent = () => {
                         }}
                     >
                         <CustomText weight="bold" style={styles.buttonText}>
-                            Delete Images
+                            Delete
                         </CustomText>
                     </TouchableOpacity>
                 </View>
@@ -199,7 +199,7 @@ const GalleryContent = () => {
                                         {
                                             backgroundColor:
                                                 selectedImages.includes(item)
-                                                    ? Colors.white
+                                                    ? "rgba(255,255,255,0.7)"
                                                     : "transparent",
                                         },
                                     ]}
@@ -231,9 +231,6 @@ const styles = StyleSheet.create({
     },
     titleContainer: {
         marginBottom: 20,
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
     },
     title: {
         fontSize: 24,
@@ -259,7 +256,7 @@ const styles = StyleSheet.create({
         borderRadius: 15,
     },
     headerTitle: {
-        fontSize: 24,
+        fontSize: 12,
         color: Colors.white,
     },
     buttonContainer: {
@@ -282,8 +279,8 @@ const styles = StyleSheet.create({
         top: 5,
         right: 5,
         borderWidth: 1.5,
-        borderColor: Colors.pink,
-        padding: 12,
+        borderColor: Colors.white,
+        padding: 10,
         borderRadius: 999,
         zIndex: 1000,
     },

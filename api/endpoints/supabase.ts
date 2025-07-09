@@ -61,6 +61,30 @@ const fetchGalleries = async () => {
     return data;
 };
 
+const fetchChoices = async () => {
+    const { data, error } = await supabase.from("wheel").select("*");
+
+    if (error) {
+        console.error("Error fetching choices: ", error);
+        return [];
+    }
+
+    return data;
+};
+
+const updateChoices = async (choice: string) => {
+    const { error } = await supabase
+        .from("wheel")
+        .insert({ choice: choice, created_at: new Date().toISOString() });
+
+    if (error) {
+        console.error("Error updating choices: ", error);
+        return false;
+    }
+
+    return true;
+};
+
 const updateNote = async (note: string, user_id: number) => {
     const { error } = await supabase
         .from("users")
@@ -176,6 +200,7 @@ const uploadGalleryImages = async (gallery_id: string, images: string[]) => {
     for (const image of images) {
         const timestamp = Date.now();
         const fileName = `${timestamp}.jpg`;
+        console.log("uploading image", image);
 
         const { error: uploadError } = await supabase.storage
             .from("gallery")
@@ -301,6 +326,7 @@ export {
     deleteList,
     deleteMultipleGalleryImages,
     deleteOneGalleryImage,
+    fetchChoices,
     fetchGalleries,
     fetchGalleryImages,
     fetchLists,
@@ -308,6 +334,7 @@ export {
     fetchQuotes,
     fetchUsers,
     getGalleryId,
+    updateChoices,
     updateList,
     updateNote,
     uploadAvatarAndUpdateUser,

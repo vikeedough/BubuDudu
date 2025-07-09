@@ -37,3 +37,9 @@ export interface DateImage {
     url: string;
     created_at: string;
 }
+
+export interface Choice {
+    id: number;
+    choice: string;
+    created_at: string;
+}
