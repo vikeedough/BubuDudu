@@ -22,41 +22,77 @@ const MilestoneTracker: FC<MilestoneTrackerProps> = ({
     const daysToNextBirthday = getDaysUntilNextBirthday(date);
 
     return (
-        // <View style={styles.shadowContainer}>
-        <View
-            style={[
-                styles.container,
-                milestoneKey === 0 && { backgroundColor: Colors.lightBlue },
-                milestoneKey === 1 && { backgroundColor: Colors.pink },
-                milestoneKey === 2 && styles.anniversaryContainer,
-            ]}
-        >
+        <View style={styles.shadowContainer}>
             <View
                 style={[
-                    styles.imageContainer,
-                    milestoneKey === 2 && styles.anniversaryImageContainer,
+                    styles.container,
+                    milestoneKey === 0 && { backgroundColor: Colors.lightBlue },
+                    milestoneKey === 1 && { backgroundColor: Colors.pink },
+                    milestoneKey === 2 && styles.anniversaryContainer,
                 ]}
             >
-                <Image
-                    source={image}
-                    style={[StyleSheet.absoluteFill, { opacity: 0.8 }]}
-                    contentFit="cover"
-                />
-                <View style={styles.dateContainer}>
-                    <CustomText weight="bold" style={styles.date}>
-                        {daysToNextBirthday}
-                    </CustomText>
-                    <CustomText weight="semibold" style={styles.daysText}>
-                        days
-                    </CustomText>
+                <View
+                    style={[
+                        styles.imageContainer,
+                        milestoneKey === 2 && styles.anniversaryImageContainer,
+                    ]}
+                >
+                    <Image
+                        source={image}
+                        style={[StyleSheet.absoluteFill, { opacity: 0.8 }]}
+                        contentFit="cover"
+                    />
+                    <View style={styles.dateContainer}>
+                        <CustomText
+                            weight="bold"
+                            style={[
+                                styles.date,
+                                milestoneKey === 0 && {
+                                    color: Colors.darkBlueText,
+                                },
+                                milestoneKey === 1 && {
+                                    color: Colors.pinkText,
+                                },
+                                milestoneKey === 2 && {
+                                    color: Colors.orangeText,
+                                },
+                            ]}
+                        >
+                            {daysToNextBirthday}
+                        </CustomText>
+                        <CustomText
+                            weight="semibold"
+                            style={[
+                                styles.daysText,
+                                milestoneKey === 0 && {
+                                    color: Colors.darkBlueText,
+                                },
+                                milestoneKey === 1 && {
+                                    color: Colors.pinkText,
+                                },
+                                milestoneKey === 2 && {
+                                    color: Colors.orangeText,
+                                },
+                            ]}
+                        >
+                            days
+                        </CustomText>
+                    </View>
                 </View>
-            </View>
 
-            <CustomText weight="bold" style={styles.title}>
-                {title}
-            </CustomText>
+                <CustomText
+                    weight="bold"
+                    style={[
+                        styles.title,
+                        milestoneKey === 0 && { color: Colors.darkBlueText },
+                        milestoneKey === 1 && { color: Colors.pinkText },
+                        milestoneKey === 2 && { color: Colors.orangeText },
+                    ]}
+                >
+                    {title}
+                </CustomText>
+            </View>
         </View>
-        // </View>
     );
 };
 
@@ -71,11 +107,13 @@ const styles = StyleSheet.create({
         shadowColor: "#000",
         shadowOffset: {
             width: 0,
-            height: 5,
+            height: 4,
         },
         shadowOpacity: 0.25,
-        shadowRadius: 15,
+        shadowRadius: 4,
         elevation: 5,
+        alignItems: "center",
+        justifyContent: "center",
     },
     container: {
         alignItems: "center",
@@ -87,6 +125,7 @@ const styles = StyleSheet.create({
         overflow: "hidden",
         width: 160,
         height: 110,
+        // borderWidth: 1,
     },
     date: {
         fontSize: 24,
@@ -96,7 +135,7 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 14,
         position: "absolute",
-        bottom: 7,
+        bottom: 10,
         zIndex: 100,
         color: Colors.white,
     },
@@ -107,7 +146,7 @@ const styles = StyleSheet.create({
     },
     anniversaryContainer: {
         width: 225,
-        backgroundColor: Colors.hotPink,
+        backgroundColor: Colors.orange,
     },
     imageContainer: {
         height: 72,

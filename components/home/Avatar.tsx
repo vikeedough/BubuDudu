@@ -22,15 +22,16 @@ const Avatar = ({
     disabled,
 }: AvatarProps) => {
     return (
-        <View
-            style={[
-                styles.container,
-                isBubu && styles.bubuContainer,
-                isSelected && !isBubu && styles.selectedContainer,
-                isSelected && isBubu && styles.bubuSelectedContainer,
-            ]}
-        >
-            {/* {hasAddMessageButton && (
+        <View style={styles.outsideContainer}>
+            <View
+                style={[
+                    styles.container,
+                    isBubu && styles.bubuContainer,
+                    isSelected && !isBubu && styles.selectedContainer,
+                    isSelected && isBubu && styles.bubuSelectedContainer,
+                ]}
+            >
+                {/* {hasAddMessageButton && (
                 <TouchableOpacity
                     style={styles.addMessageButton}
                     disabled={disabled}
@@ -39,9 +40,10 @@ const Avatar = ({
                     <Text>+</Text>
                 </TouchableOpacity>
             )} */}
-            <TouchableOpacity onPress={onPressImage} disabled={disabled}>
-                <Image source={{ uri: image }} style={styles.image} />
-            </TouchableOpacity>
+                <TouchableOpacity onPress={onPressImage} disabled={disabled}>
+                    <Image source={{ uri: image }} style={styles.image} />
+                </TouchableOpacity>
+            </View>
         </View>
     );
 };
@@ -63,9 +65,18 @@ const styles = StyleSheet.create({
             height: 2,
         },
         shadowOpacity: 0.25,
-        shadowRadius: 15,
+        shadowRadius: 4,
         elevation: 5,
-        borderColor: Colors.lightBlue,
+        borderColor: Colors.darkBlue,
+    },
+    outsideContainer: {
+        width: 158,
+        height: 158,
+        borderRadius: 999,
+        borderWidth: 1,
+        borderColor: Colors.black,
+        alignItems: "center",
+        justifyContent: "center",
     },
     selectedContainer: {
         borderColor: Colors.lightBlue,
@@ -92,7 +103,7 @@ const styles = StyleSheet.create({
         borderRadius: 999,
     },
     bubuContainer: {
-        borderColor: Colors.pink,
+        borderColor: Colors.red,
         height: 157,
         width: 157,
     },

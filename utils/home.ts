@@ -20,7 +20,7 @@ export const getDaysUntilNextBirthday = (birthday: string) => {
         nextBirthday = nextBirthday.add(1, "year");
     }
 
-    return nextBirthday.diff(today, "day");
+    return nextBirthday.diff(today, "day") + 1;
 };
 
 export const getToday = () => {
