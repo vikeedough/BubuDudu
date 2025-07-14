@@ -1,4 +1,4 @@
-import Colors from "@/constants/colors";
+import { Colors } from "@/constants/colors";
 import { getDaysUntilNextBirthday } from "@/utils/home";
 import { Image } from "expo-image";
 import React, { FC } from "react";

@@ -18,4 +18,22 @@ const Colors = {
     darkGreenText: "#505739",
 };
 
-export default Colors;
+const ListColors = {
+    red: "#F04770",
+    orange: "#F78C6A",
+    yellow: "#FFD167",
+    green: "#06D7A0",
+    blue: "#108AB1",
+    darkBlue: "#073A4B",
+};
+
+const listColorsArray = [
+    "#F04770",
+    "#F78C6A",
+    "#FFD167",
+    "#06D7A0",
+    "#108AB1",
+    "#073A4B",
+];
+
+export { Colors, ListColors, listColorsArray };

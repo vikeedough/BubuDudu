@@ -1,4 +1,4 @@
-import Colors from "@/constants/colors";
+import { Colors } from "@/constants/colors";
 import { useAppStore } from "@/stores/AppStore";
 import { getToday, randomNumber } from "@/utils/home";
 import { useEffect, useState } from "react";

@@ -27,6 +27,14 @@ export const getToday = () => {
     return dayjs().format("dddd, Do MMMM YYYY");
 };
 
+export const getDay = () => {
+    return dayjs().format("dddd");
+};
+
+export const getDate = () => {
+    return dayjs().format("Do MMMM YYYY");
+};
+
 export const randomNumber = (min: number, max: number) => {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 };

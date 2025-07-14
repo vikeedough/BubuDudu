@@ -1,7 +1,7 @@
 import { Gallery as GalleryType } from "@/api/endpoints/types";
 import CustomText from "@/components/CustomText";
 import GalleryItem from "@/components/gallery/GalleryItem";
-import Colors from "@/constants/colors";
+import { Colors } from "@/constants/colors";
 import { useAppStore } from "@/stores/AppStore";
 import { router } from "expo-router";
 import { FlatList, StyleSheet, TouchableOpacity, View } from "react-native";

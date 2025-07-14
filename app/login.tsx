@@ -1,7 +1,7 @@
 import { User } from "@/api/endpoints/types";
 import CustomText from "@/components/CustomText";
 import Avatar from "@/components/home/Avatar";
-import Colors from "@/constants/colors";
+import { Colors } from "@/constants/colors";
 import { useAppStore } from "@/stores/AppStore";
 import { useUserStore } from "@/stores/UserStore";
 import { router } from "expo-router";

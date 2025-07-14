@@ -1,5 +1,5 @@
 import { fetchUsers } from "@/api/endpoints/supabase";
-import Colors from "@/constants/colors";
+import { Colors } from "@/constants/colors";
 import { useAppStore } from "@/stores/AppStore";
 import { useState } from "react";
 import {

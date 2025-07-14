@@ -5,7 +5,7 @@ import {
     uploadGalleryImages,
 } from "@/api/endpoints/supabase";
 import CustomText from "@/components/CustomText";
-import Colors from "@/constants/colors";
+import { Colors } from "@/constants/colors";
 import { useAppStore } from "@/stores/AppStore";
 import { pickMultipleImages } from "@/utils/gallery";
 import DateTimePicker from "@react-native-community/datetimepicker";

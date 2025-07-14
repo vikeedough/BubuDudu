@@ -1,6 +1,6 @@
 import { deleteList, fetchLists, updateList } from "@/api/endpoints/supabase";
 import CustomText from "@/components/CustomText";
-import Colors from "@/constants/colors";
+import { Colors } from "@/constants/colors";
 import { useAppStore } from "@/stores/AppStore";
 import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";

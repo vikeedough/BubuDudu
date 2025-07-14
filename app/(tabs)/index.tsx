@@ -4,7 +4,7 @@ import Avatar from "@/components/home/Avatar";
 import MilestoneTracker from "@/components/home/MilestoneTracker";
 import NoteModal from "@/components/home/NoteModal";
 import QuoteContainer from "@/components/home/QuoteContainer";
-import Colors from "@/constants/colors";
+import { Colors } from "@/constants/colors";
 import { useAppStore } from "@/stores/AppStore";
 import { useUserStore } from "@/stores/UserStore";
 import { getToday, pickAndUploadAvatar } from "@/utils/home";

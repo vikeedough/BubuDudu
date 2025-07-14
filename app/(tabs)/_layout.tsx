@@ -1,4 +1,4 @@
-import Colors from "@/constants/colors";
+import { Colors } from "@/constants/colors";
 import { AntDesign } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
 import React from "react";

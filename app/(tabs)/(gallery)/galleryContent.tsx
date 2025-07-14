@@ -8,7 +8,7 @@ import {
 import { DateImage } from "@/api/endpoints/types";
 import CustomText from "@/components/CustomText";
 import ImageModal from "@/components/gallery/ImageModal";
-import Colors from "@/constants/colors";
+import { Colors } from "@/constants/colors";
 import { useAppStore } from "@/stores/AppStore";
 import { convertDate, pickMultipleImages } from "@/utils/gallery";
 import { Image } from "expo-image";

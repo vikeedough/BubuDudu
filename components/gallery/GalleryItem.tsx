@@ -1,5 +1,5 @@
 import { Gallery as GalleryType } from "@/api/endpoints/types";
-import Colors from "@/constants/colors";
+import { Colors } from "@/constants/colors";
 import { convertDate } from "@/utils/gallery";
 import React from "react";
 import { StyleSheet, TouchableOpacity } from "react-native";

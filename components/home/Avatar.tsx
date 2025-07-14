@@ -1,4 +1,4 @@
-import Colors from "@/constants/colors";
+import { Colors } from "@/constants/colors";
 import { Image } from "expo-image";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
 

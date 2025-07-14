@@ -1,4 +1,4 @@
-import Colors from "@/constants/colors";
+import { Colors } from "@/constants/colors";
 import { downloadAndSaveImage } from "@/utils/gallery";
 import { Image } from "expo-image";
 import React, { useEffect, useState } from "react";

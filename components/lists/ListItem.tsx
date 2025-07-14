@@ -1,5 +1,5 @@
 import { List } from "@/api/endpoints/types";
-import Colors from "@/constants/colors";
+import { Colors } from "@/constants/colors";
 import React from "react";
 import { StyleSheet, TouchableOpacity } from "react-native";
 import CustomText from "../CustomText";

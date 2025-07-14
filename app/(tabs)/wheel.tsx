@@ -1,6 +1,6 @@
 import CustomText from "@/components/CustomText";
 import ChoiceItem from "@/components/wheel/ChoiceItem";
-import Colors from "@/constants/colors";
+import { Colors } from "@/constants/colors";
 import { useAppStore } from "@/stores/AppStore";
 import { useUserStore } from "@/stores/UserStore";
 import { router } from "expo-router";
