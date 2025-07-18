@@ -19,9 +19,10 @@ export interface User {
 }
 
 export interface List {
-    id: number;
+    id: string;
     type: string;
     content: string;
+    last_updated_at: string;
 }
 
 export interface Gallery {

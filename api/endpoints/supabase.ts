@@ -40,7 +40,10 @@ const fetchUsers = async () => {
 };
 
 const fetchLists = async () => {
-    const { data, error } = await supabase.from("lists").select("*");
+    const { data, error } = await supabase
+        .from("lists")
+        .select("*")
+        .order("last_updated_at", { ascending: true });
 
     if (error) {
         console.error("Error fetching lists:", error);
@@ -131,8 +134,12 @@ const uploadAvatarAndUpdateUser = async (user_id: number, fileUri: string) => {
     return publicUrl;
 };
 
-const addNewList = async (type: string) => {
-    const { error } = await supabase.from("lists").insert({ type: type });
+const addNewList = async (type: string, content: string) => {
+    const { error } = await supabase.from("lists").insert({
+        type: type,
+        content: content,
+        last_updated_at: new Date().toISOString(),
+    });
 
     if (error) {
         console.error("Error adding new list:", error.message);
@@ -156,7 +163,11 @@ const deleteList = async (list_id: string) => {
 const updateList = async (list_id: string, type: string, content: string) => {
     const { error } = await supabase
         .from("lists")
-        .update({ type: type, content: content })
+        .update({
+            type: type,
+            content: content,
+            last_updated_at: new Date().toISOString(),
+        })
         .eq("id", list_id);
 
     if (error) {

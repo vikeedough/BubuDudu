@@ -25,6 +25,7 @@ const ListColors = {
     green: "#06D7A0",
     blue: "#108AB1",
     darkBlue: "#073A4B",
+    gray: "#AFAFAF",
 };
 
 const listColorsArray = [
