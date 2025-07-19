@@ -1,19 +1,19 @@
 import { Gallery as GalleryType } from "@/api/endpoints/types";
 import CustomText from "@/components/CustomText";
+import NewGalleryModal from "@/components/gallery/AddNewGalleryModal";
 import GalleryItem from "@/components/gallery/GalleryItem";
 import { Colors } from "@/constants/colors";
 import { useAppStore } from "@/stores/AppStore";
 import { router } from "expo-router";
+import { useState } from "react";
 import { FlatList, StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const Gallery = () => {
     const galleries = useAppStore((state) => state.galleries);
-
+    const [isNewGalleryModalOpen, setIsNewGalleryModalOpen] = useState(false);
     const handleAddNewGallery = () => {
-        router.push({
-            pathname: "/(tabs)/(gallery)/addNewGallery",
-        });
+        setIsNewGalleryModalOpen(true);
     };
 
     const navigateToGalleryContent = (gallery: GalleryType) => {
@@ -29,6 +29,10 @@ const Gallery = () => {
 
     return (
         <SafeAreaView style={styles.container}>
+            <NewGalleryModal
+                isOpen={isNewGalleryModalOpen}
+                onClose={() => setIsNewGalleryModalOpen(false)}
+            />
             <View style={styles.header}>
                 <TouchableOpacity
                     style={styles.headerButton}

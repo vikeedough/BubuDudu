@@ -15,12 +15,6 @@ export default function TabLayout() {
                 }}
             />
             <Stack.Screen
-                name="addNewGallery"
-                options={{
-                    title: "Add New Gallery",
-                }}
-            />
-            <Stack.Screen
                 name="galleryContent"
                 options={{
                     title: "Gallery Content",

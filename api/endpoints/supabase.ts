@@ -178,10 +178,18 @@ const updateList = async (list_id: string, type: string, content: string) => {
     return true;
 };
 
-const addNewGallery = async (title: string, date: string) => {
-    const { error } = await supabase
-        .from("galleries")
-        .insert({ title: title, date: date });
+const addNewGallery = async (
+    title: string,
+    date: string,
+    color: string,
+    location: string
+) => {
+    const { error } = await supabase.from("galleries").insert({
+        title: title,
+        date: date,
+        color: color,
+        location: location,
+    });
 
     if (error) {
         console.error("Error adding new gallery:", error.message);
@@ -207,6 +215,7 @@ const getGalleryId = async (title: string) => {
 
 const uploadGalleryImages = async (gallery_id: string, images: string[]) => {
     const folderName = `${gallery_id}`;
+    let hasUploadedFirstImage = false;
 
     for (const image of images) {
         const timestamp = Date.now();
@@ -244,6 +253,21 @@ const uploadGalleryImages = async (gallery_id: string, images: string[]) => {
                     created_at: new Date().toISOString(),
                 },
             ]);
+
+        if (!hasUploadedFirstImage) {
+            hasUploadedFirstImage = true;
+            const { data: updateData, error: updateError } = await supabase
+                .from("galleries")
+                .update({ cover_image: publicUrl })
+                .eq("id", gallery_id);
+
+            if (updateError) {
+                console.error(
+                    "Error updating gallery cover image:",
+                    updateError.message
+                );
+            }
+        }
     }
 
     return true;

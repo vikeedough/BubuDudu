@@ -8,7 +8,7 @@ import { List } from "@/api/endpoints/types";
 import TrashIcon from "@/assets/svgs/trash-bin.svg";
 import CustomText from "@/components/CustomText";
 import DeleteListModal from "@/components/lists/DeleteListModal";
-import { Colors, ListColors, listColorsArray } from "@/constants/colors";
+import { Colors, listColorsArray } from "@/constants/colors";
 import { useAppStore } from "@/stores/AppStore";
 import { getDate, getDay } from "@/utils/home";
 import { useEffect, useState } from "react";
@@ -295,7 +295,7 @@ const styles = StyleSheet.create({
     },
     addListLabel: {
         height: 57,
-        backgroundColor: ListColors.gray,
+        backgroundColor: "#AFAFAF",
         justifyContent: "center",
         alignItems: "center",
         borderTopLeftRadius: 15,

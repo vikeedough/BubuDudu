@@ -30,6 +30,9 @@ export interface Gallery {
     title: string;
     date: string;
     created_at: string;
+    color: string;
+    location: string;
+    cover_image: string;
 }
 
 export interface DateImage {
