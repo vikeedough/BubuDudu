@@ -1,11 +1,19 @@
-import { addNewList, fetchLists, updateList } from "@/api/endpoints/supabase";
+import {
+    addNewList,
+    deleteList,
+    fetchLists,
+    updateList,
+} from "@/api/endpoints/supabase";
 import { List } from "@/api/endpoints/types";
+import TrashIcon from "@/assets/svgs/trash-bin.svg";
 import CustomText from "@/components/CustomText";
+import DeleteListModal from "@/components/lists/DeleteListModal";
 import { Colors, ListColors, listColorsArray } from "@/constants/colors";
 import { useAppStore } from "@/stores/AppStore";
 import { getDate, getDay } from "@/utils/home";
 import { useEffect, useState } from "react";
 import {
+    ActivityIndicator,
     Alert,
     FlatList,
     Keyboard,
@@ -25,6 +33,8 @@ const Lists = () => {
     const [noteTitle, setNoteTitle] = useState("");
     const [noteContent, setNoteContent] = useState("");
     const [selectedIndex, setSelectedIndex] = useState(0);
+    const [isDeleteListModalOpen, setIsDeleteListModalOpen] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
 
     useEffect(() => {
         if (lists.length > 0) {
@@ -60,6 +70,7 @@ const Lists = () => {
     };
 
     const handleSaveList = async (list: List, index: number) => {
+        setIsLoading(true);
         if (noteTitle.length === 0) {
             Alert.alert("Error", "Please enter a name for the note!");
             return;
@@ -70,6 +81,7 @@ const Lists = () => {
             if (success) {
                 const updatedLists = await fetchLists();
                 useAppStore.setState({ lists: updatedLists });
+                setIsLoading(false);
                 return;
             } else {
                 Alert.alert(
@@ -93,6 +105,21 @@ const Lists = () => {
                     "Failed to update list content. Please try again later."
                 );
             }
+        }
+        setIsLoading(false);
+    };
+
+    const handleDeleteList = async (list: List) => {
+        console.log("Deleting list", list);
+        const success = await deleteList(list.id);
+        if (success) {
+            const updatedLists = await fetchLists();
+            useAppStore.setState({ lists: updatedLists });
+        } else {
+            Alert.alert(
+                "Error",
+                "Failed to delete list. Please try again later."
+            );
         }
     };
 
@@ -133,6 +160,11 @@ const Lists = () => {
     return (
         <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
             <SafeAreaView style={styles.container}>
+                <DeleteListModal
+                    isOpen={isDeleteListModalOpen}
+                    onClose={() => setIsDeleteListModalOpen(false)}
+                    selectedList={selectedList as List}
+                />
                 <View style={styles.header}>
                     <CustomText weight="extrabold" style={styles.headerTitle}>
                         {day}
@@ -171,6 +203,16 @@ const Lists = () => {
                     </View>
                     <View style={styles.noteContainer}>
                         <View style={{ flex: 1 }}>
+                            {selectedList?.id !== "" && (
+                                <TouchableOpacity
+                                    style={styles.trashIcon}
+                                    onPress={() =>
+                                        setIsDeleteListModalOpen(true)
+                                    }
+                                >
+                                    <TrashIcon />
+                                </TouchableOpacity>
+                            )}
                             <TextInput
                                 style={styles.noteTitle}
                                 placeholder="Title"
@@ -188,22 +230,26 @@ const Lists = () => {
                                 textAlignVertical="top"
                             />
                         </View>
-                        <TouchableOpacity
-                            style={styles.saveButton}
-                            onPress={() =>
-                                handleSaveList(
-                                    selectedList as List,
-                                    selectedIndex
-                                )
-                            }
-                        >
-                            <CustomText
-                                weight="semibold"
-                                style={styles.saveButtonText}
+                        {isLoading ? (
+                            <ActivityIndicator size="small" color="#FFCC7D" />
+                        ) : (
+                            <TouchableOpacity
+                                style={styles.saveButton}
+                                onPress={() =>
+                                    handleSaveList(
+                                        selectedList as List,
+                                        selectedIndex
+                                    )
+                                }
                             >
-                                Save
-                            </CustomText>
-                        </TouchableOpacity>
+                                <CustomText
+                                    weight="semibold"
+                                    style={styles.saveButtonText}
+                                >
+                                    Save
+                                </CustomText>
+                            </TouchableOpacity>
+                        )}
                     </View>
                 </View>
             </SafeAreaView>
@@ -328,5 +374,11 @@ const styles = StyleSheet.create({
     saveButtonText: {
         color: Colors.brownText,
         fontSize: 14,
+    },
+    trashIcon: {
+        position: "absolute",
+        right: 0,
+        top: 0,
+        zIndex: 1000,
     },
 });
