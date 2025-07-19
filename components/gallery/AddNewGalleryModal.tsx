@@ -44,21 +44,12 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
     const [selectedColorIndex, setSelectedColorIndex] = useState<number>(0);
 
     const handleCancel = () => {
-        // Reset form state
         setDateName("");
         setLocation("");
         setDate(new Date());
         setImages([]);
         setShowDatePicker(false);
         onClose();
-    };
-
-    const logCurrentState = () => {
-        console.log("dateName: ", dateName);
-        console.log("location:", location);
-        console.log("date:", date);
-        console.log("images:", images);
-        console.log("selectedColor:", selectedColor);
     };
 
     const handleAddGallery = async () => {

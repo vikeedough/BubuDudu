@@ -52,6 +52,7 @@ const Gallery = () => {
                     />
                 )}
                 ItemSeparatorComponent={() => <View style={styles.separator} />}
+                numColumns={2}
             />
         </SafeAreaView>
     );

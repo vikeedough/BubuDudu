@@ -1,16 +1,11 @@
-import {
-    addNewList,
-    deleteList,
-    fetchLists,
-    updateList,
-} from "@/api/endpoints/supabase";
+import { addNewList, fetchLists, updateList } from "@/api/endpoints/supabase";
 import { List } from "@/api/endpoints/types";
 import TrashIcon from "@/assets/svgs/trash-bin.svg";
 import CustomText from "@/components/CustomText";
 import DeleteListModal from "@/components/lists/DeleteListModal";
 import { Colors, listColorsArray } from "@/constants/colors";
 import { useAppStore } from "@/stores/AppStore";
-import { getDate, getDay } from "@/utils/home";
+import { getDate } from "@/utils/home";
 import { useEffect, useState } from "react";
 import {
     ActivityIndicator,
@@ -27,7 +22,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 const Lists = () => {
     const lists = useAppStore((state) => state.lists);
-    const day = getDay();
     const date = getDate();
     const [selectedList, setSelectedList] = useState<List | null>(null);
     const [noteTitle, setNoteTitle] = useState("");
@@ -109,20 +103,6 @@ const Lists = () => {
         setIsLoading(false);
     };
 
-    const handleDeleteList = async (list: List) => {
-        console.log("Deleting list", list);
-        const success = await deleteList(list.id);
-        if (success) {
-            const updatedLists = await fetchLists();
-            useAppStore.setState({ lists: updatedLists });
-        } else {
-            Alert.alert(
-                "Error",
-                "Failed to delete list. Please try again later."
-            );
-        }
-    };
-
     const labelItem = (list: List, index: number) => {
         const isSelected = selectedIndex === index;
         return (
@@ -167,7 +147,7 @@ const Lists = () => {
                 />
                 <View style={styles.header}>
                     <CustomText weight="extrabold" style={styles.headerTitle}>
-                        {day}
+                        Notes
                     </CustomText>
                     <CustomText weight="medium" style={styles.headerDate}>
                         {date}
