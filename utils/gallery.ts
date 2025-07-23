@@ -1,3 +1,4 @@
+import { DateImage } from "@/api/endpoints/types";
 import * as FileSystem from "expo-file-system";
 import * as ImagePicker from "expo-image-picker";
 import * as MediaLibrary from "expo-media-library";
@@ -53,4 +54,22 @@ export const downloadAndSaveImage = async (image_id: string, url: string) => {
     const download = await FileSystem.downloadAsync(url, fileUri);
     const asset = await MediaLibrary.createAssetAsync(download.uri);
     await MediaLibrary.createAlbumAsync("BubuDudu", asset, false);
+};
+
+export const multipleDownloadAndSaveImage = async (images: DateImage[]) => {
+    const { status } = await MediaLibrary.requestPermissionsAsync();
+    if (status !== "granted") {
+        Alert.alert("Permission to save images was denied");
+        return;
+    }
+
+    try {
+        for (const image of images) {
+            await downloadAndSaveImage(image.id.toString(), image.url);
+        }
+    } catch (error) {
+        console.error(error);
+        Alert.alert("Error downloading images");
+        return;
+    }
 };

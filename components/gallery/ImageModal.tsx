@@ -1,5 +1,5 @@
+import Back from "@/assets/svgs/back.svg";
 import { Colors } from "@/constants/colors";
-import { downloadAndSaveImage } from "@/utils/gallery";
 import { Image } from "expo-image";
 import React, { useEffect, useState } from "react";
 import {
@@ -10,7 +10,6 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
-import CustomText from "../CustomText";
 
 interface ImageModalProps {
     isOpen: boolean;
@@ -62,20 +61,10 @@ const ImageModal: React.FC<ImageModalProps> = ({
             <View style={styles.modalOverlay}>
                 <View style={styles.buttonContainer}>
                     <TouchableOpacity
-                        style={styles.downloadButton}
-                        onPress={() => downloadAndSaveImage(imageId, imageUri)}
-                    >
-                        <CustomText weight="bold" style={styles.buttonText}>
-                            Download
-                        </CustomText>
-                    </TouchableOpacity>
-                    <TouchableOpacity
                         style={styles.closeButton}
                         onPress={onClose}
                     >
-                        <CustomText weight="bold" style={styles.buttonText}>
-                            Close
-                        </CustomText>
+                        <Back />
                     </TouchableOpacity>
                 </View>
 
@@ -122,11 +111,15 @@ const styles = StyleSheet.create({
         maxHeight: "80%",
     },
     closeButton: {
-        backgroundColor: Colors.red,
-        padding: 10,
-        borderRadius: 15,
-        alignSelf: "flex-end",
-        marginRight: 25,
+        backgroundColor: Colors.white,
+        borderRadius: 999,
+        height: 28,
+        width: 28,
+        justifyContent: "center",
+        alignItems: "center",
+        borderWidth: 1,
+        borderColor: "#EBEAEC",
+        marginLeft: 20,
     },
     buttonText: {
         fontSize: 16,

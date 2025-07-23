@@ -217,6 +217,23 @@ const uploadGalleryImages = async (gallery_id: string, images: string[]) => {
     const folderName = `${gallery_id}`;
     let hasUploadedFirstImage = false;
 
+    // Fetch the gallery to check if cover_image is already set
+    const { data: galleryData, error: galleryError } = await supabase
+        .from("galleries")
+        .select("cover_image")
+        .eq("id", gallery_id)
+        .single();
+
+    if (galleryError) {
+        console.error(
+            "Error fetching gallery for cover_image check:",
+            galleryError.message
+        );
+        return false;
+    }
+
+    const hasCoverImage = !!galleryData?.cover_image;
+
     for (const image of images) {
         const timestamp = Date.now();
         const fileName = `${timestamp}.jpg`;
@@ -256,16 +273,19 @@ const uploadGalleryImages = async (gallery_id: string, images: string[]) => {
 
         if (!hasUploadedFirstImage) {
             hasUploadedFirstImage = true;
-            const { data: updateData, error: updateError } = await supabase
-                .from("galleries")
-                .update({ cover_image: publicUrl })
-                .eq("id", gallery_id);
+            // Only update cover_image if it is not already set
+            if (!hasCoverImage) {
+                const { data: updateData, error: updateError } = await supabase
+                    .from("galleries")
+                    .update({ cover_image: publicUrl })
+                    .eq("id", gallery_id);
 
-            if (updateError) {
-                console.error(
-                    "Error updating gallery cover image:",
-                    updateError.message
-                );
+                if (updateError) {
+                    console.error(
+                        "Error updating gallery cover image:",
+                        updateError.message
+                    );
+                }
             }
         }
     }

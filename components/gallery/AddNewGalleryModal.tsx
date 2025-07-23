@@ -16,7 +16,9 @@ import {
     Dimensions,
     FlatList,
     Keyboard,
+    KeyboardAvoidingView,
     Modal,
+    Platform,
     StyleSheet,
     TextInput,
     TouchableOpacity,
@@ -137,140 +139,146 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
                 onPress={Keyboard.dismiss}
                 accessible={false}
             >
-                <View style={styles.modalOverlay}>
-                    <View style={styles.imagesContainer}>
-                        <TouchableOpacity
-                            style={
-                                images.length > 0
-                                    ? styles.galleryContainerWithImages
-                                    : styles.galleryContainer
-                            }
-                            onPress={() => {
-                                pickMultipleImages().then((images) => {
-                                    if (images) {
-                                        setImages(images);
-                                    }
-                                });
-                            }}
-                        >
-                            {images.length > 0 ? (
-                                imagesShown()
-                            ) : (
-                                <CustomText
-                                    weight="regular"
-                                    style={styles.galleryTitle}
-                                >
-                                    +
-                                </CustomText>
-                            )}
-                        </TouchableOpacity>
-                    </View>
-                    <View style={styles.modalContainer}>
-                        <View style={styles.form}>
-                            <CustomText
-                                weight="semibold"
-                                style={styles.formTitle}
-                            >
-                                Name
-                            </CustomText>
-                            <TextInput
-                                style={styles.input}
-                                placeholder="Enter date name"
-                                value={dateName}
-                                onChangeText={setDateName}
-                            />
-                            <CustomText
-                                weight="semibold"
-                                style={styles.formTitle}
-                            >
-                                Location
-                            </CustomText>
-                            <TextInput
-                                style={styles.input}
-                                placeholder="Enter location"
-                                value={location}
-                                onChangeText={setLocation}
-                            />
-                            <CustomText
-                                weight="semibold"
-                                style={styles.formTitle}
-                            >
-                                Date
-                            </CustomText>
+                <KeyboardAvoidingView
+                    behavior={Platform.OS === "ios" ? "padding" : "height"}
+                    keyboardVerticalOffset={Platform.OS === "ios" ? 60 : 0}
+                    style={{ flex: 1 }}
+                >
+                    <View style={styles.modalOverlay}>
+                        <View style={styles.imagesContainer}>
                             <TouchableOpacity
-                                onPress={() => setShowDatePicker(true)}
-                                style={styles.datePicker}
+                                style={
+                                    images.length > 0
+                                        ? styles.galleryContainerWithImages
+                                        : styles.galleryContainer
+                                }
+                                onPress={() => {
+                                    pickMultipleImages().then((images) => {
+                                        if (images) {
+                                            setImages(images);
+                                        }
+                                    });
+                                }}
                             >
+                                {images.length > 0 ? (
+                                    imagesShown()
+                                ) : (
+                                    <CustomText
+                                        weight="regular"
+                                        style={styles.galleryTitle}
+                                    >
+                                        +
+                                    </CustomText>
+                                )}
+                            </TouchableOpacity>
+                        </View>
+                        <View style={styles.modalContainer}>
+                            <View style={styles.form}>
                                 <CustomText
                                     weight="semibold"
-                                    style={styles.datePickerText}
+                                    style={styles.formTitle}
                                 >
-                                    {date.toLocaleDateString()}
+                                    Name
                                 </CustomText>
-                            </TouchableOpacity>
-                            {showDatePicker && (
-                                <DateTimePicker
-                                    value={date}
-                                    mode="date"
-                                    display="default"
-                                    onChange={(event, date) => {
-                                        if (date) {
-                                            setDate(date);
-                                            setShowDatePicker(false);
-                                        }
-                                    }}
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="Enter date name"
+                                    value={dateName}
+                                    onChangeText={setDateName}
                                 />
-                            )}
-                            <CustomText
-                                weight="semibold"
-                                style={styles.formTitle}
-                            >
-                                Colour
-                            </CustomText>
-                            <View style={styles.colorContainer}>
-                                {listColorsArray.map((color, index) => (
-                                    <TouchableOpacity
-                                        style={[
-                                            styles.colorBox,
-                                            { backgroundColor: color },
-                                            index === selectedColorIndex &&
-                                                styles.selectedColorBox,
-                                        ]}
-                                        key={color}
-                                        onPress={() => {
-                                            setSelectedColor(color);
-                                            setSelectedColorIndex(index);
+                                <CustomText
+                                    weight="semibold"
+                                    style={styles.formTitle}
+                                >
+                                    Location
+                                </CustomText>
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="Enter location"
+                                    value={location}
+                                    onChangeText={setLocation}
+                                />
+                                <CustomText
+                                    weight="semibold"
+                                    style={styles.formTitle}
+                                >
+                                    Date
+                                </CustomText>
+                                <TouchableOpacity
+                                    onPress={() => setShowDatePicker(true)}
+                                    style={styles.datePicker}
+                                >
+                                    <CustomText
+                                        weight="semibold"
+                                        style={styles.datePickerText}
+                                    >
+                                        {date.toLocaleDateString()}
+                                    </CustomText>
+                                </TouchableOpacity>
+                                {showDatePicker && (
+                                    <DateTimePicker
+                                        value={date}
+                                        mode="date"
+                                        display="default"
+                                        onChange={(event, date) => {
+                                            if (date) {
+                                                setDate(date);
+                                                setShowDatePicker(false);
+                                            }
                                         }}
                                     />
-                                ))}
+                                )}
+                                <CustomText
+                                    weight="semibold"
+                                    style={styles.formTitle}
+                                >
+                                    Colour
+                                </CustomText>
+                                <View style={styles.colorContainer}>
+                                    {listColorsArray.map((color, index) => (
+                                        <TouchableOpacity
+                                            style={[
+                                                styles.colorBox,
+                                                { backgroundColor: color },
+                                                index === selectedColorIndex &&
+                                                    styles.selectedColorBox,
+                                            ]}
+                                            key={color}
+                                            onPress={() => {
+                                                setSelectedColor(color);
+                                                setSelectedColorIndex(index);
+                                            }}
+                                        />
+                                    ))}
+                                </View>
+                            </View>
+                            <View style={styles.header}>
+                                <TouchableOpacity
+                                    style={styles.confirmButton}
+                                    onPress={handleAddGallery}
+                                >
+                                    <CustomText
+                                        weight="semibold"
+                                        style={styles.headerTitle}
+                                    >
+                                        Save
+                                    </CustomText>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={styles.headerButton}
+                                    onPress={handleCancel}
+                                >
+                                    <CustomText
+                                        weight="semibold"
+                                        style={styles.headerTitle}
+                                    >
+                                        Cancel
+                                    </CustomText>
+                                </TouchableOpacity>
                             </View>
                         </View>
-                        <View style={styles.header}>
-                            <TouchableOpacity
-                                style={styles.confirmButton}
-                                onPress={handleAddGallery}
-                            >
-                                <CustomText
-                                    weight="semibold"
-                                    style={styles.headerTitle}
-                                >
-                                    Save
-                                </CustomText>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={styles.headerButton}
-                                onPress={handleCancel}
-                            >
-                                <CustomText
-                                    weight="semibold"
-                                    style={styles.headerTitle}
-                                >
-                                    Cancel
-                                </CustomText>
-                            </TouchableOpacity>
-                        </View>
                     </View>
-                </View>
+                </KeyboardAvoidingView>
             </TouchableWithoutFeedback>
         </Modal>
     );
