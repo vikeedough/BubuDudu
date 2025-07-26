@@ -5,6 +5,7 @@ import {
 } from "@/api/endpoints/supabase";
 import CustomText from "@/components/CustomText";
 import EditChoicesModal from "@/components/wheel/EditChoicesModal";
+import SpinningWheel from "@/components/wheel/SpinningWheel";
 import WheelHeader from "@/components/wheel/WheelHeader";
 import { Colors, listColorsArray } from "@/constants/colors";
 import { useAppStore } from "@/stores/AppStore";
@@ -127,6 +128,7 @@ const Wheel = () => {
 
     const handleLabelSelect = (index: number) => {
         setSelectedIndex(index);
+        setCurrentSelections([]);
     };
 
     const LabelItem = ({ item, index }: { item: string; index: number }) => {
@@ -208,7 +210,7 @@ const Wheel = () => {
                         nestedScrollEnabled={false}
                     >
                         <WheelHeader currentDate={currentDate} />
-                        <View style={styles.wheel} />
+                        <SpinningWheel selectedChoices={currentSelections} />
                         <View style={styles.wheelOptionsContainer}>
                             <View style={styles.labelsContainer}>
                                 <FlatList
@@ -331,13 +333,7 @@ const styles = StyleSheet.create({
         marginLeft: 10,
         marginTop: 4,
     },
-    wheel: {
-        backgroundColor: "red",
-        height: 325,
-        width: 325,
-        borderRadius: 999,
-        alignSelf: "center",
-    },
+
     keyboardAvoidingView: {
         flex: 1,
     },
