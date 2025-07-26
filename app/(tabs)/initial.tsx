@@ -9,11 +9,14 @@ import { useAppStore } from "@/stores/AppStore";
 import { useUserStore } from "@/stores/UserStore";
 import { getToday, pickAndUploadAvatar } from "@/utils/home";
 import { Image } from "expo-image";
-import { useState } from "react";
+import { router } from "expo-router";
+import { useEffect, useState } from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const Home = () => {
+    const { logout } = useUserStore();
+    const isLoggedIn = useUserStore((state) => state.isLoggedIn);
     const milestones = useAppStore((state) => state.milestones);
     const users = useAppStore((state) => state.users);
     const currentUser = useUserStore((state) => state.currentUser);
@@ -21,12 +24,23 @@ const Home = () => {
 
     const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
 
+    // Redirect to login if user logs out
+    useEffect(() => {
+        if (!isLoggedIn) {
+            router.replace("/(login)");
+        }
+    }, [isLoggedIn]);
+
     const handleOpenNoteModal = () => {
         setIsNoteModalOpen(true);
     };
 
     const handleCloseNoteModal = () => {
         setIsNoteModalOpen(false);
+    };
+
+    const handleLogout = () => {
+        logout();
     };
 
     return (
@@ -47,11 +61,13 @@ const Home = () => {
                 </CustomText>
             </View>
             <View style={styles.debonContainer}>
-                <Image
-                    source={require("@/assets/images/debon-left.png")}
-                    style={styles.debonImage}
-                    resizeMode="contain"
-                />
+                <TouchableOpacity onLongPress={handleLogout}>
+                    <Image
+                        source={require("@/assets/images/debon-left.png")}
+                        style={styles.debonImage}
+                        contentFit="contain"
+                    />
+                </TouchableOpacity>
                 <QuoteContainer />
             </View>
             <View style={styles.milestonesContainer}>

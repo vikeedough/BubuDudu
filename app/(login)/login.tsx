@@ -16,7 +16,7 @@ export default function Login() {
     const handleLogin = () => {
         if (selectedUser) {
             login(selectedUser);
-            router.replace("/");
+            router.replace("/(tabs)/initial");
         }
     };
 

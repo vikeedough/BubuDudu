@@ -14,12 +14,6 @@ export default function TabLayout() {
                     title: "Lists",
                 }}
             />
-            <Stack.Screen
-                name="listContent"
-                options={{
-                    title: "List Content",
-                }}
-            />
         </Stack>
     );
 }
