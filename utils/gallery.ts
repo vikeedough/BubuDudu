@@ -53,7 +53,13 @@ export const downloadAndSaveImage = async (image_id: string, url: string) => {
 
     const download = await FileSystem.downloadAsync(url, fileUri);
     const asset = await MediaLibrary.createAssetAsync(download.uri);
-    await MediaLibrary.createAlbumAsync("BubuDudu", asset, false);
+
+    const album = await MediaLibrary.getAlbumAsync("BubuDudu");
+    if (!album) {
+        await MediaLibrary.createAlbumAsync("BubuDudu", asset, false);
+    } else {
+        await MediaLibrary.addAssetsToAlbumAsync([asset], album);
+    }
 };
 
 export const multipleDownloadAndSaveImage = async (images: DateImage[]) => {
