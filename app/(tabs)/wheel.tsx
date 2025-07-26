@@ -1,5 +1,10 @@
-import { fetchWheels, updateWheelTitle } from "@/api/endpoints/supabase";
+import {
+    addNewWheel,
+    fetchWheels,
+    updateWheelTitle,
+} from "@/api/endpoints/supabase";
 import CustomText from "@/components/CustomText";
+import EditChoicesModal from "@/components/wheel/EditChoicesModal";
 import WheelHeader from "@/components/wheel/WheelHeader";
 import { Colors, listColorsArray } from "@/constants/colors";
 import { useAppStore } from "@/stores/AppStore";
@@ -29,6 +34,8 @@ const Wheel = () => {
     const wheelNames = wheels.map((wheel) => wheel.title);
     const [selectedIndex, setSelectedIndex] = useState(0);
     const [localTitle, setLocalTitle] = useState("");
+    const [isEditChoicesModalOpen, setIsEditChoicesModalOpen] = useState(false);
+    const [currentSelections, setCurrentSelections] = useState<string[]>([]);
     const debounceTimeoutRef = useRef<number | null>(null);
 
     useEffect(() => {
@@ -52,6 +59,15 @@ const Wheel = () => {
 
             // Set new timeout
             debounceTimeoutRef.current = setTimeout(async () => {
+                if (wheelId === "" && newTitle.trim() !== "") {
+                    const success = await addNewWheel(newTitle.trim(), []);
+                    if (success) {
+                        const updatedWheels = await fetchWheels();
+                        useAppStore.setState({ wheels: updatedWheels });
+                        return;
+                    }
+                }
+
                 if (
                     newTitle.trim() !== "" &&
                     newTitle !== wheels[selectedIndex]?.title
@@ -74,10 +90,21 @@ const Wheel = () => {
     const handleTitleChange = (newTitle: string) => {
         setLocalTitle(newTitle);
 
-        // Only debounce if we have a valid wheel
-        if (wheels.length > selectedIndex && wheels[selectedIndex]?.id) {
+        // Call debounce for both existing wheels and new wheels (with empty id)
+        if (wheels.length > selectedIndex && wheels[selectedIndex]) {
             debouncedUpdateTitle(wheels[selectedIndex].id, newTitle);
         }
+    };
+
+    const handleAddEmptyWheel = () => {
+        wheels.push({
+            id: "",
+            title: "",
+            choices: [],
+            created_at: "",
+        });
+        setSelectedIndex(wheels.length - 1);
+        setLocalTitle(wheels[wheels.length - 1].title);
     };
 
     // Cleanup timeout on unmount
@@ -129,24 +156,42 @@ const Wheel = () => {
         );
     };
 
-    const renderWheelItem = ({ item: wheel }: any) => {
-        const choices = wheel.choices || [];
+    const ChoiceItem = ({ item }: { item: string }) => {
+        const isSelected = currentSelections.includes(item);
 
         return (
-            <View style={styles.wheelItem}>
-                <CustomText style={styles.wheelTitle}>{wheel.title}</CustomText>
-                <CustomText>{choices.length} choices</CustomText>
-                {choices.map((choice: string) => (
-                    <CustomText key={choice} style={styles.choiceItem}>
-                        • {choice}
-                    </CustomText>
-                ))}
-            </View>
+            <TouchableOpacity
+                style={[
+                    styles.selectableChoice,
+                    isSelected && styles.selectedChoice,
+                ]}
+                onPress={() => handleChoiceSelect(item)}
+            >
+                <CustomText weight="semibold" style={styles.choiceText}>
+                    {item}
+                </CustomText>
+            </TouchableOpacity>
         );
+    };
+
+    const handleChoiceSelect = (choice: string) => {
+        setCurrentSelections((prev) => {
+            if (prev.includes(choice)) {
+                return prev.filter((item) => item !== choice);
+            }
+            return [...prev, choice];
+        });
     };
 
     return (
         <SafeAreaView style={styles.container}>
+            {isEditChoicesModalOpen && (
+                <EditChoicesModal
+                    isOpen={isEditChoicesModalOpen}
+                    onClose={() => setIsEditChoicesModalOpen(false)}
+                    wheel={wheels[selectedIndex]}
+                />
+            )}
             <TouchableWithoutFeedback
                 onPress={Keyboard.dismiss}
                 accessible={false}
@@ -160,6 +205,7 @@ const Wheel = () => {
                         contentContainerStyle={styles.scrollContent}
                         keyboardShouldPersistTaps="handled"
                         showsVerticalScrollIndicator={false}
+                        nestedScrollEnabled={false}
                     >
                         <WheelHeader currentDate={currentDate} />
                         <View style={styles.wheel} />
@@ -173,14 +219,22 @@ const Wheel = () => {
                                     keyExtractor={(item, index) =>
                                         `${item}-${index}`
                                     }
-                                    horizontal
+                                    horizontal={true}
+                                    nestedScrollEnabled={true}
                                     showsHorizontalScrollIndicator={false}
+                                    showsVerticalScrollIndicator={false}
+                                    scrollEnabled={true}
+                                    alwaysBounceVertical={false}
+                                    directionalLockEnabled={true}
                                     style={styles.flatList}
                                     ItemSeparatorComponent={() => (
                                         <View style={{ width: 5 }} />
                                     )}
                                 />
-                                <TouchableOpacity style={styles.addListLabel}>
+                                <TouchableOpacity
+                                    style={styles.addListLabel}
+                                    onPress={handleAddEmptyWheel}
+                                >
                                     <CustomText
                                         weight="medium"
                                         style={styles.addListLabelText}
@@ -190,33 +244,53 @@ const Wheel = () => {
                                 </TouchableOpacity>
                             </View>
                             <View style={styles.choicesContainer}>
-                                <TextInput
-                                    style={styles.wheelTitle}
-                                    value={localTitle}
-                                    onChangeText={handleTitleChange}
-                                    placeholder="Enter wheel title..."
-                                    placeholderTextColor={Colors.gray}
-                                />
-                                {wheels.length > selectedIndex &&
-                                wheels[selectedIndex] &&
-                                wheels[selectedIndex].choices &&
-                                Array.isArray(wheels[selectedIndex].choices) &&
-                                wheels[selectedIndex].choices.length > 0 ? (
-                                    wheels[selectedIndex].choices.map(
-                                        (choice: string) => (
-                                            <CustomText
-                                                key={choice}
-                                                style={styles.choiceText}
-                                            >
-                                                {choice}
-                                            </CustomText>
+                                <View style={styles.wheelTitleHeader}>
+                                    <TextInput
+                                        style={styles.wheelTitle}
+                                        value={localTitle}
+                                        onChangeText={handleTitleChange}
+                                        placeholder="Enter wheel title..."
+                                        placeholderTextColor={Colors.gray}
+                                    />
+                                    <TouchableOpacity
+                                        style={styles.editChoicesButton}
+                                        onPress={() =>
+                                            setIsEditChoicesModalOpen(true)
+                                        }
+                                    >
+                                        <CustomText
+                                            weight="semibold"
+                                            style={styles.editChoicesButtonText}
+                                        >
+                                            +
+                                        </CustomText>
+                                    </TouchableOpacity>
+                                </View>
+
+                                <View style={styles.choicesList}>
+                                    {wheels.length > selectedIndex &&
+                                    wheels[selectedIndex] &&
+                                    wheels[selectedIndex].choices &&
+                                    Array.isArray(
+                                        wheels[selectedIndex].choices
+                                    ) &&
+                                    wheels[selectedIndex].choices.length > 0 ? (
+                                        wheels[selectedIndex].choices.map(
+                                            (choice: string, index: number) => (
+                                                <ChoiceItem
+                                                    item={choice}
+                                                    key={`${choice}-${index}`}
+                                                />
+                                            )
                                         )
-                                    )
-                                ) : (
-                                    <CustomText style={styles.noChoicesText}>
-                                        No choices available for this wheel
-                                    </CustomText>
-                                )}
+                                    ) : (
+                                        <CustomText
+                                            style={styles.noChoicesText}
+                                        >
+                                            No choices available for this wheel
+                                        </CustomText>
+                                    )}
+                                </View>
                             </View>
                         </View>
                     </ScrollView>
@@ -277,17 +351,14 @@ const styles = StyleSheet.create({
     choicesContainer: {
         flex: 1,
         backgroundColor: Colors.white,
-        padding: 15,
+        padding: 20,
         borderRadius: 15,
         marginTop: -25,
         zIndex: 200,
     },
     choiceText: {
-        marginLeft: 10,
-        marginTop: 4,
-        fontSize: 16,
-        fontWeight: "bold",
-        color: Colors.black,
+        fontSize: 11,
+        color: Colors.brownText,
     },
     noChoicesText: {
         textAlign: "center",
@@ -321,7 +392,7 @@ const styles = StyleSheet.create({
     addListLabelText: {
         fontSize: 32,
         color: Colors.black,
-        marginTop: -10,
+        marginTop: -3,
     },
     labelContainer: {
         width: 90,
@@ -348,5 +419,41 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         alignItems: "center",
         bottom: 20,
+    },
+    selectableChoice: {
+        backgroundColor: "#FFCC7D40",
+        padding: 10,
+        paddingHorizontal: 20,
+        borderRadius: 15,
+        marginBottom: 10,
+    },
+    selectedChoice: {
+        backgroundColor: "#FFCC7D",
+    },
+    choicesList: {
+        marginTop: 10,
+        flexDirection: "row",
+        flexWrap: "wrap",
+        gap: 10,
+    },
+    wheelTitleHeader: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: 10,
+    },
+    editChoicesButton: {
+        backgroundColor: "white",
+        width: 28,
+        height: 28,
+        borderRadius: 999,
+        justifyContent: "center",
+        alignItems: "center",
+        borderWidth: 1,
+        borderColor: "#EBEAEC",
+    },
+    editChoicesButtonText: {
+        fontSize: 32,
+        marginTop: -6,
     },
 });

@@ -193,10 +193,25 @@ const updateWheelTitle = async (wheel_id: string, title: string) => {
     return true;
 };
 
+const updateWheelChoices = async (wheel_id: string, choices: string[]) => {
+    const { error } = await supabase
+        .from("wheel")
+        .update({ choices: choices })
+        .eq("id", wheel_id);
+
+    if (error) {
+        console.error("Error updating wheel choices:", error.message);
+        return false;
+    }
+
+    return true;
+};
+
 const addNewWheel = async (title: string, choices: string[]) => {
     const { error } = await supabase.from("wheel").insert({
         title: title,
         choices: choices,
+        created_at: new Date().toISOString(),
     });
 
     if (error) {
@@ -422,6 +437,7 @@ export {
     updateList,
     updateNote,
     updateWheel,
+    updateWheelChoices,
     updateWheelTitle,
     uploadAvatarAndUpdateUser,
     uploadGalleryImages,
