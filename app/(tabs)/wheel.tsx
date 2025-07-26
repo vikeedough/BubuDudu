@@ -210,7 +210,10 @@ const Wheel = () => {
                         nestedScrollEnabled={false}
                     >
                         <WheelHeader currentDate={currentDate} />
-                        <SpinningWheel selectedChoices={currentSelections} />
+                        <SpinningWheel
+                            selectedChoices={currentSelections}
+                            selectedIndex={selectedIndex}
+                        />
                         <View style={styles.wheelOptionsContainer}>
                             <View style={styles.labelsContainer}>
                                 <FlatList
