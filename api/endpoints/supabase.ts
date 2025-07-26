@@ -64,24 +64,25 @@ const fetchGalleries = async () => {
     return data;
 };
 
-const fetchChoices = async () => {
+const fetchWheels = async () => {
     const { data, error } = await supabase.from("wheel").select("*");
 
     if (error) {
-        console.error("Error fetching choices: ", error);
+        console.error("Error fetching wheels: ", error);
         return [];
     }
 
     return data;
 };
 
-const updateChoices = async (choice: string) => {
+const updateWheel = async (wheel_id: string, choices: string[]) => {
     const { error } = await supabase
         .from("wheel")
-        .insert({ choice: choice, created_at: new Date().toISOString() });
+        .update({ choices: choices })
+        .eq("id", wheel_id);
 
     if (error) {
-        console.error("Error updating choices: ", error);
+        console.error("Error updating wheel:", error);
         return false;
     }
 
@@ -172,6 +173,34 @@ const updateList = async (list_id: string, type: string, content: string) => {
 
     if (error) {
         console.error("Error updating list content:", error.message);
+        return false;
+    }
+
+    return true;
+};
+
+const updateWheelTitle = async (wheel_id: string, title: string) => {
+    const { error } = await supabase
+        .from("wheel")
+        .update({ title: title })
+        .eq("id", wheel_id);
+
+    if (error) {
+        console.error("Error updating wheel title:", error.message);
+        return false;
+    }
+
+    return true;
+};
+
+const addNewWheel = async (title: string, choices: string[]) => {
+    const { error } = await supabase.from("wheel").insert({
+        title: title,
+        choices: choices,
+    });
+
+    if (error) {
+        console.error("Error adding new wheel:", error.message);
         return false;
     }
 
@@ -377,21 +406,23 @@ const deleteGallery = async (gallery_id: string) => {
 export {
     addNewGallery,
     addNewList,
+    addNewWheel,
     deleteGallery,
     deleteList,
     deleteMultipleGalleryImages,
     deleteOneGalleryImage,
-    fetchChoices,
     fetchGalleries,
     fetchGalleryImages,
     fetchLists,
     fetchMilestones,
     fetchQuotes,
     fetchUsers,
+    fetchWheels,
     getGalleryId,
-    updateChoices,
     updateList,
     updateNote,
+    updateWheel,
+    updateWheelTitle,
     uploadAvatarAndUpdateUser,
     uploadGalleryImages,
 };

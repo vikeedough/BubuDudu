@@ -1,10 +1,10 @@
 import {
-    fetchChoices,
     fetchGalleries,
     fetchLists,
     fetchMilestones,
     fetchQuotes,
     fetchUsers,
+    fetchWheels,
 } from "@/api/endpoints/supabase";
 import { useAppStore } from "@/stores/AppStore";
 import { useEffect, useState } from "react";
@@ -16,14 +16,14 @@ export const useAppBootstrap = () => {
     useEffect(() => {
         const bootstrap = async () => {
             try {
-                const [milestones, users, quotes, lists, galleries, choices] =
+                const [milestones, users, quotes, lists, galleries, wheels] =
                     await Promise.all([
                         fetchMilestones(),
                         fetchUsers(),
                         fetchQuotes(),
                         fetchLists(),
                         fetchGalleries(),
-                        fetchChoices(),
+                        fetchWheels(),
                     ]);
                 setAllData({
                     milestones,
@@ -31,7 +31,7 @@ export const useAppBootstrap = () => {
                     quotes,
                     lists,
                     galleries,
-                    choices,
+                    wheels,
                 });
             } catch (error) {
                 console.error("Error fetching data:", error);

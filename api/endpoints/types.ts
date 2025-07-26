@@ -42,8 +42,9 @@ export interface DateImage {
     created_at: string;
 }
 
-export interface Choice {
-    id: number;
-    choice: string;
+export interface Wheel {
+    id: string;
+    title: string;
+    choices: string[];
     created_at: string;
 }

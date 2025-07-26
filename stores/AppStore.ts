@@ -1,10 +1,10 @@
 import {
-    Choice,
     Gallery,
     List,
     Milestone,
     Quote,
     User,
+    Wheel,
 } from "@/api/endpoints/types";
 import { create } from "zustand";
 
@@ -14,7 +14,7 @@ interface AppStore {
     quotes: Quote[];
     lists: List[];
     galleries: Gallery[];
-    choices: Choice[];
+    wheels: Wheel[];
     setUsers: (users: User[]) => void;
     setAllData: (data: Partial<AppStore>) => void;
 }
@@ -25,7 +25,7 @@ export const useAppStore = create<AppStore>((set) => ({
     quotes: [],
     lists: [],
     galleries: [],
-    choices: [],
+    wheels: [],
     setUsers: (users) => set({ users }),
     setAllData: (data) => set(data),
 }));
