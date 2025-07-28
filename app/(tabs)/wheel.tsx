@@ -1,8 +1,11 @@
 import {
     addNewWheel,
+    deleteWheel,
     fetchWheels,
     updateWheelTitle,
 } from "@/api/endpoints/supabase";
+import DebonLyingDown from "@/assets/svgs/debon-lying-down.svg";
+import TrashIcon from "@/assets/svgs/trash-bin.svg";
 import CustomText from "@/components/CustomText";
 import EditChoicesModal from "@/components/wheel/EditChoicesModal";
 import SpinningWheel from "@/components/wheel/SpinningWheel";
@@ -11,9 +14,9 @@ import { Colors, listColorsArray } from "@/constants/colors";
 import { useAppStore } from "@/stores/AppStore";
 import { useUserStore } from "@/stores/UserStore";
 import { getDate } from "@/utils/home";
-import { router } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+    ActivityIndicator,
     FlatList,
     Keyboard,
     KeyboardAvoidingView,
@@ -38,6 +41,7 @@ const Wheel = () => {
     const [isEditChoicesModalOpen, setIsEditChoicesModalOpen] = useState(false);
     const [currentSelections, setCurrentSelections] = useState<string[]>([]);
     const debounceTimeoutRef = useRef<number | null>(null);
+    const [isDeletingWheel, setIsDeletingWheel] = useState(false);
 
     useEffect(() => {
         console.log("Wheels:", wheels);
@@ -117,9 +121,19 @@ const Wheel = () => {
         };
     }, []);
 
-    const handleLogout = () => {
-        logout();
-        router.replace("/login");
+    const handleDeleteWheel = async () => {
+        setIsDeletingWheel(true);
+        const success = await deleteWheel(wheels[selectedIndex].id);
+        if (success) {
+            const updatedWheels = wheels.filter(
+                (wheel) => wheel.id !== wheels[selectedIndex].id
+            );
+            useAppStore.setState({ wheels: updatedWheels });
+            setSelectedIndex(0);
+            setLocalTitle(wheels[0].title);
+            setCurrentSelections([]);
+            setIsDeletingWheel(false);
+        }
     };
 
     const findIndex = (index: number) => {
@@ -210,10 +224,20 @@ const Wheel = () => {
                         nestedScrollEnabled={false}
                     >
                         <WheelHeader currentDate={currentDate} />
-                        <SpinningWheel
-                            selectedChoices={currentSelections}
-                            selectedIndex={selectedIndex}
-                        />
+                        <View>
+                            <DebonLyingDown
+                                height={160}
+                                width={160}
+                                style={styles.debonLyingDown}
+                            />
+                            <View style={styles.wheelContainer}>
+                                <SpinningWheel
+                                    selectedChoices={currentSelections}
+                                    selectedIndex={selectedIndex}
+                                />
+                            </View>
+                        </View>
+
                         <View style={styles.wheelOptionsContainer}>
                             <View style={styles.labelsContainer}>
                                 <FlatList
@@ -257,19 +281,38 @@ const Wheel = () => {
                                         placeholder="Enter wheel title..."
                                         placeholderTextColor={Colors.gray}
                                     />
-                                    <TouchableOpacity
-                                        style={styles.editChoicesButton}
-                                        onPress={() =>
-                                            setIsEditChoicesModalOpen(true)
-                                        }
+                                    <View
+                                        style={styles.controlButtonsContainer}
                                     >
-                                        <CustomText
-                                            weight="semibold"
-                                            style={styles.editChoicesButtonText}
+                                        <TouchableOpacity
+                                            style={styles.editChoicesButton}
+                                            onPress={handleDeleteWheel}
                                         >
-                                            +
-                                        </CustomText>
-                                    </TouchableOpacity>
+                                            {isDeletingWheel ? (
+                                                <ActivityIndicator size="small" />
+                                            ) : (
+                                                <TrashIcon
+                                                    width={14}
+                                                    height={14}
+                                                />
+                                            )}
+                                        </TouchableOpacity>
+                                        <TouchableOpacity
+                                            style={styles.editChoicesButton}
+                                            onPress={() =>
+                                                setIsEditChoicesModalOpen(true)
+                                            }
+                                        >
+                                            <CustomText
+                                                weight="semibold"
+                                                style={
+                                                    styles.editChoicesButtonText
+                                                }
+                                            >
+                                                +
+                                            </CustomText>
+                                        </TouchableOpacity>
+                                    </View>
                                 </View>
 
                                 <View style={styles.choicesList}>
@@ -301,12 +344,6 @@ const Wheel = () => {
                     </ScrollView>
                 </KeyboardAvoidingView>
             </TouchableWithoutFeedback>
-            {/* <Button title="logout" onPress={handleLogout} /> */}
-            {/* <FlatList
-                data={wheels}
-                renderItem={renderWheelItem}
-                keyExtractor={(item) => item.id}
-            /> */}
         </SafeAreaView>
     );
 };
@@ -319,7 +356,6 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.backgroundPink,
         paddingVertical: 25,
         paddingBottom: 70,
-        paddingHorizontal: 25,
     },
     wheelItem: {
         backgroundColor: "white",
@@ -346,6 +382,7 @@ const styles = StyleSheet.create({
     wheelOptionsContainer: {
         marginTop: 20,
         flex: 1,
+        paddingHorizontal: 25,
     },
     choicesContainer: {
         flex: 1,
@@ -424,7 +461,7 @@ const styles = StyleSheet.create({
         padding: 10,
         paddingHorizontal: 20,
         borderRadius: 15,
-        marginBottom: 10,
+        marginBottom: 3,
     },
     selectedChoice: {
         backgroundColor: "#FFCC7D",
@@ -454,5 +491,18 @@ const styles = StyleSheet.create({
     editChoicesButtonText: {
         fontSize: 32,
         marginTop: -6,
+    },
+    controlButtonsContainer: {
+        flexDirection: "row",
+        gap: 10,
+    },
+    debonLyingDown: {
+        position: "absolute",
+        top: -60,
+        right: 10,
+        zIndex: 100,
+    },
+    wheelContainer: {
+        zIndex: 1000,
     },
 });

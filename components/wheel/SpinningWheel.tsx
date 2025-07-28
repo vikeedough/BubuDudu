@@ -1,3 +1,4 @@
+import DebonSpin from "@/assets/svgs/debon-spin.svg";
 import { listColorsArray } from "@/constants/colors";
 import React, { useState } from "react";
 import { Modal, StyleSheet, TouchableOpacity, View } from "react-native";
@@ -10,6 +11,7 @@ import Animated, {
     withTiming,
 } from "react-native-reanimated";
 import Svg, { Circle, Path, Text as SvgText } from "react-native-svg";
+import { Colors } from "react-native/Libraries/NewAppScreen";
 import CustomText from "../CustomText";
 
 interface SpinningWheelProps {
@@ -21,10 +23,10 @@ const SpinningWheel: React.FC<SpinningWheelProps> = ({
     selectedChoices,
     selectedIndex,
 }) => {
-    const size = 320;
+    const size = 360;
     const strokeWidth = 18;
     const dotRadius = 4;
-    const radius = 140; // Bigger radius for a more prominent wheel
+    const radius = 170; // Bigger radius for a more prominent wheel
     const centerX = size / 2;
     const centerY = size / 2;
 
@@ -80,8 +82,8 @@ const SpinningWheel: React.FC<SpinningWheelProps> = ({
 
     // Colors for the wheel segments based on current label
     const colors = [
-        currentLabelColor, // Main label color
-        lightenColor(currentLabelColor, 0.4), // Lighter version
+        "white", // White segments
+        lightenColor(currentLabelColor, 0.9), // Very light version
     ];
 
     // Animated style for wheel rotation
@@ -102,35 +104,40 @@ const SpinningWheel: React.FC<SpinningWheelProps> = ({
 
         setIsSpinning(true);
 
-        // Calculate random rotation (10-15 full rotations + random segment)
-        const fullRotations = Math.floor(Math.random() * 6) + 10; // 10-15 rotations
-        const segmentAngle = 360 / selectedChoices.length;
-        const randomSegment = Math.floor(
+        // Directly pick a random choice for true randomness
+        const randomChoiceIndex = Math.floor(
             Math.random() * selectedChoices.length
         );
-        const finalAngle =
-            fullRotations * 360 +
-            randomSegment * segmentAngle +
-            segmentAngle / 2;
+        const result = selectedChoices[randomChoiceIndex];
+
+        // Calculate random rotation (15-25 full rotations + land on the selected segment)
+        const fullRotations = Math.floor(Math.random() * 11) + 15; // 15-25 rotations
+        const segmentAngle = 360 / selectedChoices.length;
+
+        // Calculate the angle to land on the randomly selected choice
+        // The pointer is at the top, so we need the middle of the target segment to end up at the top
+        // Segments start at -90 degrees, so segment randomChoiceIndex middle is at:
+        const segmentMiddle =
+            randomChoiceIndex * segmentAngle - 90 + segmentAngle / 2;
+
+        // To get this segment middle to the top (-90 degrees), we need to rotate by:
+        // rotation = -90 - segmentMiddle = -90 - (randomChoiceIndex * segmentAngle - 90 + segmentAngle / 2)
+        const targetRotation =
+            -randomChoiceIndex * segmentAngle - segmentAngle / 2;
+        const finalAngle = fullRotations * 360 + targetRotation;
 
         // Animate the wheel
         rotation.value = withSequence(
             withTiming(finalAngle, {
-                duration: 3000, // 3 seconds
+                duration: 4000, // 4 seconds for more dramatic effect
                 easing: Easing.out(Easing.cubic),
             })
         );
 
-        // Calculate which choice was selected (wheel spins clockwise, segments go counter-clockwise)
-        const normalizedAngle = (360 - (finalAngle % 360)) % 360;
-        const selectedIndex =
-            Math.floor(normalizedAngle / segmentAngle) % selectedChoices.length;
-        const result = selectedChoices[selectedIndex];
-
         // Call completion handler after animation
         setTimeout(() => {
             runOnJS(onSpinComplete)(result);
-        }, 3000);
+        }, 4000);
     };
 
     // If no choices selected, show empty wheel
@@ -186,6 +193,7 @@ const SpinningWheel: React.FC<SpinningWheelProps> = ({
                     onPress={spinWheel}
                     disabled={isSpinning}
                     activeOpacity={0.8}
+                    style={{ position: "relative" }}
                 >
                     <Animated.View style={animatedStyle}>
                         <Svg
@@ -239,6 +247,15 @@ const SpinningWheel: React.FC<SpinningWheelProps> = ({
                             </SvgText>
                         </Svg>
                     </Animated.View>
+
+                    {/* Fixed center pointer that doesn't rotate */}
+                    <Svg
+                        style={{ position: "absolute", top: 0, left: 0 }}
+                        width={size}
+                        height={size}
+                        viewBox={`0 0 ${size} ${size}`}
+                        pointerEvents="none"
+                    ></Svg>
                 </TouchableOpacity>
 
                 {/* Result Modal */}
@@ -250,31 +267,33 @@ const SpinningWheel: React.FC<SpinningWheelProps> = ({
                 >
                     <View style={styles.modalOverlay}>
                         <View style={styles.modalContent}>
+                            <DebonSpin style={styles.debonSpin} />
                             <CustomText weight="bold" style={styles.modalTitle}>
-                                🎉 Result!
+                                Debon picked!
                             </CustomText>
-                            <View
-                                style={[
-                                    styles.resultContainer,
-                                    { backgroundColor: currentLabelColor },
-                                ]}
-                            >
+                            <View style={[styles.resultContainer]}>
                                 <CustomText
-                                    weight="bold"
+                                    weight="semibold"
                                     style={styles.resultText}
                                 >
                                     {selectedResult}
                                 </CustomText>
+                                <CustomText
+                                    weight="regular"
+                                    style={styles.debonText}
+                                >
+                                    Debon's stomach agrees too.
+                                </CustomText>
                             </View>
                             <TouchableOpacity
-                                style={[
-                                    styles.closeButton,
-                                    { backgroundColor: currentLabelColor },
-                                ]}
+                                style={[styles.closeButton]}
                                 onPress={() => setShowResultModal(false)}
                             >
-                                <CustomText style={styles.closeButtonText}>
-                                    Close
+                                <CustomText
+                                    weight="semibold"
+                                    style={styles.closeButtonText}
+                                >
+                                    Yes
                                 </CustomText>
                             </TouchableOpacity>
                         </View>
@@ -309,7 +328,7 @@ const SpinningWheel: React.FC<SpinningWheelProps> = ({
     // Function to get text position for labels
     const getTextPosition = (angle: number, radius: number) => {
         const angleRad = (angle * Math.PI) / 180;
-        const textRadius = radius * 0.7; // Position text at 70% of radius
+        const textRadius = radius * 0.65; // Position text at 55% of radius (further from edge)
         return {
             x: centerX + textRadius * Math.cos(angleRad),
             y: centerY + textRadius * Math.sin(angleRad),
@@ -322,6 +341,7 @@ const SpinningWheel: React.FC<SpinningWheelProps> = ({
                 onPress={spinWheel}
                 disabled={isSpinning}
                 activeOpacity={0.8}
+                style={{ position: "relative" }}
             >
                 <Animated.View style={animatedStyle}>
                     <Svg
@@ -384,18 +404,15 @@ const SpinningWheel: React.FC<SpinningWheelProps> = ({
                                     key={`text-${index}`}
                                     x={textPos.x}
                                     y={textPos.y}
-                                    fontSize="14"
+                                    fontSize="16"
                                     fill={textColor}
                                     textAnchor="middle"
                                     alignmentBaseline="middle"
-                                    fontWeight="600"
-                                    transform={
-                                        selectedChoices.length > 6
-                                            ? `rotate(${midAngle + 90} ${
-                                                  textPos.x
-                                              } ${textPos.y})`
-                                            : undefined
-                                    }
+                                    fontWeight="semibold"
+                                    fontFamily="Raleway-SemiBold"
+                                    transform={`rotate(${midAngle + 180} ${
+                                        textPos.x
+                                    } ${textPos.y})`}
                                 >
                                     {choice.length > 9
                                         ? choice.substring(0, 9) + "..."
@@ -429,44 +446,75 @@ const SpinningWheel: React.FC<SpinningWheelProps> = ({
                         })}
                     </Svg>
                 </Animated.View>
+
+                {/* Fixed center pointer that doesn't rotate */}
+                <Svg
+                    style={{ position: "absolute", top: 0, left: 0 }}
+                    width={size}
+                    height={size}
+                    viewBox={`0 0 ${size} ${size}`}
+                    pointerEvents="none"
+                >
+                    {/* Center pointer circle with tip */}
+                    <Circle
+                        cx={centerX}
+                        cy={centerY}
+                        r={25}
+                        fill={currentLabelColor}
+                    />
+                    {/* Pointer tip pointing upward */}
+                    <Path
+                        d={`M ${centerX} ${centerY - 45} L ${centerX - 22} ${
+                            centerY - 5
+                        } L ${centerX + 22} ${centerY - 5} Z`}
+                        fill={currentLabelColor}
+                    />
+                </Svg>
             </TouchableOpacity>
 
             {/* Result Modal */}
-            <Modal
-                visible={showResultModal}
-                transparent={true}
-                animationType="fade"
-                onRequestClose={() => setShowResultModal(false)}
-            >
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
-                        <CustomText weight="bold" style={styles.modalTitle}>
-                            Result!
-                        </CustomText>
-                        <View
-                            style={[
-                                styles.resultContainer,
-                                { backgroundColor: currentLabelColor },
-                            ]}
-                        >
-                            <CustomText style={styles.resultText}>
-                                {selectedResult}
+            {showResultModal && (
+                <Modal
+                    visible={showResultModal}
+                    transparent={true}
+                    animationType="fade"
+                    onRequestClose={() => setShowResultModal(false)}
+                >
+                    <View style={styles.modalOverlay}>
+                        <View style={styles.modalContent}>
+                            <DebonSpin style={styles.debonSpin} />
+                            <CustomText weight="bold" style={styles.modalTitle}>
+                                Debon picked!
                             </CustomText>
+                            <View style={[styles.resultContainer]}>
+                                <CustomText
+                                    weight="semibold"
+                                    style={styles.resultText}
+                                >
+                                    {selectedResult}
+                                </CustomText>
+                                <CustomText
+                                    weight="regular"
+                                    style={styles.debonText}
+                                >
+                                    Debon's stomach agrees too.
+                                </CustomText>
+                            </View>
+                            <TouchableOpacity
+                                style={[styles.closeButton]}
+                                onPress={() => setShowResultModal(false)}
+                            >
+                                <CustomText
+                                    weight="semibold"
+                                    style={styles.closeButtonText}
+                                >
+                                    Yes
+                                </CustomText>
+                            </TouchableOpacity>
                         </View>
-                        <TouchableOpacity
-                            style={[
-                                styles.closeButton,
-                                { backgroundColor: currentLabelColor },
-                            ]}
-                            onPress={() => setShowResultModal(false)}
-                        >
-                            <CustomText style={styles.closeButtonText}>
-                                Close
-                            </CustomText>
-                        </TouchableOpacity>
                     </View>
-                </View>
-            </Modal>
+                </Modal>
+            )}
         </View>
     );
 };
@@ -476,8 +524,6 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         alignItems: "center",
         alignSelf: "center",
-        position: "relative",
-        margin: 10, // Reduced margin since we sized the wheel properly
     },
     emptyTextContainer: {
         position: "absolute",
@@ -511,29 +557,39 @@ const styles = StyleSheet.create({
         minWidth: 250,
     },
     modalTitle: {
-        fontSize: 24,
-        color: "#333",
+        fontSize: 16,
+        color: Colors.black,
         marginBottom: 20,
     },
     resultContainer: {
-        borderRadius: 15,
-        paddingHorizontal: 25,
-        paddingVertical: 15,
         marginBottom: 25,
     },
     resultText: {
         fontSize: 20,
-        color: "#FFFFFF",
+        color: "#9D6100",
+        textAlign: "center",
+        marginBottom: 10,
+    },
+    debonText: {
+        fontSize: 13,
+        color: Colors.black,
         textAlign: "center",
     },
     closeButton: {
-        borderRadius: 10,
+        borderRadius: 15,
         paddingHorizontal: 30,
         paddingVertical: 12,
+        backgroundColor: "#FFCC7D",
     },
     closeButtonText: {
-        fontSize: 16,
-        color: "#FFFFFF",
+        fontSize: 14,
+        color: "#9D6100",
+    },
+    debonSpin: {
+        position: "absolute",
+        top: -125,
+        left: -45,
+        zIndex: 1000,
     },
 });
 

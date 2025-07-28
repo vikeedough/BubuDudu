@@ -222,6 +222,17 @@ const addNewWheel = async (title: string, choices: string[]) => {
     return true;
 };
 
+const deleteWheel = async (wheel_id: string) => {
+    const { error } = await supabase.from("wheel").delete().eq("id", wheel_id);
+
+    if (error) {
+        console.error("Error deleting wheel:", error.message);
+        return false;
+    }
+
+    return true;
+};
+
 const addNewGallery = async (
     title: string,
     date: string,
@@ -426,6 +437,7 @@ export {
     deleteList,
     deleteMultipleGalleryImages,
     deleteOneGalleryImage,
+    deleteWheel,
     fetchGalleries,
     fetchGalleryImages,
     fetchLists,
