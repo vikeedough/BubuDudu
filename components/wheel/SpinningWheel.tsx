@@ -384,7 +384,7 @@ const SpinningWheel: React.FC<SpinningWheelProps> = ({
                                     d={path}
                                     fill={color}
                                     stroke="white"
-                                    strokeWidth="2"
+                                    strokeWidth={2} // ← numeric, not string
                                 />
                             );
                         })}
@@ -404,12 +404,11 @@ const SpinningWheel: React.FC<SpinningWheelProps> = ({
                                     key={`text-${index}`}
                                     x={textPos.x}
                                     y={textPos.y}
-                                    fontSize="16"
+                                    fontSize={16} // ← numeric
                                     fill={textColor}
                                     textAnchor="middle"
                                     alignmentBaseline="middle"
-                                    fontWeight="semibold"
-                                    fontFamily="Raleway-SemiBold"
+                                    fontWeight="600" // ← use “600” or “bold”
                                     transform={`rotate(${midAngle + 180} ${
                                         textPos.x
                                     } ${textPos.y})`}
