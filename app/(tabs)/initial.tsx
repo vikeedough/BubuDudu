@@ -107,6 +107,7 @@ const Home = () => {
                     <TouchableOpacity
                         style={[styles.messageBubble, styles.duduMessageBubble]}
                         onPress={handleOpenNoteModal}
+                        disabled={currentUser?.id !== users[0].id}
                     >
                         <CustomText
                             weight="semibold"
@@ -130,6 +131,8 @@ const Home = () => {
                 <View>
                     <TouchableOpacity
                         style={[styles.messageBubble, styles.bubuMessageBubble]}
+                        onPress={handleOpenNoteModal}
+                        disabled={currentUser?.id !== users[1].id}
                     >
                         <CustomText
                             weight="semibold"
