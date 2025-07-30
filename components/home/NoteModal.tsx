@@ -51,6 +51,9 @@ const NoteModal: React.FC<NoteModalProps> = ({
         >
             <View style={styles.modalOverlay}>
                 <View style={styles.modalContainer}>
+                    <CustomText weight="bold" style={styles.modalTitle}>
+                        Edit Status
+                    </CustomText>
                     <TextInput
                         value={note}
                         onChangeText={setNote}
@@ -60,19 +63,19 @@ const NoteModal: React.FC<NoteModalProps> = ({
                     />
                     <View style={styles.buttonContainer}>
                         <TouchableOpacity
-                            style={styles.cancelButton}
-                            onPress={onClose}
-                        >
-                            <CustomText weight="bold" style={styles.buttonText}>
-                                Cancel
-                            </CustomText>
-                        </TouchableOpacity>
-                        <TouchableOpacity
                             style={styles.saveButton}
                             onPress={handleSave}
                         >
                             <CustomText weight="bold" style={styles.buttonText}>
                                 Save
+                            </CustomText>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={styles.cancelButton}
+                            onPress={onClose}
+                        >
+                            <CustomText weight="bold" style={styles.buttonText}>
+                                Cancel
                             </CustomText>
                         </TouchableOpacity>
                     </View>
@@ -107,36 +110,57 @@ const styles = StyleSheet.create({
         maxWidth: "90%",
         maxHeight: "80%",
     },
+    modalTitle: {
+        fontSize: 16,
+        marginBottom: 5,
+        textAlign: "center",
+    },
     noteInput: {
         borderWidth: 1,
-        borderColor: "gray",
+        borderColor: "#EBEAEC",
         borderRadius: 15,
         padding: 10,
         marginTop: 10,
         minWidth: "80%",
         maxWidth: "80%",
         height: 70,
-        fontFamily: "Raleway-Regular",
+        fontFamily: "Raleway-Medium",
+        fontSize: 12,
     },
     buttonContainer: {
         flexDirection: "row",
-        justifyContent: "space-between",
-        marginTop: 10,
+        justifyContent: "center",
+        gap: 40,
+        marginTop: 15,
     },
     cancelButton: {
-        backgroundColor: Colors.red,
+        backgroundColor: "#AFAFAF",
         padding: 10,
         paddingHorizontal: 20,
         borderRadius: 15,
+        shadowColor: "#000",
+        shadowOffset: {
+            width: 0,
+            height: 2,
+        },
+        shadowOpacity: 0.25,
+        shadowRadius: 4,
     },
     saveButton: {
-        backgroundColor: Colors.lightBlue,
+        backgroundColor: "#FFCC7D",
         padding: 10,
         paddingHorizontal: 20,
         borderRadius: 15,
+        shadowColor: "#000",
+        shadowOffset: {
+            width: 0,
+            height: 2,
+        },
+        shadowOpacity: 0.25,
+        shadowRadius: 4,
     },
     buttonText: {
         fontSize: 16,
-        color: "white",
+        color: Colors.brownText,
     },
 });

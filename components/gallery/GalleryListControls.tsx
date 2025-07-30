@@ -60,6 +60,7 @@ const styles = StyleSheet.create({
         alignItems: "center",
         marginBottom: 20,
         gap: 10,
+        zIndex: 1000,
     },
     searchBar: {
         flex: 1,

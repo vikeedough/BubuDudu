@@ -1,3 +1,4 @@
+import DebonBlush from "@/assets/svgs/debon-blush.svg";
 import NewGalleryModal from "@/components/gallery/AddNewGalleryModal";
 import GalleryListControls from "@/components/gallery/GalleryListControls";
 import GalleryListGrid from "@/components/gallery/GalleryListGrid";
@@ -32,7 +33,7 @@ const Gallery = () => {
             />
 
             <GalleryListHeader currentDate={date} />
-
+            <DebonBlush style={styles.debonBlush} width={110} height={110} />
             <View style={styles.galleryContainer}>
                 <GalleryListControls
                     searchText={searchText}
@@ -72,5 +73,11 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.25,
         shadowRadius: 3.84,
         elevation: 5,
+    },
+    debonBlush: {
+        position: "absolute",
+        right: 40,
+        top: 60,
+        zIndex: -1000,
     },
 });

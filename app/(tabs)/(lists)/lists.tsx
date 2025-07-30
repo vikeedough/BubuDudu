@@ -1,5 +1,6 @@
 import { addNewList, fetchLists, updateList } from "@/api/endpoints/supabase";
 import { List } from "@/api/endpoints/types";
+import DebonHeart from "@/assets/svgs/debon-heart.svg";
 import TrashIcon from "@/assets/svgs/trash-bin.svg";
 import CustomText from "@/components/CustomText";
 import DeleteListModal from "@/components/lists/DeleteListModal";
@@ -154,6 +155,11 @@ const Lists = () => {
                     </CustomText>
                 </View>
                 <View style={styles.contentContainer}>
+                    <DebonHeart
+                        style={styles.debonHeart}
+                        width={130}
+                        height={130}
+                    />
                     <View style={styles.labelsContainer}>
                         <FlatList
                             data={lists}
@@ -360,5 +366,14 @@ const styles = StyleSheet.create({
         right: 0,
         top: 0,
         zIndex: 1000,
+    },
+    debonHeart: {
+        position: "absolute",
+        right: 40,
+        top: -90,
+        zIndex: -10,
+        width: 100,
+        height: 100,
+        transform: [{ scaleX: -1 }],
     },
 });
