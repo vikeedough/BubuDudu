@@ -22,6 +22,9 @@ const Home = () => {
     const currentUser = useUserStore((state) => state.currentUser);
     const today = getToday();
 
+    const [uploadingAvatarUserId, setUploadingAvatarUserId] = useState<
+        number | null
+    >(null);
     const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
 
     // Redirect to login if user logs out
@@ -30,6 +33,12 @@ const Home = () => {
             router.replace("/(login)");
         }
     }, [isLoggedIn]);
+
+    const handlePickAndUploadAvatar = async (user_id: number) => {
+        setUploadingAvatarUserId(user_id);
+        await pickAndUploadAvatar(user_id);
+        setUploadingAvatarUserId(null);
+    };
 
     const handleOpenNoteModal = () => {
         setIsNoteModalOpen(true);
@@ -121,7 +130,12 @@ const Home = () => {
                     <Avatar
                         image={users[0].avatar_url}
                         onPressNoteButton={handleOpenNoteModal}
-                        onPressImage={() => pickAndUploadAvatar(users[0].id)}
+                        onPressImage={() =>
+                            handlePickAndUploadAvatar(users[0].id)
+                        }
+                        isUploadingAvatar={
+                            uploadingAvatarUserId === users[0].id
+                        }
                         isSelected={false}
                         hasAddMessageButton={currentUser?.id === users[0].id}
                         isBubu={false}
@@ -146,7 +160,12 @@ const Home = () => {
                     <Avatar
                         image={users[1].avatar_url}
                         onPressNoteButton={handleOpenNoteModal}
-                        onPressImage={() => pickAndUploadAvatar(users[1].id)}
+                        onPressImage={() =>
+                            handlePickAndUploadAvatar(users[1].id)
+                        }
+                        isUploadingAvatar={
+                            uploadingAvatarUserId === users[1].id
+                        }
                         isSelected={false}
                         hasAddMessageButton={currentUser?.id === users[1].id}
                         isBubu={true}

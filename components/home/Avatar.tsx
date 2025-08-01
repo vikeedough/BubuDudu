@@ -1,6 +1,11 @@
 import { Colors } from "@/constants/colors";
 import { Image } from "expo-image";
-import { StyleSheet, TouchableOpacity, View } from "react-native";
+import {
+    ActivityIndicator,
+    StyleSheet,
+    TouchableOpacity,
+    View,
+} from "react-native";
 
 interface AvatarProps {
     image: any;
@@ -10,6 +15,7 @@ interface AvatarProps {
     hasAddMessageButton: boolean;
     isBubu: boolean;
     disabled: boolean;
+    isUploadingAvatar: boolean;
 }
 
 const Avatar = ({
@@ -20,6 +26,7 @@ const Avatar = ({
     isBubu,
     hasAddMessageButton,
     disabled,
+    isUploadingAvatar,
 }: AvatarProps) => {
     return (
         <View style={styles.outsideContainer}>
@@ -41,7 +48,14 @@ const Avatar = ({
                 </TouchableOpacity>
             )} */}
                 <TouchableOpacity onPress={onPressImage} disabled={disabled}>
-                    <Image source={{ uri: image }} style={styles.image} />
+                    {isUploadingAvatar ? (
+                        <ActivityIndicator
+                            size="small"
+                            color={Colors.lightBlue}
+                        />
+                    ) : (
+                        <Image source={{ uri: image }} style={styles.image} />
+                    )}
                 </TouchableOpacity>
             </View>
         </View>

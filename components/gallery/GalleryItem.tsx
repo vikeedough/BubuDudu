@@ -20,22 +20,29 @@ const GalleryItem: React.FC<GalleryItemProps> = ({ gallery, onPress }) => {
                 ]}
                 onPress={onPress}
             >
-                <Image
-                    source={{ uri: gallery.cover_image }}
-                    style={styles.image}
-                />
-                <View style={styles.locationContainer}>
-                    <CustomText
-                        weight="semibold"
-                        style={styles.location}
-                        numberOfLines={1}
-                        ellipsizeMode="tail"
-                    >
-                        {gallery.location}
-                    </CustomText>
+                <View>
+                    <Image
+                        source={{ uri: gallery.cover_image }}
+                        style={styles.image}
+                    />
+                    <View style={styles.locationContainer}>
+                        <CustomText
+                            weight="semibold"
+                            style={styles.location}
+                            numberOfLines={1}
+                            ellipsizeMode="tail"
+                        >
+                            {gallery.location}
+                        </CustomText>
+                    </View>
                 </View>
 
-                <CustomText weight="bold" style={styles.title}>
+                <CustomText
+                    weight="bold"
+                    style={styles.title}
+                    numberOfLines={3}
+                    ellipsizeMode="tail"
+                >
                     {gallery.title}
                 </CustomText>
             </TouchableOpacity>
@@ -57,19 +64,21 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.25,
         shadowRadius: 3,
         elevation: 3,
-        alignItems: "center",
-        justifyContent: "center",
+        flex: 1,
     },
     container: {
         backgroundColor: Colors.white,
         padding: 10,
         borderRadius: 15,
-        width: 140,
+        flex: 1,
+        minHeight: 150,
+        justifyContent: "flex-start",
     },
     title: {
-        marginVertical: 10,
+        marginTop: 10,
         fontSize: 14,
         color: "#774433",
+        lineHeight: 18,
     },
     image: {
         width: "100%",

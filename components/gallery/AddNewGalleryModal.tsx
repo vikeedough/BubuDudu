@@ -9,12 +9,13 @@ import { Colors, listColorsArray } from "@/constants/colors";
 import { useAppStore } from "@/stores/AppStore";
 import { pickMultipleImages } from "@/utils/gallery";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import { FlashList } from "@shopify/flash-list";
 import { Image } from "expo-image";
 import { useState } from "react";
 import {
+    ActivityIndicator,
     Alert,
     Dimensions,
-    FlatList,
     Keyboard,
     KeyboardAvoidingView,
     Modal,
@@ -44,6 +45,8 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
         listColorsArray[0]
     );
     const [selectedColorIndex, setSelectedColorIndex] = useState<number>(0);
+    const [isAddingImages, setIsAddingImages] = useState(false);
+    const [isUploadingImages, setIsUploadingImages] = useState(false);
 
     const handleCancel = () => {
         setDateName("");
@@ -55,6 +58,7 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
     };
 
     const handleAddGallery = async () => {
+        setIsUploadingImages(true);
         if (
             dateName === "" ||
             date === null ||
@@ -100,12 +104,13 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
         setImages([]);
         setShowDatePicker(false);
         onClose();
+        setIsUploadingImages(false);
     };
 
     const imagesShown = () => {
         return (
-            <View>
-                <FlatList
+            <View style={styles.flashListContainer}>
+                <FlashList
                     data={images}
                     keyExtractor={(item, index) => index.toString()}
                     renderItem={({ item }) => (
@@ -123,6 +128,7 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
                         </TouchableOpacity>
                     )}
                     numColumns={3}
+                    estimatedItemSize={90}
                 />
             </View>
         );
@@ -153,15 +159,21 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
                                         : styles.galleryContainer
                                 }
                                 onPress={() => {
+                                    setIsAddingImages(true);
                                     pickMultipleImages().then((images) => {
                                         if (images) {
                                             setImages(images);
                                         }
+                                        setIsAddingImages(false);
                                     });
                                 }}
                             >
                                 {images.length > 0 ? (
-                                    imagesShown()
+                                    isAddingImages ? (
+                                        <ActivityIndicator />
+                                    ) : (
+                                        imagesShown()
+                                    )
                                 ) : (
                                     <CustomText
                                         weight="regular"
@@ -257,12 +269,16 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
                                     style={styles.confirmButton}
                                     onPress={handleAddGallery}
                                 >
-                                    <CustomText
-                                        weight="semibold"
-                                        style={styles.headerTitle}
-                                    >
-                                        Save
-                                    </CustomText>
+                                    {isUploadingImages ? (
+                                        <ActivityIndicator />
+                                    ) : (
+                                        <CustomText
+                                            weight="semibold"
+                                            style={styles.headerTitle}
+                                        >
+                                            Save
+                                        </CustomText>
+                                    )}
                                 </TouchableOpacity>
                                 <TouchableOpacity
                                     style={styles.headerButton}
@@ -391,6 +407,7 @@ const styles = StyleSheet.create({
     image: {
         width: (Dimensions.get("window").width - 150) / 3,
         height: (Dimensions.get("window").width - 150) / 3,
+        marginBottom: 10,
     },
     imagesContainer: {
         justifyContent: "center",
@@ -421,5 +438,10 @@ const styles = StyleSheet.create({
     selectedColorBox: {
         borderWidth: 1,
         borderColor: Colors.brownText,
+    },
+    flashListContainer: {
+        height: Dimensions.get("window").width - 130,
+        width: Dimensions.get("window").width - 130,
+        flex: 1,
     },
 });
