@@ -1,3 +1,4 @@
+import { generateBlurhash } from "@/utils/generateBlurhash";
 import { supabase } from "../clients/supabaseClient";
 
 const fetchGalleries = async () => {
@@ -70,7 +71,9 @@ const uploadGalleryImages = async (gallery_id: string, images: string[]) => {
     for (const image of images) {
         const timestamp = Date.now();
         const fileName = `${timestamp}.jpg`;
-        console.log("uploading image", image);
+
+        // Generate blurhash for the image
+        const imageBlurHash = await generateBlurhash(image);
 
         const { error: uploadError } = await supabase.storage
             .from("gallery")
@@ -100,9 +103,15 @@ const uploadGalleryImages = async (gallery_id: string, images: string[]) => {
                     id: timestamp.toString(),
                     gallery_id: gallery_id,
                     url: publicUrl,
+                    blur_hash: imageBlurHash,
                     created_at: new Date().toISOString(),
                 },
             ]);
+
+        if (updateError) {
+            console.error("Error inserting image data:", updateError.message);
+            return false;
+        }
 
         if (!hasUploadedFirstImage) {
             hasUploadedFirstImage = true;
@@ -110,7 +119,10 @@ const uploadGalleryImages = async (gallery_id: string, images: string[]) => {
             if (!hasCoverImage) {
                 const { data: updateData, error: updateError } = await supabase
                     .from("galleries")
-                    .update({ cover_image: publicUrl })
+                    .update({
+                        cover_image: publicUrl,
+                        cover_image_blur_hash: imageBlurHash,
+                    })
                     .eq("id", gallery_id);
 
                 if (updateError) {

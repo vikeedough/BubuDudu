@@ -33,6 +33,7 @@ export interface Gallery {
     color: string;
     location: string;
     cover_image: string;
+    cover_image_blur_hash: string;
 }
 
 export interface DateImage {
@@ -40,6 +41,7 @@ export interface DateImage {
     gallery_id: string;
     url: string;
     created_at: string;
+    blur_hash: string;
 }
 
 export interface Wheel {
@@ -47,4 +49,8 @@ export interface Wheel {
     title: string;
     choices: string[];
     created_at: string;
+}
+
+export interface Choice {
+    choice: string;
 }

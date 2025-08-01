@@ -19,7 +19,7 @@ export const pickMultipleImages = async () => {
         mediaTypes: ["images"],
         // allowsEditing: false,
         aspect: [1, 1],
-        quality: 0.8,
+        quality: 0.7,
         allowsMultipleSelection: true,
     });
 

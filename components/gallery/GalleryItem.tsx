@@ -23,7 +23,10 @@ const GalleryItem: React.FC<GalleryItemProps> = ({ gallery, onPress }) => {
                 <View>
                     <Image
                         source={{ uri: gallery.cover_image }}
+                        placeholder={gallery.cover_image_blur_hash}
+                        transition={200}
                         style={styles.image}
+                        cachePolicy="disk"
                     />
                     <View style={styles.locationContainer}>
                         <CustomText

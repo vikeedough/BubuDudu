@@ -36,7 +36,13 @@ const GalleryImageItem: React.FC<GalleryImageItemProps> = ({
                     onPress={onSelect}
                 />
             )}
-            <Image source={{ uri: image.url }} style={styles.image} />
+            <Image
+                source={{ uri: image.url }}
+                placeholder={image.blur_hash}
+                transition={200}
+                style={styles.image}
+                cachePolicy="disk"
+            />
         </TouchableOpacity>
     );
 };
