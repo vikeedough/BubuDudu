@@ -12,7 +12,9 @@ cd "$PROJECT_DIR" || {
 
 git pull origin main
 
-npx expo prebuild
+npm install
+
+npx expo prebuild --clean
 
 npx expo run:ios --device --configuration Release
 
