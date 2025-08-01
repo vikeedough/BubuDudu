@@ -41,7 +41,7 @@ const GalleryImageItem: React.FC<GalleryImageItemProps> = ({
                 placeholder={image.blur_hash}
                 transition={200}
                 style={styles.image}
-                cachePolicy="disk"
+                cachePolicy="memory-disk"
             />
         </TouchableOpacity>
     );

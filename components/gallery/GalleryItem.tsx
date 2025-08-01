@@ -26,7 +26,7 @@ const GalleryItem: React.FC<GalleryItemProps> = ({ gallery, onPress }) => {
                         placeholder={gallery.cover_image_blur_hash}
                         transition={200}
                         style={styles.image}
-                        cachePolicy="disk"
+                        cachePolicy="memory-disk"
                     />
                     <View style={styles.locationContainer}>
                         <CustomText
