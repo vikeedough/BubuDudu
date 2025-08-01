@@ -1,4 +1,4 @@
-import { addNewList, fetchLists, updateList } from "@/api/endpoints/supabase";
+import { addNewList, fetchLists, updateList } from "@/api/endpoints";
 import { List } from "@/api/endpoints/types";
 import DebonHeart from "@/assets/svgs/debon-heart.svg";
 import TrashIcon from "@/assets/svgs/trash-bin.svg";

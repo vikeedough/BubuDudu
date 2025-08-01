@@ -5,7 +5,7 @@ import {
     fetchQuotes,
     fetchUsers,
     fetchWheels,
-} from "@/api/endpoints/supabase";
+} from "@/api/endpoints";
 import { useAppStore } from "@/stores/AppStore";
 import { useEffect, useState } from "react";
 

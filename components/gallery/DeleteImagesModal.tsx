@@ -2,7 +2,7 @@ import {
     deleteMultipleGalleryImages,
     fetchGalleries,
     fetchGalleryImages,
-} from "@/api/endpoints/supabase";
+} from "@/api/endpoints";
 import { DateImage } from "@/api/endpoints/types";
 import { Colors } from "@/constants/colors";
 import { useAppStore } from "@/stores/AppStore";

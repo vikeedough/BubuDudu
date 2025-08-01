@@ -3,7 +3,7 @@ import {
     deleteWheel,
     fetchWheels,
     updateWheelTitle,
-} from "@/api/endpoints/supabase";
+} from "@/api/endpoints";
 import DebonLyingDown from "@/assets/svgs/debon-lying-down.svg";
 import TrashIcon from "@/assets/svgs/trash-bin.svg";
 import CustomText from "@/components/CustomText";

@@ -1,4 +1,4 @@
-import { deleteList, fetchLists } from "@/api/endpoints/supabase";
+import { deleteList, fetchLists } from "@/api/endpoints";
 import { List } from "@/api/endpoints/types";
 import { Colors } from "@/constants/colors";
 import { useAppStore } from "@/stores/AppStore";

@@ -26,6 +26,7 @@
         <category android:name="android.intent.category.DEFAULT"/>
         <category android:name="android.intent.category.BROWSABLE"/>
         <data android:scheme="bubududu"/>
+        <data android:scheme="exp+bubu-dudu"/>
       </intent-filter>
     </activity>
   </application>

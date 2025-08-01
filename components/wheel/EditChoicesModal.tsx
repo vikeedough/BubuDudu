@@ -1,4 +1,4 @@
-import { fetchWheels, updateWheelChoices } from "@/api/endpoints/supabase";
+import { fetchWheels, updateWheelChoices } from "@/api/endpoints";
 import { Wheel } from "@/api/endpoints/types";
 import { Colors } from "@/constants/colors";
 import { useAppStore } from "@/stores/AppStore";

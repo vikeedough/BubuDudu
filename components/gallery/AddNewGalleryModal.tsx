@@ -3,7 +3,7 @@ import {
     fetchGalleries,
     getGalleryId,
     uploadGalleryImages,
-} from "@/api/endpoints/supabase";
+} from "@/api/endpoints";
 import CustomText from "@/components/CustomText";
 import { Colors, listColorsArray } from "@/constants/colors";
 import { useAppStore } from "@/stores/AppStore";

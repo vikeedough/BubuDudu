@@ -1,4 +1,4 @@
-import { updateNote } from "@/api/endpoints/supabase";
+import { updateNote } from "@/api/endpoints";
 import CustomText from "@/components/CustomText";
 import Avatar from "@/components/home/Avatar";
 import MilestoneTracker from "@/components/home/MilestoneTracker";

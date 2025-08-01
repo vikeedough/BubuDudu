@@ -3,7 +3,7 @@ import {
     fetchGalleries,
     fetchGalleryImages,
     uploadGalleryImages,
-} from "@/api/endpoints/supabase";
+} from "@/api/endpoints";
 import { DateImage } from "@/api/endpoints/types";
 import { useAppStore } from "@/stores/AppStore";
 import {

@@ -1,7 +1,4 @@
-import {
-    fetchUsers,
-    uploadAvatarAndUpdateUser,
-} from "@/api/endpoints/supabase";
+import { fetchUsers, uploadAvatarAndUpdateUser } from "@/api/endpoints";
 import { useAppStore } from "@/stores/AppStore";
 import dayjs from "dayjs";
 import advancedFormat from "dayjs/plugin/advancedFormat";
