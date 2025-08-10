@@ -13,6 +13,9 @@ import {
     Alert,
     FlatList,
     Keyboard,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
     StyleSheet,
     TextInput,
     TouchableOpacity,
@@ -206,15 +209,29 @@ const Lists = () => {
                                 value={noteTitle}
                                 onChangeText={setNoteTitle}
                             />
-                            <TextInput
-                                style={styles.noteContent}
-                                placeholder="Type something here..."
-                                placeholderTextColor={Colors.darkGreenText}
-                                value={noteContent}
-                                onChangeText={setNoteContent}
-                                multiline={true}
-                                textAlignVertical="top"
-                            />
+                            <KeyboardAvoidingView
+                                behavior={
+                                    Platform.OS === "ios" ? "padding" : "height"
+                                }
+                                style={styles.keyboardAvoidingView}
+                                keyboardVerticalOffset={
+                                    Platform.OS === "ios" ? 150 : 50
+                                }
+                            >
+                                <ScrollView>
+                                    <TextInput
+                                        style={styles.noteContent}
+                                        placeholder="Type something here..."
+                                        placeholderTextColor={
+                                            Colors.darkGreenText
+                                        }
+                                        value={noteContent}
+                                        onChangeText={setNoteContent}
+                                        multiline={true}
+                                        textAlignVertical="top"
+                                    />
+                                </ScrollView>
+                            </KeyboardAvoidingView>
                         </View>
                         {isLoading ? (
                             <ActivityIndicator size="small" color="#FFCC7D" />
@@ -339,6 +356,7 @@ const styles = StyleSheet.create({
         fontSize: 12,
         color: "black",
         fontFamily: "Raleway-Medium",
+        lineHeight: 20,
     },
     saveButton: {
         backgroundColor: "#FFCC7D",
@@ -375,5 +393,8 @@ const styles = StyleSheet.create({
         width: 100,
         height: 100,
         transform: [{ scaleX: -1 }],
+    },
+    keyboardAvoidingView: {
+        flex: 1,
     },
 });

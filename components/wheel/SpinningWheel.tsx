@@ -26,7 +26,7 @@ const SpinningWheel: React.FC<SpinningWheelProps> = ({
     const size = 360;
     const strokeWidth = 18;
     const dotRadius = 4;
-    const radius = 170; // Bigger radius for a more prominent wheel
+    const radius = 160; // Bigger radius for a more prominent wheel
     const centerX = size / 2;
     const centerY = size / 2;
 
@@ -143,7 +143,23 @@ const SpinningWheel: React.FC<SpinningWheelProps> = ({
     // If no choices selected, show empty wheel
     if (selectedChoices.length === 0) {
         return (
-            <View style={[styles.container, { width: size, height: size }]}>
+            <View
+                style={[
+                    styles.container,
+                    {
+                        width: size,
+                        height: size,
+                        shadowColor: "#000",
+                        shadowOffset: {
+                            width: 0,
+                            height: 5,
+                        },
+                        shadowOpacity: 0.25,
+                        shadowRadius: 4,
+                        elevation: 5,
+                    },
+                ]}
+            >
                 <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
                     {/* Outer ring */}
                     <Circle
@@ -192,8 +208,18 @@ const SpinningWheel: React.FC<SpinningWheelProps> = ({
                 <TouchableOpacity
                     onPress={spinWheel}
                     disabled={isSpinning}
-                    activeOpacity={0.8}
-                    style={{ position: "relative" }}
+                    activeOpacity={1}
+                    style={{
+                        position: "relative",
+                        shadowColor: "#000",
+                        shadowOffset: {
+                            width: 0,
+                            height: 5,
+                        },
+                        shadowOpacity: 0.25,
+                        shadowRadius: 4,
+                        elevation: 5,
+                    }}
                 >
                     <Animated.View style={animatedStyle}>
                         <Svg
@@ -340,8 +366,18 @@ const SpinningWheel: React.FC<SpinningWheelProps> = ({
             <TouchableOpacity
                 onPress={spinWheel}
                 disabled={isSpinning}
-                activeOpacity={0.8}
-                style={{ position: "relative" }}
+                activeOpacity={1}
+                style={{
+                    position: "relative",
+                    shadowColor: "#000",
+                    shadowOffset: {
+                        width: 0,
+                        height: 5,
+                    },
+                    shadowOpacity: 0.25,
+                    shadowRadius: 4,
+                    elevation: 5,
+                }}
             >
                 <Animated.View style={animatedStyle}>
                     <Svg

@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 
 export const useGalleryList = () => {
     const galleries = useAppStore((state) => state.galleries);
-    const [sortingByAscending, setSortingByAscending] = useState(true);
+    const [sortingByDescending, setSortingByDescending] = useState(true);
     const [searchText, setSearchText] = useState("");
     const [isNewGalleryModalOpen, setIsNewGalleryModalOpen] = useState(false);
 
@@ -18,11 +18,11 @@ export const useGalleryList = () => {
                         .includes(searchText.toLowerCase())
                 )
                 .sort((a, b) => {
-                    return sortingByAscending
-                        ? a.created_at.localeCompare(b.created_at)
-                        : b.created_at.localeCompare(a.created_at);
+                    const da = Date.parse(a.date);
+                    const db = Date.parse(b.date);
+                    return sortingByDescending ? db - da : da - db;
                 }),
-        [galleries, searchText, sortingByAscending]
+        [galleries, searchText, sortingByDescending]
     );
 
     const handleAddNewGallery = () => {
@@ -30,7 +30,7 @@ export const useGalleryList = () => {
     };
 
     const handleToggleSort = () => {
-        setSortingByAscending(!sortingByAscending);
+        setSortingByDescending(!sortingByDescending);
     };
 
     const handleSearchChange = (text: string) => {
@@ -57,7 +57,7 @@ export const useGalleryList = () => {
     return {
         // State
         filteredGalleries,
-        sortingByAscending,
+        sortingByDescending,
         searchText,
         isNewGalleryModalOpen,
 

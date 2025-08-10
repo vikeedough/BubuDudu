@@ -5,6 +5,7 @@ import {
     updateWheelTitle,
 } from "@/api/endpoints";
 import DebonLyingDown from "@/assets/svgs/debon-lying-down.svg";
+import Plus from "@/assets/svgs/plus.svg";
 import TrashIcon from "@/assets/svgs/trash-bin.svg";
 import CustomText from "@/components/CustomText";
 import EditChoicesModal from "@/components/wheel/EditChoicesModal";
@@ -264,12 +265,7 @@ const Wheel = () => {
                                     style={styles.addListLabel}
                                     onPress={handleAddEmptyWheel}
                                 >
-                                    <CustomText
-                                        weight="medium"
-                                        style={styles.addListLabelText}
-                                    >
-                                        +
-                                    </CustomText>
+                                    <Plus style={styles.addListLabelText} />
                                 </TouchableOpacity>
                             </View>
                             <View style={styles.choicesContainer}>
@@ -303,14 +299,7 @@ const Wheel = () => {
                                                 setIsEditChoicesModalOpen(true)
                                             }
                                         >
-                                            <CustomText
-                                                weight="semibold"
-                                                style={
-                                                    styles.editChoicesButtonText
-                                                }
-                                            >
-                                                +
-                                            </CustomText>
+                                            <Plus />
                                         </TouchableOpacity>
                                     </View>
                                 </View>
@@ -428,7 +417,7 @@ const styles = StyleSheet.create({
     addListLabelText: {
         fontSize: 32,
         color: Colors.black,
-        marginTop: -3,
+        marginTop: 10,
     },
     labelContainer: {
         width: 90,
@@ -461,7 +450,14 @@ const styles = StyleSheet.create({
         padding: 10,
         paddingHorizontal: 20,
         borderRadius: 15,
-        marginBottom: 3,
+        shadowColor: "#000",
+        shadowOffset: {
+            width: 0,
+            height: 5,
+        },
+        shadowOpacity: 0.25,
+        shadowRadius: 4,
+        elevation: 5,
     },
     selectedChoice: {
         backgroundColor: "#FFCC7D",

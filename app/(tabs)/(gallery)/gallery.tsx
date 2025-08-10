@@ -15,7 +15,7 @@ const Gallery = () => {
 
     const {
         filteredGalleries,
-        sortingByAscending,
+        sortingByDescending,
         searchText,
         isNewGalleryModalOpen,
         handleAddNewGallery,
@@ -37,7 +37,7 @@ const Gallery = () => {
             <View style={styles.galleryContainer}>
                 <GalleryListControls
                     searchText={searchText}
-                    sortingByAscending={sortingByAscending}
+                    sortingByDescending={sortingByDescending}
                     onSearchChange={handleSearchChange}
                     onToggleSort={handleToggleSort}
                     onAddNew={handleAddNewGallery}

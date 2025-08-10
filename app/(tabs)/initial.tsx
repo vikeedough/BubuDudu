@@ -1,4 +1,5 @@
 import { updateNote } from "@/api/endpoints";
+import DebonLyingDown from "@/assets/svgs/debon-lying-down.svg";
 import CustomText from "@/components/CustomText";
 import Avatar from "@/components/home/Avatar";
 import MilestoneTracker from "@/components/home/MilestoneTracker";
@@ -8,7 +9,6 @@ import { Colors } from "@/constants/colors";
 import { useAppStore } from "@/stores/AppStore";
 import { useUserStore } from "@/stores/UserStore";
 import { getToday, pickAndUploadAvatar } from "@/utils/home";
-import { Image } from "expo-image";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
@@ -71,10 +71,10 @@ const Home = () => {
             </View>
             <View style={styles.debonContainer}>
                 <TouchableOpacity onLongPress={handleLogout}>
-                    <Image
-                        source={require("@/assets/images/debon-left.png")}
+                    <DebonLyingDown
+                        width={175}
+                        height={175}
                         style={styles.debonImage}
-                        contentFit="contain"
                     />
                 </TouchableOpacity>
                 <QuoteContainer />
@@ -235,18 +235,13 @@ const styles = StyleSheet.create({
     debonContainer: {
         marginHorizontal: -25,
         flexDirection: "row",
-        gap: 20,
+        gap: 0,
     },
     debonImage: {
-        width: 150,
-        height: 150,
-        // position: "absolute",
-        // bottom: -60,
-        left: 0,
+        left: -20,
     },
     milestonesContainer: {
         gap: 20,
-        marginTop: 20,
         marginBottom: 20,
     },
     ellipse: {

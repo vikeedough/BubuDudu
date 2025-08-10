@@ -8,7 +8,7 @@ import { StyleSheet, TextInput, TouchableOpacity, View } from "react-native";
 
 interface GalleryListControlsProps {
     searchText: string;
-    sortingByAscending: boolean;
+    sortingByDescending: boolean;
     onSearchChange: (text: string) => void;
     onToggleSort: () => void;
     onAddNew: () => void;
@@ -16,7 +16,7 @@ interface GalleryListControlsProps {
 
 const GalleryListControls: React.FC<GalleryListControlsProps> = ({
     searchText,
-    sortingByAscending,
+    sortingByDescending,
     onSearchChange,
     onToggleSort,
     onAddNew,
@@ -34,6 +34,7 @@ const GalleryListControls: React.FC<GalleryListControlsProps> = ({
                 <MagnifyingGlass />
                 <TextInput
                     placeholder="Search"
+                    placeholderTextColor={"#AFAFAF"}
                     style={styles.searchBarText}
                     ref={searchBarRef}
                     value={searchText}
@@ -44,7 +45,7 @@ const GalleryListControls: React.FC<GalleryListControlsProps> = ({
                 style={styles.controlButton}
                 onPress={onToggleSort}
             >
-                {sortingByAscending ? <SortAscending /> : <SortDescending />}
+                {sortingByDescending ? <SortDescending /> : <SortAscending />}
             </TouchableOpacity>
             <TouchableOpacity style={styles.controlButton} onPress={onAddNew}>
                 <Plus />

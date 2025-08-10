@@ -29,7 +29,7 @@ export default QuoteContainer;
 const styles = StyleSheet.create({
     container: {
         marginTop: 20,
-        marginBottom: 40,
+        marginBottom: 70,
         backgroundColor: Colors.yellow,
         padding: 20,
         width: 190,

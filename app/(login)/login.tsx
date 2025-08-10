@@ -157,7 +157,9 @@ export default function Login() {
                 {/* Components below avatars */}
                 <View style={styles.bottomContent}>
                     <CustomText weight="bold" style={styles.title}>
-                        Pick one!
+                        {selectedUser
+                            ? "Hello " + selectedUser.name + "!"
+                            : "Pick one!"}
                     </CustomText>
                     {selectedUser && (
                         <TouchableOpacity
@@ -197,7 +199,7 @@ const styles = StyleSheet.create({
     },
     title: {
         fontSize: 24,
-        color: "black",
+        color: "#505739",
     },
     button: {
         backgroundColor: "#FFCC7D",
