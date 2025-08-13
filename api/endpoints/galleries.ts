@@ -153,6 +153,86 @@ const fetchGalleryImages = async (gallery_id: string) => {
 };
 
 const deleteOneGalleryImage = async (gallery_id: string, image_id: string) => {
+    // Fetch gallery to check current cover
+    const { data: galleryData, error: galleryError } = await supabase
+        .from("galleries")
+        .select("cover_image")
+        .eq("id", gallery_id)
+        .single();
+
+    if (galleryError) {
+        console.error("Error fetching gallery data:", galleryError.message);
+        return false;
+    }
+
+    // Fetch the image row to get its URL (needed to compare with cover_image)
+    const { data: imgRow, error: imgErr } = await supabase
+        .from("date_images")
+        .select("id, url, blur_hash")
+        .eq("id", image_id)
+        .single();
+
+    if (imgErr) {
+        console.error("Error fetching image row:", imgErr.message);
+        return false;
+    }
+
+    const isDeletingCover = galleryData?.cover_image === imgRow.url;
+
+    if (isDeletingCover) {
+        // Find a replacement image (if any) and set it as the new cover
+        const { data: otherImages, error: otherErr } = await supabase
+            .from("date_images")
+            .select("id, url, blur_hash, created_at")
+            .eq("gallery_id", gallery_id)
+            .neq("id", image_id)
+            .order("created_at", { ascending: false })
+            .limit(1);
+
+        if (otherErr) {
+            console.error(
+                "Error fetching replacement image:",
+                otherErr.message
+            );
+            return false;
+        }
+
+        const replacement = otherImages?.[0];
+
+        if (!replacement) {
+            // No images left, clear cover fields
+            const { error: updateError } = await supabase
+                .from("galleries")
+                .update({ cover_image: null, cover_image_blur_hash: null })
+                .eq("id", gallery_id);
+
+            if (updateError) {
+                console.error(
+                    "Error clearing gallery cover image:",
+                    updateError.message
+                );
+                return false;
+            }
+        } else {
+            const { error: updateError } = await supabase
+                .from("galleries")
+                .update({
+                    cover_image: replacement.url,
+                    cover_image_blur_hash: replacement.blur_hash,
+                })
+                .eq("id", gallery_id);
+
+            if (updateError) {
+                console.error(
+                    "Error updating gallery cover image:",
+                    updateError.message
+                );
+                return false;
+            }
+        }
+    }
+
+    // Delete file from storage
     const { error: bucketError } = await supabase.storage
         .from("gallery")
         .remove([`${gallery_id}/${image_id}.jpg`]);
@@ -165,6 +245,7 @@ const deleteOneGalleryImage = async (gallery_id: string, image_id: string) => {
         return false;
     }
 
+    // Delete DB row
     const { error } = await supabase
         .from("date_images")
         .delete()

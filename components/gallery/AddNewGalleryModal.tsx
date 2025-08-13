@@ -7,7 +7,7 @@ import {
 import CustomText from "@/components/CustomText";
 import { Colors, listColorsArray } from "@/constants/colors";
 import { useAppStore } from "@/stores/AppStore";
-import { pickMultipleImages } from "@/utils/gallery";
+import { normalizeGalleries, pickMultipleImages } from "@/utils/gallery";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { FlashList } from "@shopify/flash-list";
 import { Image } from "expo-image";
@@ -96,7 +96,9 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
         }
 
         const updatedGalleries = await fetchGalleries();
-        useAppStore.setState({ galleries: updatedGalleries });
+        useAppStore.setState({
+            galleries: normalizeGalleries(updatedGalleries),
+        });
 
         // Reset form state and close modal
         setDateName("");

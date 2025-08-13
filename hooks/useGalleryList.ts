@@ -18,8 +18,14 @@ export const useGalleryList = () => {
                         .includes(searchText.toLowerCase())
                 )
                 .sort((a, b) => {
-                    const da = Date.parse(a.date);
-                    const db = Date.parse(b.date);
+                    const da =
+                        a.date instanceof Date
+                            ? a.date.getTime()
+                            : Date.parse(a.date as string);
+                    const db =
+                        b.date instanceof Date
+                            ? b.date.getTime()
+                            : Date.parse(b.date as string);
                     return sortingByDescending ? db - da : da - db;
                 }),
         [galleries, searchText, sortingByDescending]
@@ -43,7 +49,10 @@ export const useGalleryList = () => {
             params: {
                 galleryId: gallery.id,
                 galleryTitle: gallery.title,
-                galleryDate: gallery.date,
+                galleryDate:
+                    gallery.date instanceof Date
+                        ? gallery.date.toISOString()
+                        : (gallery.date as string),
                 galleryLocation: gallery.location,
                 galleryColor: gallery.color,
             },

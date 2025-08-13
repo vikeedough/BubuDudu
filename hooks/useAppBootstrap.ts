@@ -25,6 +25,9 @@ export const useAppBootstrap = () => {
                         fetchGalleries(),
                         fetchWheels(),
                     ]);
+                galleries.forEach((gallery) => {
+                    gallery.date = new Date(gallery.date as string);
+                });
                 setAllData({
                     milestones,
                     users,

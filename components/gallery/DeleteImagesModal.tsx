@@ -6,6 +6,7 @@ import {
 import { DateImage } from "@/api/endpoints/types";
 import { Colors } from "@/constants/colors";
 import { useAppStore } from "@/stores/AppStore";
+import { normalizeGalleries } from "@/utils/gallery";
 import React, { useState } from "react";
 import {
     ActivityIndicator,
@@ -45,7 +46,9 @@ const DeleteImagesModal: React.FC<DeleteImagesModalProps> = ({
         );
         if (deletedImages) {
             const updatedGalleries = await fetchGalleries();
-            useAppStore.setState({ galleries: updatedGalleries });
+            useAppStore.setState({
+                galleries: normalizeGalleries(updatedGalleries),
+            });
             const images = await fetchGalleryImages(galleryId as string);
             setImages(images);
             setSelectedImages([]);

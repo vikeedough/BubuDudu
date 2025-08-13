@@ -8,6 +8,7 @@ import { DateImage } from "@/api/endpoints/types";
 import { useAppStore } from "@/stores/AppStore";
 import {
     multipleDownloadAndSaveImage,
+    normalizeGalleries,
     pickMultipleImages,
 } from "@/utils/gallery";
 import { router } from "expo-router";
@@ -61,7 +62,9 @@ export const useGalleryContent = ({ galleryId }: UseGalleryContentProps) => {
             );
             if (uploadedImages) {
                 const updatedGalleries = await fetchGalleries();
-                useAppStore.setState({ galleries: updatedGalleries });
+                useAppStore.setState({
+                    galleries: normalizeGalleries(updatedGalleries),
+                });
                 const refreshedImages = await fetchGalleryImages(galleryId);
                 setImages(refreshedImages);
             }
@@ -111,7 +114,9 @@ export const useGalleryContent = ({ galleryId }: UseGalleryContentProps) => {
             setIsDeleteGalleryModalOpen(false);
             router.back();
             const updatedGalleries = await fetchGalleries();
-            useAppStore.setState({ galleries: updatedGalleries });
+            useAppStore.setState({
+                galleries: normalizeGalleries(updatedGalleries),
+            });
         }
         setIsDeleting(false);
     };

@@ -45,13 +45,17 @@ const styles = StyleSheet.create({
         borderRadius: 15,
         padding: 5,
         alignSelf: "flex-start",
-        paddingHorizontal: 10,
         borderWidth: 1,
         borderColor: "transparent",
+        justifyContent: "center",
+        alignItems: "center",
     },
     location: {
         fontSize: 10,
         color: Colors.brownText,
+        textAlign: "center",
+        paddingLeft: 3,
+        paddingRight: 2,
     },
     clearButton: {
         backgroundColor: Colors.white,

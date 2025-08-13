@@ -28,7 +28,7 @@ export interface List {
 export interface Gallery {
     id: string;
     title: string;
-    date: string;
+    date: string | Date;
     created_at: string;
     color: string;
     location: string;

@@ -1,4 +1,4 @@
-import { DateImage } from "@/api/endpoints/types";
+import { DateImage, Gallery } from "@/api/endpoints/types";
 import * as FileSystem from "expo-file-system";
 import * as ImagePicker from "expo-image-picker";
 import * as MediaLibrary from "expo-media-library";
@@ -79,3 +79,12 @@ export const multipleDownloadAndSaveImage = async (images: DateImage[]) => {
         return;
     }
 };
+
+export const normalizeGalleries = (gs: Gallery[]): Gallery[] =>
+    gs.map((gallery) => ({
+        ...gallery,
+        date:
+            typeof gallery.date === "string"
+                ? new Date(gallery.date)
+                : gallery.date,
+    }));
