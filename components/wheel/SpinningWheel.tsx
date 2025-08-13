@@ -285,46 +285,51 @@ const SpinningWheel: React.FC<SpinningWheelProps> = ({
                 </TouchableOpacity>
 
                 {/* Result Modal */}
-                <Modal
-                    visible={showResultModal}
-                    transparent={true}
-                    animationType="fade"
-                    onRequestClose={() => setShowResultModal(false)}
-                >
-                    <View style={styles.modalOverlay}>
-                        <View style={styles.modalContent}>
-                            <DebonSpin style={styles.debonSpin} />
-                            <CustomText weight="bold" style={styles.modalTitle}>
-                                Debon picked!
-                            </CustomText>
-                            <View style={[styles.resultContainer]}>
+                <View style={{ zIndex: 1000 }}>
+                    <Modal
+                        visible={showResultModal}
+                        transparent={true}
+                        animationType="fade"
+                        onRequestClose={() => setShowResultModal(false)}
+                    >
+                        <View style={styles.modalOverlay}>
+                            <View style={styles.modalContent}>
+                                <DebonSpin style={styles.debonSpin} />
                                 <CustomText
-                                    weight="semibold"
-                                    style={styles.resultText}
+                                    weight="bold"
+                                    style={styles.modalTitle}
                                 >
-                                    {selectedResult}
+                                    Debon picked!
                                 </CustomText>
-                                <CustomText
-                                    weight="regular"
-                                    style={styles.debonText}
+                                <View style={[styles.resultContainer]}>
+                                    <CustomText
+                                        weight="semibold"
+                                        style={styles.resultText}
+                                    >
+                                        {selectedResult}
+                                    </CustomText>
+                                    <CustomText
+                                        weight="regular"
+                                        style={styles.debonText}
+                                    >
+                                        Debon's stomach agrees too.
+                                    </CustomText>
+                                </View>
+                                <TouchableOpacity
+                                    style={[styles.closeButton]}
+                                    onPress={() => setShowResultModal(false)}
                                 >
-                                    Debon's stomach agrees too.
-                                </CustomText>
+                                    <CustomText
+                                        weight="semibold"
+                                        style={styles.closeButtonText}
+                                    >
+                                        Yes
+                                    </CustomText>
+                                </TouchableOpacity>
                             </View>
-                            <TouchableOpacity
-                                style={[styles.closeButton]}
-                                onPress={() => setShowResultModal(false)}
-                            >
-                                <CustomText
-                                    weight="semibold"
-                                    style={styles.closeButtonText}
-                                >
-                                    Yes
-                                </CustomText>
-                            </TouchableOpacity>
                         </View>
-                    </View>
-                </Modal>
+                    </Modal>
+                </View>
             </View>
         );
     }
@@ -509,46 +514,51 @@ const SpinningWheel: React.FC<SpinningWheelProps> = ({
 
             {/* Result Modal */}
             {showResultModal && (
-                <Modal
-                    visible={showResultModal}
-                    transparent={true}
-                    animationType="fade"
-                    onRequestClose={() => setShowResultModal(false)}
-                >
-                    <View style={styles.modalOverlay}>
-                        <View style={styles.modalContent}>
-                            <DebonSpin style={styles.debonSpin} />
-                            <CustomText weight="bold" style={styles.modalTitle}>
-                                Debon picked!
-                            </CustomText>
-                            <View style={[styles.resultContainer]}>
+                <View style={{ zIndex: 1000 }}>
+                    <Modal
+                        visible={showResultModal}
+                        transparent={true}
+                        animationType="fade"
+                        onRequestClose={() => setShowResultModal(false)}
+                    >
+                        <View style={styles.modalOverlay}>
+                            <View style={styles.modalContent}>
+                                <DebonSpin style={styles.debonSpin} />
                                 <CustomText
-                                    weight="semibold"
-                                    style={styles.resultText}
+                                    weight="bold"
+                                    style={styles.modalTitle}
                                 >
-                                    {selectedResult}
+                                    Debon picked!
                                 </CustomText>
-                                <CustomText
-                                    weight="regular"
-                                    style={styles.debonText}
+                                <View style={[styles.resultContainer]}>
+                                    <CustomText
+                                        weight="semibold"
+                                        style={styles.resultText}
+                                    >
+                                        {selectedResult}
+                                    </CustomText>
+                                    <CustomText
+                                        weight="regular"
+                                        style={styles.debonText}
+                                    >
+                                        Debon's stomach agrees too.
+                                    </CustomText>
+                                </View>
+                                <TouchableOpacity
+                                    style={[styles.closeButton]}
+                                    onPress={() => setShowResultModal(false)}
                                 >
-                                    Debon's stomach agrees too.
-                                </CustomText>
+                                    <CustomText
+                                        weight="semibold"
+                                        style={styles.closeButtonText}
+                                    >
+                                        Yes
+                                    </CustomText>
+                                </TouchableOpacity>
                             </View>
-                            <TouchableOpacity
-                                style={[styles.closeButton]}
-                                onPress={() => setShowResultModal(false)}
-                            >
-                                <CustomText
-                                    weight="semibold"
-                                    style={styles.closeButtonText}
-                                >
-                                    Yes
-                                </CustomText>
-                            </TouchableOpacity>
                         </View>
-                    </View>
-                </Modal>
+                    </Modal>
+                </View>
             )}
         </View>
     );

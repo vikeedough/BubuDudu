@@ -199,11 +199,13 @@ const Wheel = () => {
     return (
         <SafeAreaView style={styles.container}>
             {isEditChoicesModalOpen && (
-                <EditChoicesModal
-                    isOpen={isEditChoicesModalOpen}
-                    onClose={() => setIsEditChoicesModalOpen(false)}
-                    wheel={wheels[selectedIndex]}
-                />
+                <View style={{ zIndex: 1000 }}>
+                    <EditChoicesModal
+                        isOpen={isEditChoicesModalOpen}
+                        onClose={() => setIsEditChoicesModalOpen(false)}
+                        wheel={wheels[selectedIndex]}
+                    />
+                </View>
             )}
             <TouchableWithoutFeedback
                 onPress={Keyboard.dismiss}
