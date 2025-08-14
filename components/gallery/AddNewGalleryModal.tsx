@@ -71,10 +71,10 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
         }
 
         const success = await addNewGallery(
-            dateName,
+            dateName.trim(),
             date.toISOString(),
             selectedColor,
-            location
+            location.trim()
         );
         if (!success) {
             Alert.alert("Error", "Failed to add gallery");
