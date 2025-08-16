@@ -129,7 +129,7 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
                             <Image
                                 source={{ uri: item }}
                                 style={styles.image}
-                                placeholder={blurhash}
+                                placeholder={{ blurhash }}
                                 contentFit="cover"
                                 transition={1000}
                             />
