@@ -32,6 +32,9 @@ interface AddNewGalleryModalProps {
     onClose: () => void;
 }
 
+const blurhash =
+    "|rF?hV%2WCj[ayj[a|j[az_NaeWBj@ayfRayfQfQM{M|azj[azf6fQfQfQIpWXofj[ayj[j[fQayWCoeoeaya}j[ayfQa{oLj?j[WVj[ayayj[fQoff7azayj[ayj[j[ayofayayayj[fQj[ayayj[ayfjj[j[ayjuayj[";
+
 const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
     isOpen,
     onClose,
@@ -126,6 +129,9 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
                             <Image
                                 source={{ uri: item }}
                                 style={styles.image}
+                                placeholder={blurhash}
+                                contentFit="cover"
+                                transition={1000}
                             />
                         </TouchableOpacity>
                     )}
@@ -162,9 +168,12 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
                                 }
                                 onPress={() => {
                                     setIsAddingImages(true);
-                                    pickMultipleImages().then((images) => {
-                                        if (images) {
-                                            setImages(images);
+                                    pickMultipleImages().then((imagesToAdd) => {
+                                        if (imagesToAdd) {
+                                            setImages([
+                                                ...images,
+                                                ...imagesToAdd,
+                                            ]);
                                         }
                                         setIsAddingImages(false);
                                     });
@@ -172,7 +181,10 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
                             >
                                 {images.length > 0 ? (
                                     isAddingImages ? (
-                                        <ActivityIndicator />
+                                        <ActivityIndicator
+                                            size="small"
+                                            color="#FFCC7D"
+                                        />
                                     ) : (
                                         imagesShown()
                                     )
