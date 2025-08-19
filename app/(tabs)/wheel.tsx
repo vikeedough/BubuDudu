@@ -8,6 +8,7 @@ import DebonLyingDown from "@/assets/svgs/debon-lying-down.svg";
 import Plus from "@/assets/svgs/plus.svg";
 import TrashIcon from "@/assets/svgs/trash-bin.svg";
 import CustomText from "@/components/CustomText";
+import DeleteWheelModal from "@/components/wheel/DeleteWheelModal";
 import EditChoicesModal from "@/components/wheel/EditChoicesModal";
 import SpinningWheel from "@/components/wheel/SpinningWheel";
 import WheelHeader from "@/components/wheel/WheelHeader";
@@ -47,6 +48,7 @@ const Wheel = () => {
     const [selectedIndex, setSelectedIndex] = useState(0);
     const [localTitle, setLocalTitle] = useState("");
     const [isEditChoicesModalOpen, setIsEditChoicesModalOpen] = useState(false);
+    const [isDeleteWheelModalOpen, setIsDeleteWheelModalOpen] = useState(false);
     const [currentSelections, setCurrentSelections] = useState<string[]>([]);
     const debounceTimeoutRef = useRef<number | null>(null);
     const [isDeletingWheel, setIsDeletingWheel] = useState(false);
@@ -138,6 +140,7 @@ const Wheel = () => {
             setLocalTitle(wheels[0].title);
             setCurrentSelections([]);
             setIsDeletingWheel(false);
+            setIsDeleteWheelModalOpen(false);
         }
     };
 
@@ -212,6 +215,15 @@ const Wheel = () => {
                         isOpen={isEditChoicesModalOpen}
                         onClose={() => setIsEditChoicesModalOpen(false)}
                         wheel={wheels[selectedIndex]}
+                    />
+                </View>
+            )}
+            {isDeleteWheelModalOpen && (
+                <View style={{ zIndex: 1000 }}>
+                    <DeleteWheelModal
+                        isOpen={isDeleteWheelModalOpen}
+                        onClose={() => setIsDeleteWheelModalOpen(false)}
+                        handleDeleteWheel={handleDeleteWheel}
                     />
                 </View>
             )}
@@ -294,7 +306,9 @@ const Wheel = () => {
                                     >
                                         <TouchableOpacity
                                             style={styles.editChoicesButton}
-                                            onPress={handleDeleteWheel}
+                                            onPress={() =>
+                                                setIsDeleteWheelModalOpen(true)
+                                            }
                                         >
                                             {isDeletingWheel ? (
                                                 <ActivityIndicator size="small" />
