@@ -1,4 +1,7 @@
+import { fetchGalleries } from "@/api/endpoints/galleries";
 import { Gallery as GalleryType } from "@/api/endpoints/types";
+import { usePullToRefresh } from "@/hooks/usePullToRefresh";
+import { useAppStore } from "@/stores/AppStore";
 import { FlashList } from "@shopify/flash-list";
 import React from "react";
 import { StyleSheet, View } from "react-native";
@@ -19,11 +22,17 @@ const groupIntoRows = (galleries: GalleryType[]): (GalleryType | null)[][] => {
     return rows;
 };
 
+const fetchAndUpdateGalleries = async () => {
+    const galleries = await fetchGalleries();
+    useAppStore.setState({ galleries });
+};
+
 const GalleryListGrid: React.FC<GalleryListGridProps> = ({
     galleries,
     onGalleryPress,
 }) => {
     const rows = groupIntoRows(galleries);
+    const { refreshing, onRefresh } = usePullToRefresh(fetchAndUpdateGalleries);
 
     return (
         <FlashList
@@ -54,6 +63,8 @@ const GalleryListGrid: React.FC<GalleryListGridProps> = ({
             )}
             ItemSeparatorComponent={() => <View style={styles.separator} />}
             estimatedItemSize={180}
+            refreshing={refreshing}
+            onRefresh={onRefresh}
         />
     );
 };

@@ -5,6 +5,7 @@ import TrashIcon from "@/assets/svgs/trash-bin.svg";
 import CustomText from "@/components/CustomText";
 import DeleteListModal from "@/components/lists/DeleteListModal";
 import { Colors, listColorsArray } from "@/constants/colors";
+import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { useAppStore } from "@/stores/AppStore";
 import { getDate } from "@/utils/home";
 import { useEffect, useState } from "react";
@@ -24,6 +25,11 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+const fetchAndUpdateLists = async () => {
+    const lists = await fetchLists();
+    useAppStore.setState({ lists });
+};
+
 const Lists = () => {
     const lists = useAppStore((state) => state.lists);
     const date = getDate();
@@ -33,6 +39,7 @@ const Lists = () => {
     const [selectedIndex, setSelectedIndex] = useState(0);
     const [isDeleteListModalOpen, setIsDeleteListModalOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const { refreshing, onRefresh } = usePullToRefresh(fetchAndUpdateLists);
 
     useEffect(() => {
         if (lists.length > 0) {
@@ -177,6 +184,8 @@ const Lists = () => {
                             ItemSeparatorComponent={() => (
                                 <View style={{ height: 5 }} />
                             )}
+                            refreshing={refreshing}
+                            onRefresh={onRefresh}
                         />
                         <TouchableOpacity
                             style={styles.addListLabel}

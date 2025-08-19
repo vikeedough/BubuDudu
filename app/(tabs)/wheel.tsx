@@ -12,6 +12,7 @@ import EditChoicesModal from "@/components/wheel/EditChoicesModal";
 import SpinningWheel from "@/components/wheel/SpinningWheel";
 import WheelHeader from "@/components/wheel/WheelHeader";
 import { Colors, listColorsArray } from "@/constants/colors";
+import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { useAppStore } from "@/stores/AppStore";
 import { useUserStore } from "@/stores/UserStore";
 import { getDate } from "@/utils/home";
@@ -22,6 +23,7 @@ import {
     Keyboard,
     KeyboardAvoidingView,
     Platform,
+    RefreshControl,
     ScrollView,
     StyleSheet,
     TextInput,
@@ -30,6 +32,11 @@ import {
     View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+const fetchAndUpdateWheels = async () => {
+    const wheels = await fetchWheels();
+    useAppStore.setState({ wheels });
+};
 
 const Wheel = () => {
     const { logout } = useUserStore();
@@ -43,6 +50,7 @@ const Wheel = () => {
     const [currentSelections, setCurrentSelections] = useState<string[]>([]);
     const debounceTimeoutRef = useRef<number | null>(null);
     const [isDeletingWheel, setIsDeletingWheel] = useState(false);
+    const { refreshing, onRefresh } = usePullToRefresh(fetchAndUpdateWheels);
 
     // Update local title when selected wheel changes
     useEffect(() => {
@@ -221,6 +229,12 @@ const Wheel = () => {
                         keyboardShouldPersistTaps="handled"
                         showsVerticalScrollIndicator={false}
                         nestedScrollEnabled={false}
+                        refreshControl={
+                            <RefreshControl
+                                refreshing={refreshing}
+                                onRefresh={onRefresh}
+                            />
+                        }
                     >
                         <WheelHeader currentDate={currentDate} />
                         <View>
