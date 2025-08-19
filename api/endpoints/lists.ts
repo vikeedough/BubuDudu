@@ -4,7 +4,7 @@ const fetchLists = async () => {
     const { data, error } = await supabase
         .from("lists")
         .select("*")
-        .order("last_updated_at", { ascending: true });
+        .order("last_updated_at", { ascending: false });
 
     if (error) {
         console.error("Error fetching lists:", error);
