@@ -104,7 +104,7 @@ export default function TabLayout() {
                 }}
             />
             <Tabs.Screen
-                name="wheel"
+                name="(wheel)"
                 options={{
                     title: "Wheel",
                     tabBarIcon: ({ focused }) => (

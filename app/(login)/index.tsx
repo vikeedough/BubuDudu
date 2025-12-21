@@ -19,6 +19,14 @@ const Index = () => {
                     Login
                 </CustomText>
             </TouchableOpacity>
+            <TouchableOpacity
+                style={[styles.button, { marginTop: 20 }]}
+                onPress={() => router.push("/login")}
+            >
+                <CustomText weight="bold" style={styles.buttonText}>
+                    Create Account
+                </CustomText>
+            </TouchableOpacity>
         </View>
     );
 };
@@ -37,8 +45,10 @@ const styles = StyleSheet.create({
     },
     button: {
         marginTop: -10,
+        justifyContent: "center",
+        alignItems: "center",
         backgroundColor: "#FFCC7D",
-        paddingHorizontal: 80,
+        width: 220,
         paddingVertical: 12,
         borderRadius: 15,
         shadowColor: "#000",
