@@ -1,4 +1,6 @@
 import { generateBlurhash } from "@/utils/generateBlurhash";
+import { decode } from "base64-arraybuffer";
+import * as FileSystem from "expo-file-system";
 import { supabase } from "../clients/supabaseClient";
 
 const fetchGalleries = async () => {
@@ -75,18 +77,24 @@ const uploadGalleryImages = async (gallery_id: string, images: string[]) => {
         // Generate blurhash for the image
         const imageBlurHash = await generateBlurhash(image);
 
+        const file = new FileSystem.File(image);
+        const base64 = await file.base64();
+
+        // Convert base64 to ArrayBuffer
+        const arrayBuffer = decode(base64);
+
         const { error: uploadError } = await supabase.storage
             .from("gallery")
-            .upload(`${folderName}/${fileName}`, {
-                uri: image,
-                type: "image/jpeg",
-                name: fileName,
-            } as any);
+            .upload(`${folderName}/${fileName}`, arrayBuffer, {
+                contentType: "image/jpeg",
+            });
 
         if (uploadError) {
             console.error(
                 "Error uploading gallery images:",
-                uploadError.message
+                uploadError.message,
+                "Full error:",
+                JSON.stringify(uploadError, null, 2)
             );
             return false;
         }

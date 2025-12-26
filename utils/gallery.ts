@@ -21,6 +21,8 @@ export const pickMultipleImages = async () => {
         aspect: [1, 1],
         quality: 0.7,
         allowsMultipleSelection: true,
+        preferredAssetRepresentationMode:
+            ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Automatic,
     });
 
     if (result.canceled) {
@@ -49,7 +51,7 @@ export const downloadAndSaveImage = async (image_id: string, url: string) => {
         return;
     }
 
-    const fileUri = FileSystem.documentDirectory + image_id + ".jpg";
+    const fileUri = FileSystem.Directory + image_id + ".jpg";
 
     const download = await FileSystem.downloadAsync(url, fileUri);
     const asset = await MediaLibrary.createAssetAsync(download.uri);

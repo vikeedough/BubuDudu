@@ -52,6 +52,8 @@ export const pickAndUploadAvatar = async (user_id: number) => {
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.8,
+        preferredAssetRepresentationMode:
+            ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Automatic,
     });
 
     if (result.canceled) {

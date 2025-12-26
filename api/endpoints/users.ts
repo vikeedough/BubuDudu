@@ -1,3 +1,5 @@
+import { decode } from "base64-arraybuffer";
+import * as FileSystem from "expo-file-system";
 import { supabase } from "../clients/supabaseClient";
 
 const fetchUsers = async () => {
@@ -31,13 +33,18 @@ const updateNote = async (note: string, user_id: number) => {
 const uploadAvatarAndUpdateUser = async (user_id: number, fileUri: string) => {
     const fileName = `${user_id}-${Date.now()}-avatar.jpg`;
 
+    // Read the file as base64
+    const file = new FileSystem.File(fileUri);
+    const base64 = await file.base64();
+
+    // Convert base64 to ArrayBuffer
+    const arrayBuffer = decode(base64);
+
     const { error: uploadError } = await supabase.storage
         .from("avatars")
-        .upload(fileName, {
-            uri: fileUri,
-            type: "image/jpeg",
-            name: fileName,
-        } as any);
+        .upload(fileName, arrayBuffer, {
+            contentType: "image/jpeg",
+        });
 
     if (uploadError) {
         console.error("Error uploading avatar:", uploadError.message);
