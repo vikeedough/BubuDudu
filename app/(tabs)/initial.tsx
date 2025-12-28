@@ -1,5 +1,6 @@
 import { updateNote } from "@/api/endpoints";
 import DebonLyingDown from "@/assets/svgs/debon-lying-down.svg";
+import SignOutButton from "@/components/auth/sign-out-button";
 import CustomText from "@/components/CustomText";
 import Avatar from "@/components/home/Avatar";
 import MilestoneTracker from "@/components/home/MilestoneTracker";
@@ -68,6 +69,7 @@ const Home = () => {
                 <CustomText weight="medium" style={styles.dateText}>
                     {today}
                 </CustomText>
+                <SignOutButton />
             </View>
             <View style={styles.debonContainer}>
                 <TouchableOpacity onLongPress={handleLogout}>

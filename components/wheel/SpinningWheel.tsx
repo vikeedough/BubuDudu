@@ -4,13 +4,13 @@ import React, { useState } from "react";
 import { Modal, StyleSheet, TouchableOpacity, View } from "react-native";
 import Animated, {
     Easing,
-    runOnJS,
     useAnimatedStyle,
     useSharedValue,
     withSequence,
     withTiming,
 } from "react-native-reanimated";
 import Svg, { Circle, Path, Text as SvgText } from "react-native-svg";
+import { scheduleOnRN } from "react-native-worklets";
 import CustomText from "../CustomText";
 
 interface SpinningWheelProps {
@@ -127,16 +127,19 @@ const SpinningWheel: React.FC<SpinningWheelProps> = ({
 
         // Animate the wheel
         rotation.value = withSequence(
-            withTiming(finalAngle, {
-                duration: 4000, // 4 seconds for more dramatic effect
-                easing: Easing.out(Easing.cubic),
-            })
+            withTiming(
+                finalAngle,
+                {
+                    duration: 4000, // 4 seconds for more dramatic effect
+                    easing: Easing.out(Easing.cubic),
+                },
+                (finished) => {
+                    if (finished) {
+                        scheduleOnRN(onSpinComplete, result);
+                    }
+                }
+            )
         );
-
-        // Call completion handler after animation
-        setTimeout(() => {
-            runOnJS(onSpinComplete)(result);
-        }, 4000);
     };
 
     // If no choices selected, show empty wheel
