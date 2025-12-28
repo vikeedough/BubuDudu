@@ -1,9 +1,27 @@
 import CustomText from "@/components/CustomText";
+import { getSpaceId } from "@/utils/secure-store";
+import { createSpace, joinSpace } from "@/utils/space-management";
+import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Button, StyleSheet, TextInput, View } from "react-native";
 
 export default function SpaceManagementPage() {
+    const router = useRouter();
     const [inviteCode, setInviteCode] = useState<string>("");
+
+    const handleCreateSpace = async () => {
+        const result = await createSpace("BubuDudu");
+        if (result) {
+            router.replace("/(tabs)/initial");
+        }
+    };
+
+    const handleJoinSpace = async () => {
+        const result = await joinSpace(inviteCode);
+        if (result) {
+            router.replace("/(tabs)/initial");
+        }
+    };
 
     return (
         <View style={styles.container}>
@@ -20,7 +38,7 @@ export default function SpaceManagementPage() {
             <Button
                 title="Join Space"
                 onPress={() => {
-                    /* handle join space logic */
+                    handleJoinSpace();
                 }}
             />
             <CustomText weight="bold" style={{ fontSize: 24, marginTop: 40 }}>
@@ -29,7 +47,15 @@ export default function SpaceManagementPage() {
             <Button
                 title="Create New Space"
                 onPress={() => {
-                    /* handle create space logic */
+                    // rmb to change
+                    handleCreateSpace();
+                }}
+            />
+            <Button
+                title="check current space id"
+                onPress={async () => {
+                    const spaceId = await getSpaceId();
+                    alert(`Current space ID: ${spaceId}`);
                 }}
             />
         </View>

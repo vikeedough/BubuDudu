@@ -1,8 +1,10 @@
+import { supabase } from "@/api/clients/supabaseClient";
 import DebonSpin from "@/assets/svgs/debon-spin.svg";
+import SignOutButton from "@/components/auth/sign-out-button";
 import CustomText from "@/components/CustomText";
 import { Colors } from "@/constants/colors";
 import { router } from "expo-router";
-import { StyleSheet, TouchableOpacity, View } from "react-native";
+import { Button, StyleSheet, TouchableOpacity, View } from "react-native";
 
 const Index = () => {
     return (
@@ -13,7 +15,7 @@ const Index = () => {
             <DebonSpin style={styles.debonSpin} width={200} height={200} />
             <TouchableOpacity
                 style={styles.button}
-                onPress={() => router.push("/login")}
+                onPress={() => router.push("/new-login")}
             >
                 <CustomText weight="bold" style={styles.buttonText}>
                     Login
@@ -21,12 +23,21 @@ const Index = () => {
             </TouchableOpacity>
             <TouchableOpacity
                 style={[styles.button, { marginTop: 20 }]}
-                onPress={() => router.push("/login")}
+                onPress={() => router.push("/create-account")}
             >
                 <CustomText weight="bold" style={styles.buttonText}>
                     Create Account
                 </CustomText>
             </TouchableOpacity>
+
+            <SignOutButton />
+            <Button
+                title="check current session"
+                onPress={async () => {
+                    const session = await supabase.auth.getSession();
+                    alert(JSON.stringify(session.data.session));
+                }}
+            />
         </View>
     );
 };

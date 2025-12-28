@@ -43,8 +43,6 @@ export default function AuthProvider({ children }: PropsWithChildren) {
     // Fetch profile when session changes
     useEffect(() => {
         const fetchProfile = async () => {
-            setIsLoading(true);
-
             if (session) {
                 const { data } = await supabase
                     .from("profiles")
@@ -55,8 +53,6 @@ export default function AuthProvider({ children }: PropsWithChildren) {
             } else {
                 setProfile(null);
             }
-
-            setIsLoading(false);
         };
         fetchProfile();
     }, [session]);

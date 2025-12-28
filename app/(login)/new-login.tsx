@@ -1,11 +1,20 @@
 import { signInWithEmail } from "@/api/endpoints/auth";
 import CustomText from "@/components/CustomText";
+import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Button, StyleSheet, TextInput, View } from "react-native";
 
 export default function NewLogin() {
+    const router = useRouter();
     const [email, setEmail] = useState<string>("");
     const [password, setPassword] = useState<string>("");
+
+    const handleLogin = async () => {
+        const result = await signInWithEmail(email, password);
+        if (result) {
+            router.replace("/(tabs)/initial");
+        }
+    };
 
     return (
         <View style={styles.container}>
@@ -33,10 +42,7 @@ export default function NewLogin() {
                 onChangeText={setPassword}
             />
 
-            <Button
-                title="Login"
-                onPress={() => signInWithEmail(email, password)}
-            />
+            <Button title="Login" onPress={handleLogin} />
         </View>
     );
 }

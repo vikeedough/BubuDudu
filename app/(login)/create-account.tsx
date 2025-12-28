@@ -1,19 +1,25 @@
 import { signUpWithEmail } from "@/api/endpoints";
 import CustomText from "@/components/CustomText";
+import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Button, StyleSheet, TextInput, View } from "react-native";
 
 export default function NewLogin() {
+    const router = useRouter();
     const [email, setEmail] = useState<string>("");
     const [password, setPassword] = useState<string>("");
     const [confirmPassword, setConfirmPassword] = useState<string>("");
 
-    const handleSignUp = () => {
+    const handleSignUp = async () => {
         if (password.length === 0 || password !== confirmPassword) {
             alert("Passwords do not match");
             return;
         }
-        signUpWithEmail(email, password);
+        const result = await signUpWithEmail(email, password);
+
+        if (result) {
+            router.replace("/(login)/space-management");
+        }
     };
 
     return (

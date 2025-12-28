@@ -1,28 +1,41 @@
-import { useUserStore } from "@/stores/UserStore";
+import { useAuthContext } from "@/hooks/useAuthContext";
+import { getSpaceId } from "@/utils/secure-store";
 import { Redirect } from "expo-router";
-import { ActivityIndicator, View } from "react-native";
+import { useEffect, useState } from "react";
+import { ActivityIndicator } from "react-native";
 
 export default function Index() {
-    const hasHydrated = useUserStore((state) => state.hasHydrated);
-    const isLoggedIn = useUserStore((state) => state.isLoggedIn);
+    const { isLoading, isLoggedIn } = useAuthContext();
+    const [checkingSpace, setCheckingSpace] = useState(true);
+    const [hasSpace, setHasSpace] = useState(false);
 
-    // Show loading while store is hydrating
-    if (!hasHydrated) {
-        return (
-            <View
-                style={{
-                    flex: 1,
-                    justifyContent: "center",
-                    alignItems: "center",
-                }}
-            >
-                <ActivityIndicator size="large" />
-            </View>
-        );
+    useEffect(() => {
+        async function checkSpace() {
+            // Wait for auth to finish loading first
+            if (isLoading) {
+                return;
+            }
+
+            if (isLoggedIn) {
+                const spaceId = await getSpaceId();
+                setHasSpace(!!spaceId);
+            } else {
+                setHasSpace(false);
+            }
+            setCheckingSpace(false);
+        }
+        checkSpace();
+    }, [isLoggedIn, isLoading]);
+
+    // Show loading while EITHER auth is loading OR space is being checked
+    if (isLoading || checkingSpace) {
+        return <ActivityIndicator size="large" />;
     }
 
-    // Redirect based on authentication state
     if (isLoggedIn) {
+        if (!hasSpace) {
+            return <Redirect href="/(login)/space-management" />;
+        }
         return <Redirect href="/(tabs)/initial" />;
     }
 

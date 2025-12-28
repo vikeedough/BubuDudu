@@ -1,12 +1,11 @@
 import { useAppBootstrap } from "@/hooks/useAppBootstrap";
-import { useUserStore } from "@/stores/UserStore";
+import AuthProvider from "@/providers/auth-provider";
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import { ActivityIndicator, View } from "react-native";
 
 export default function RootLayout() {
     const { loading } = useAppBootstrap();
-    const hasHydrated = useUserStore((state) => state.hasHydrated);
 
     const [fontsLoaded] = useFonts({
         "Raleway-Regular": require("@/assets/fonts/Raleway-Regular.ttf"),
@@ -16,7 +15,7 @@ export default function RootLayout() {
         "Raleway-ExtraBold": require("@/assets/fonts/Raleway-ExtraBold.ttf"),
     });
 
-    if (!hasHydrated || loading || !fontsLoaded) {
+    if (loading || !fontsLoaded) {
         return (
             <View
                 style={{
@@ -31,10 +30,12 @@ export default function RootLayout() {
     }
 
     return (
-        <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="index" options={{ headerShown: false }} />
-            <Stack.Screen name="(login)" options={{ headerShown: false }} />
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        </Stack>
+        <AuthProvider>
+            <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="index" options={{ headerShown: false }} />
+                <Stack.Screen name="(login)" options={{ headerShown: false }} />
+                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            </Stack>
+        </AuthProvider>
     );
 }

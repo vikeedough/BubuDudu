@@ -37,6 +37,10 @@ export async function createSpace(spaceName: string) {
         return;
     }
 
+    const { data: sessionResponse } = await supabase.auth.getSession();
+    console.log(sessionResponse);
+    console.log("create space session uid", sessionResponse.session?.user?.id);
+
     // Create space
     const { data: space, error: spaceError } = await supabase
         .from("spaces")
@@ -47,8 +51,12 @@ export async function createSpace(spaceName: string) {
         .select()
         .single();
 
-    if (spaceError) {
-        Alert.alert("Space Creation Error", spaceError.message);
+    if (spaceError || !space) {
+        Alert.alert(
+            "Space Creation Error",
+            spaceError?.message || "No space data returned."
+        );
+        return;
     }
 
     await setSpaceId(space.id);

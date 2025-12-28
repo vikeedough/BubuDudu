@@ -8,7 +8,9 @@ import NoteModal from "@/components/home/NoteModal";
 import QuoteContainer from "@/components/home/QuoteContainer";
 import { Colors } from "@/constants/colors";
 import { useAppStore } from "@/stores/AppStore";
-import { useUserStore } from "@/stores/UserStore";
+// TEMPORARILY COMMENTED OUT - MIGRATION IN PROGRESS
+// import { useUserStore } from "@/stores/UserStore";
+import { useAuthContext } from "@/hooks/useAuthContext";
 import { getToday, pickAndUploadAvatar } from "@/utils/home";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
@@ -16,19 +18,25 @@ import { StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const Home = () => {
-    const { logout } = useUserStore();
-    const isLoggedIn = useUserStore((state) => state.isLoggedIn);
+    // TEMPORARILY COMMENTED OUT - MIGRATION IN PROGRESS
+    // const { logout } = useUserStore();
+    // const isLoggedIn = useUserStore((state) => state.isLoggedIn);
+    // const currentUser = useUserStore((state) => state.currentUser);
+
+    // USE AUTH CONTEXT INSTEAD
+    const { profile, session, isLoggedIn } = useAuthContext();
     const milestones = useAppStore((state) => state.milestones);
     const users = useAppStore((state) => state.users);
-    const currentUser = useUserStore((state) => state.currentUser);
     const today = getToday();
+
+    console.log("I am here", profile);
 
     const [uploadingAvatarUserId, setUploadingAvatarUserId] = useState<
         number | null
     >(null);
     const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
 
-    // Redirect to login if user logs out
+    // TEMPORARILY COMMENTED OUT - AuthProvider handles redirect now
     useEffect(() => {
         if (!isLoggedIn) {
             router.replace("/(login)");
@@ -50,7 +58,9 @@ const Home = () => {
     };
 
     const handleLogout = () => {
-        logout();
+        // TEMPORARILY COMMENTED OUT - Use SignOutButton component instead
+        // logout();
+        console.log("Use the SignOut button in the header instead");
     };
 
     return (
@@ -60,11 +70,11 @@ const Home = () => {
                 isOpen={isNoteModalOpen}
                 onClose={handleCloseNoteModal}
                 updateNote={updateNote}
-                user_id={currentUser?.id ?? 0}
+                user_id={0} // TODO: Replace with actual user_id from profile
             />
             <View style={styles.header}>
                 <CustomText weight="extrabold" style={styles.headerText}>
-                    Hello {currentUser?.name}!
+                    Hello Guest!
                 </CustomText>
                 <CustomText weight="medium" style={styles.dateText}>
                     {today}
@@ -118,7 +128,7 @@ const Home = () => {
                     <TouchableOpacity
                         style={[styles.messageBubble, styles.duduMessageBubble]}
                         onPress={handleOpenNoteModal}
-                        disabled={currentUser?.id !== users[0].id}
+                        disabled={true} // TODO: Re-enable after migration
                     >
                         <CustomText
                             weight="semibold"
@@ -139,16 +149,16 @@ const Home = () => {
                             uploadingAvatarUserId === users[0].id
                         }
                         isSelected={false}
-                        hasAddMessageButton={currentUser?.id === users[0].id}
+                        hasAddMessageButton={false} // TODO: Re-enable after migration
                         isBubu={false}
-                        disabled={currentUser?.id !== users[0].id}
+                        disabled={true} // TODO: Re-enable after migration
                     />
                 </View>
                 <View>
                     <TouchableOpacity
                         style={[styles.messageBubble, styles.bubuMessageBubble]}
                         onPress={handleOpenNoteModal}
-                        disabled={currentUser?.id !== users[1].id}
+                        disabled={true} // TODO: Re-enable after migration
                     >
                         <CustomText
                             weight="semibold"
@@ -169,9 +179,9 @@ const Home = () => {
                             uploadingAvatarUserId === users[1].id
                         }
                         isSelected={false}
-                        hasAddMessageButton={currentUser?.id === users[1].id}
+                        hasAddMessageButton={false} // TODO: Re-enable after migration
                         isBubu={true}
-                        disabled={currentUser?.id !== users[1].id}
+                        disabled={true} // TODO: Re-enable after migration
                     />
                 </View>
             </View>
