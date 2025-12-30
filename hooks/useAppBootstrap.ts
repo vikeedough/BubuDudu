@@ -1,11 +1,3 @@
-import {
-    fetchGalleries,
-    fetchLists,
-    fetchMilestones,
-    fetchQuotes,
-    fetchUsers,
-    fetchWheels,
-} from "@/api/endpoints";
 import { useAppStore } from "@/stores/AppStore";
 import { useEffect, useState } from "react";
 
@@ -18,16 +10,14 @@ export const useAppBootstrap = () => {
             try {
                 const [milestones, users, quotes, lists, galleries, wheels] =
                     await Promise.all([
-                        fetchMilestones(),
-                        fetchUsers(),
-                        fetchQuotes(),
-                        fetchLists(),
-                        fetchGalleries(),
-                        fetchWheels(),
+                        Promise.resolve([]),
+                        Promise.resolve([]),
+                        Promise.resolve([]),
+                        Promise.resolve([]),
+                        Promise.resolve([]),
+                        Promise.resolve([]),
                     ]);
-                galleries.forEach((gallery) => {
-                    gallery.date = new Date(gallery.date as string);
-                });
+
                 setAllData({
                     milestones,
                     users,

@@ -17,6 +17,7 @@ export interface Profile {
     created_at: string;
     note: string | null;
     note_updated_at: string | null;
+    date_of_birth: string | null;
 }
 
 export interface User {

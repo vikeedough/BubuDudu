@@ -1,5 +1,4 @@
-import { fetchUsers, uploadAvatarAndUpdateUser } from "@/api/endpoints";
-import { useAppStore } from "@/stores/AppStore";
+import { uploadAvatarAndUpdateUser } from "@/api/endpoints";
 import dayjs from "dayjs";
 import advancedFormat from "dayjs/plugin/advancedFormat";
 import * as ImagePicker from "expo-image-picker";
@@ -7,7 +6,11 @@ import { Alert } from "react-native";
 
 dayjs.extend(advancedFormat);
 
-export const getDaysUntilNextBirthday = (birthday: string) => {
+export const getDaysUntilNextBirthday = (birthday: string | null) => {
+    if (!birthday) {
+        return null;
+    }
+
     const today = dayjs();
     const birthdate = dayjs(birthday);
 
@@ -36,7 +39,7 @@ export const randomNumber = (min: number, max: number) => {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 };
 
-export const pickAndUploadAvatar = async (user_id: number) => {
+export const pickAndUploadAvatar = async (): Promise<string | undefined> => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (!permission.granted) {
@@ -61,7 +64,7 @@ export const pickAndUploadAvatar = async (user_id: number) => {
     }
 
     const fileUri = result.assets[0].uri;
-    const publicUrl = await uploadAvatarAndUpdateUser(user_id, fileUri);
+    const publicUrl = await uploadAvatarAndUpdateUser(fileUri);
 
     if (!publicUrl) {
         Alert.alert(
@@ -71,6 +74,5 @@ export const pickAndUploadAvatar = async (user_id: number) => {
         return;
     }
 
-    const updatedUsers = await fetchUsers();
-    useAppStore.setState({ users: updatedUsers });
+    return publicUrl;
 };

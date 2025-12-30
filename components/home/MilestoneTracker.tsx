@@ -6,14 +6,12 @@ import { StyleSheet, View } from "react-native";
 import CustomText from "../CustomText";
 
 interface MilestoneTrackerProps {
-    id: number;
     title: string;
-    date: string;
+    date: string | null;
     image: any;
     milestoneKey: number;
 }
 const MilestoneTracker: FC<MilestoneTrackerProps> = ({
-    id,
     title,
     date,
     image,
@@ -58,7 +56,7 @@ const MilestoneTracker: FC<MilestoneTrackerProps> = ({
                                 },
                             ]}
                         >
-                            {daysToNextBirthday}
+                            {daysToNextBirthday ? daysToNextBirthday : "--"}
                         </CustomText>
                         <CustomText
                             weight="semibold"

@@ -1,14 +1,16 @@
+import { Quote } from "@/api/endpoints/types";
 import { Colors } from "@/constants/colors";
-import { useAppStore } from "@/stores/AppStore";
-import { getToday, randomNumber } from "@/utils/home";
+import { randomNumber } from "@/utils/home";
 import { useEffect, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import CustomText from "../CustomText";
 
-const QuoteContainer = () => {
-    const today = getToday();
+interface QuoteContainerProps {
+    quotes: Quote[];
+}
+
+const QuoteContainer: React.FC<QuoteContainerProps> = ({ quotes }) => {
     const [rng, setRng] = useState<number>(0);
-    const quotes = useAppStore((state) => state.quotes);
 
     useEffect(() => {
         setRng(randomNumber(0, quotes.length - 1));

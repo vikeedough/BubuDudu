@@ -15,20 +15,18 @@ import CustomText from "../CustomText";
 interface NoteModalProps {
     isOpen: boolean;
     onClose: () => void;
-    updateNote: (note: string, user_id: number) => Promise<boolean>;
-    user_id: number;
+    updateNote: (note: string) => Promise<boolean>;
 }
 
 const NoteModal: React.FC<NoteModalProps> = ({
     isOpen,
     onClose,
     updateNote,
-    user_id,
 }) => {
     const [note, setNote] = useState<string>("");
 
     const handleSave = async () => {
-        const success = await updateNote(note, user_id);
+        const success = await updateNote(note);
         if (success) {
             const updatedUsers = await fetchUsers();
             useAppStore.setState({ users: updatedUsers });

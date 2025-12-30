@@ -1,20 +1,27 @@
-import { updateNote } from "@/api/endpoints";
+import { fetchMilestones, fetchQuotes, updateNote } from "@/api/endpoints";
 import DebonLyingDown from "@/assets/svgs/debon-lying-down.svg";
-import SignOutButton from "@/components/auth/sign-out-button";
 import CustomText from "@/components/CustomText";
 import Avatar from "@/components/home/Avatar";
 import MilestoneTracker from "@/components/home/MilestoneTracker";
 import NoteModal from "@/components/home/NoteModal";
 import QuoteContainer from "@/components/home/QuoteContainer";
 import { Colors } from "@/constants/colors";
-import { useAppStore } from "@/stores/AppStore";
 // TEMPORARILY COMMENTED OUT - MIGRATION IN PROGRESS
 // import { useUserStore } from "@/stores/UserStore";
+import { fetchProfiles } from "@/api/endpoints/profiles";
+import { Milestone, Profile, Quote } from "@/api/endpoints/types";
 import { useAuthContext } from "@/hooks/useAuthContext";
 import { getToday, pickAndUploadAvatar } from "@/utils/home";
+import { getSpaceId } from "@/utils/secure-store";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
-import { StyleSheet, TouchableOpacity, View } from "react-native";
+import {
+    ActivityIndicator,
+    Alert,
+    StyleSheet,
+    TouchableOpacity,
+    View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const Home = () => {
@@ -25,16 +32,51 @@ const Home = () => {
 
     // USE AUTH CONTEXT INSTEAD
     const { profile, session, isLoggedIn } = useAuthContext();
-    const milestones = useAppStore((state) => state.milestones);
-    const users = useAppStore((state) => state.users);
+    const [milestones, setMilestones] = useState<Milestone[]>([]);
+    const [quotes, setQuotes] = useState<Quote[]>([]);
+    const [spaceId, setSpaceId] = useState<string | null>(null);
+    const [userProfiles, setUserProfiles] = useState<Profile[]>([]);
+    const [isLoadingEverything, setIsLoadingEverything] = useState(true);
+
     const today = getToday();
 
-    console.log("I am here", profile);
+    useEffect(() => {
+        const loadData = async () => {
+            const fetchedSpaceId = await getSpaceId();
+
+            if (!fetchedSpaceId || !session) {
+                console.log("No space ID found or no session");
+                return;
+            }
+
+            setSpaceId(fetchedSpaceId);
+
+            const [milestonesData, quotesData, profilesData] =
+                await Promise.all([
+                    fetchMilestones(fetchedSpaceId),
+                    fetchQuotes(fetchedSpaceId),
+                    fetchProfiles(fetchedSpaceId),
+                ]);
+
+            setMilestones(milestonesData);
+            setQuotes(quotesData);
+            setUserProfiles(profilesData);
+            setIsLoadingEverything(false);
+        };
+
+        loadData();
+    }, [session?.user?.id]);
 
     const [uploadingAvatarUserId, setUploadingAvatarUserId] = useState<
-        number | null
+        string | null
     >(null);
     const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
+
+    const refreshProfiles = async () => {
+        if (!spaceId) return;
+        const profilesData = await fetchProfiles(spaceId);
+        setUserProfiles(profilesData);
+    };
 
     // TEMPORARILY COMMENTED OUT - AuthProvider handles redirect now
     useEffect(() => {
@@ -43,9 +85,23 @@ const Home = () => {
         }
     }, [isLoggedIn]);
 
-    const handlePickAndUploadAvatar = async (user_id: number) => {
-        setUploadingAvatarUserId(user_id);
-        await pickAndUploadAvatar(user_id);
+    const myId = session?.user?.id;
+    const me = userProfiles.find((p) => p.id === myId);
+    const partner = userProfiles.find((p) => p.id !== myId);
+
+    const handlePickAndUploadAvatar = async () => {
+        setUploadingAvatarUserId(me?.id || null);
+        const newUrl = await pickAndUploadAvatar();
+        if (!newUrl) {
+            Alert.alert("Error", "Failed to upload avatar.");
+            setUploadingAvatarUserId(null);
+            return;
+        }
+        setUserProfiles((prev) =>
+            prev.map((p) =>
+                p.id === me?.id ? { ...p, avatar_url: newUrl } : p
+            )
+        );
         setUploadingAvatarUserId(null);
     };
 
@@ -53,7 +109,8 @@ const Home = () => {
         setIsNoteModalOpen(true);
     };
 
-    const handleCloseNoteModal = () => {
+    const handleCloseNoteModal = async () => {
+        await refreshProfiles();
         setIsNoteModalOpen(false);
     };
 
@@ -63,6 +120,21 @@ const Home = () => {
         console.log("Use the SignOut button in the header instead");
     };
 
+    // Show loading while space data is being fetched
+    if (isLoadingEverything || !me) {
+        return (
+            <View
+                style={{
+                    flex: 1,
+                    justifyContent: "center",
+                    alignItems: "center",
+                }}
+            >
+                <ActivityIndicator size="large" />
+            </View>
+        );
+    }
+
     return (
         <SafeAreaView style={styles.container}>
             <View style={styles.ellipse} />
@@ -70,16 +142,22 @@ const Home = () => {
                 isOpen={isNoteModalOpen}
                 onClose={handleCloseNoteModal}
                 updateNote={updateNote}
-                user_id={0} // TODO: Replace with actual user_id from profile
             />
             <View style={styles.header}>
                 <CustomText weight="extrabold" style={styles.headerText}>
-                    Hello Guest!
+                    Hello {profile?.name ?? "there"}!
                 </CustomText>
                 <CustomText weight="medium" style={styles.dateText}>
                     {today}
                 </CustomText>
-                <SignOutButton />
+                {/* <SignOutButton />
+                <Button
+                    title="check current space id"
+                    onPress={async () => {
+                        const spaceId = await getSpaceId();
+                        alert(`Current space ID: ${spaceId}`);
+                    }}
+                /> */}
             </View>
             <View style={styles.debonContainer}>
                 <TouchableOpacity onLongPress={handleLogout}>
@@ -89,71 +167,73 @@ const Home = () => {
                         style={styles.debonImage}
                     />
                 </TouchableOpacity>
-                <QuoteContainer />
+                <QuoteContainer quotes={quotes} />
             </View>
-            <View style={styles.milestonesContainer}>
-                <View style={{ flexDirection: "row", gap: 20 }}>
-                    <MilestoneTracker
-                        id={milestones[1].id}
-                        title={milestones[1].title}
-                        date={milestones[1].date}
-                        image={require("@/assets/images/dudu.jpg")}
-                        milestoneKey={0}
-                    />
-                    <MilestoneTracker
-                        id={milestones[0].id}
-                        title={milestones[0].title}
-                        date={milestones[0].date}
-                        image={require("@/assets/images/bubu.jpg")}
-                        milestoneKey={1}
-                    />
-                </View>
-                <View
-                    style={{
-                        justifyContent: "center",
-                        alignItems: "center",
-                    }}
-                >
-                    <MilestoneTracker
-                        id={milestones[2].id}
-                        title={milestones[2].title}
-                        date={milestones[2].date}
-                        image={require("@/assets/images/anniversary.jpg")}
-                        milestoneKey={2}
-                    />
-                </View>
-            </View>
-            <View style={styles.avatarsContainer}>
-                <View>
-                    <TouchableOpacity
-                        style={[styles.messageBubble, styles.duduMessageBubble]}
-                        onPress={handleOpenNoteModal}
-                        disabled={true} // TODO: Re-enable after migration
+            {milestones.length >= 3 && (
+                <View style={styles.milestonesContainer}>
+                    <View style={{ flexDirection: "row", gap: 20 }}>
+                        <MilestoneTracker
+                            title={me?.name + "'s Birthday"}
+                            date={me?.date_of_birth}
+                            image={require("@/assets/images/dudu.jpg")}
+                            milestoneKey={0}
+                        />
+                        <MilestoneTracker
+                            title={
+                                partner
+                                    ? partner.name + "'s Birthday"
+                                    : "Partner's Birthday"
+                            }
+                            date={partner ? partner.date_of_birth : null}
+                            image={require("@/assets/images/bubu.jpg")}
+                            milestoneKey={1}
+                        />
+                    </View>
+                    <View
+                        style={{
+                            justifyContent: "center",
+                            alignItems: "center",
+                        }}
                     >
-                        <CustomText
-                            weight="semibold"
-                            style={styles.messageText}
-                        >
-                            {users[0].note
-                                ? users[0].note
-                                : "Dudu has no note yet!"}
-                        </CustomText>
-                    </TouchableOpacity>
-                    <Avatar
-                        image={users[0].avatar_url}
-                        onPressNoteButton={handleOpenNoteModal}
-                        onPressImage={() =>
-                            handlePickAndUploadAvatar(users[0].id)
-                        }
-                        isUploadingAvatar={
-                            uploadingAvatarUserId === users[0].id
-                        }
-                        isSelected={false}
-                        hasAddMessageButton={false} // TODO: Re-enable after migration
-                        isBubu={false}
-                        disabled={true} // TODO: Re-enable after migration
-                    />
+                        <MilestoneTracker
+                            title={milestones[2].title}
+                            date={milestones[2].date}
+                            image={require("@/assets/images/anniversary.jpg")}
+                            milestoneKey={2}
+                        />
+                    </View>
                 </View>
+            )}
+            <View style={styles.avatarsContainer}>
+                {me && (
+                    <View>
+                        <TouchableOpacity
+                            style={[
+                                styles.messageBubble,
+                                styles.duduMessageBubble,
+                            ]}
+                            onPress={handleOpenNoteModal}
+                            disabled={false}
+                        >
+                            <CustomText
+                                weight="semibold"
+                                style={styles.messageText}
+                            >
+                                {me?.note ? me.note : "You have no note yet!"}
+                            </CustomText>
+                        </TouchableOpacity>
+                        <Avatar
+                            image={me.avatar_url}
+                            onPressNoteButton={handleOpenNoteModal}
+                            onPressImage={() => handlePickAndUploadAvatar()}
+                            isUploadingAvatar={uploadingAvatarUserId === me.id}
+                            isSelected={false}
+                            hasAddMessageButton={true}
+                            isBubu={false}
+                            disabled={false}
+                        />
+                    </View>
+                )}
                 <View>
                     <TouchableOpacity
                         style={[styles.messageBubble, styles.bubuMessageBubble]}
@@ -164,24 +244,23 @@ const Home = () => {
                             weight="semibold"
                             style={styles.messageText}
                         >
-                            {users[1].note
-                                ? users[1].note
-                                : "Bubu has no note yet!"}
+                            {partner
+                                ? partner.note ??
+                                  "Your partner has no note yet!"
+                                : "Invite your partner to join!"}
                         </CustomText>
                     </TouchableOpacity>
                     <Avatar
-                        image={users[1].avatar_url}
+                        image={partner?.avatar_url}
                         onPressNoteButton={handleOpenNoteModal}
-                        onPressImage={() =>
-                            handlePickAndUploadAvatar(users[1].id)
-                        }
+                        onPressImage={() => {}}
                         isUploadingAvatar={
-                            uploadingAvatarUserId === users[1].id
+                            uploadingAvatarUserId === partner?.id
                         }
                         isSelected={false}
-                        hasAddMessageButton={false} // TODO: Re-enable after migration
+                        hasAddMessageButton={false}
                         isBubu={true}
-                        disabled={true} // TODO: Re-enable after migration
+                        disabled={true}
                     />
                 </View>
             </View>
