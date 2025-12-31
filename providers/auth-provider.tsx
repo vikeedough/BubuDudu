@@ -2,7 +2,7 @@ import { supabase } from "@/api/clients/supabaseClient";
 import { Profile } from "@/api/endpoints/types";
 import { AuthContext } from "@/hooks/useAuthContext";
 import type { Session } from "@supabase/supabase-js";
-import { PropsWithChildren, useEffect, useState } from "react";
+import { PropsWithChildren, useCallback, useEffect, useState } from "react";
 
 export default function AuthProvider({ children }: PropsWithChildren) {
     const [session, setSession] = useState<Session | null>(null);
@@ -40,22 +40,50 @@ export default function AuthProvider({ children }: PropsWithChildren) {
         };
     }, []);
 
+    const refreshProfile = useCallback(async () => {
+        if (!session) {
+            setProfile(null);
+            return null;
+        }
+
+        const { data, error } = await supabase
+            .from("profiles")
+            .select("*")
+            .eq("id", session.user.id)
+            .single();
+
+        if (error) throw error;
+
+        setProfile(data as Profile);
+        return data as Profile;
+    }, [session]);
+
     // Fetch profile when session changes
     useEffect(() => {
-        const fetchProfile = async () => {
-            if (session) {
-                const { data } = await supabase
-                    .from("profiles")
-                    .select("*")
-                    .eq("id", session.user.id)
-                    .single();
-                setProfile(data as Profile);
-            } else {
-                setProfile(null);
-            }
-        };
-        fetchProfile();
-    }, [session]);
+        refreshProfile().catch((e) => {
+            console.error("Error fetching profile:", e.message ?? e);
+            setProfile(null);
+        });
+    }, [refreshProfile]);
+
+    const updateProfile = useCallback(
+        async (patch: Partial<Profile>) => {
+            if (!session) throw new Error("No session");
+
+            const { data, error } = await supabase
+                .from("profiles")
+                .update(patch)
+                .eq("id", session.user.id)
+                .select("*")
+                .single();
+
+            if (error) throw error;
+
+            setProfile(data as Profile);
+            return data as Profile;
+        },
+        [session]
+    );
 
     return (
         <AuthContext.Provider
@@ -64,6 +92,8 @@ export default function AuthProvider({ children }: PropsWithChildren) {
                 isLoading,
                 profile,
                 isLoggedIn: session != undefined,
+                refreshProfile,
+                updateProfile,
             }}
         >
             {children}

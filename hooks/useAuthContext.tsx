@@ -7,6 +7,8 @@ export interface AuthData {
     profile: Profile | null;
     isLoading: boolean;
     isLoggedIn: boolean;
+    updateProfile: (patch: Partial<Profile>) => Promise<Profile>;
+    refreshProfile: () => Promise<Profile | null>;
 }
 
 export const AuthContext = createContext<AuthData>({
@@ -14,6 +16,10 @@ export const AuthContext = createContext<AuthData>({
     profile: null,
     isLoading: true,
     isLoggedIn: false,
+    refreshProfile: async () => null,
+    updateProfile: async (_profile: Partial<Profile>) => {
+        return {} as Profile;
+    },
 });
 
 export const useAuthContext = () => useContext(AuthContext);

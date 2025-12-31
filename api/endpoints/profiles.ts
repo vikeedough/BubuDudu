@@ -26,6 +26,28 @@ export const fetchProfiles = async (spaceId: string): Promise<Profile[]> => {
     return rows.map((r) => r.profiles).filter((p): p is Profile => Boolean(p));
 };
 
+export const updateProfileName = async (name: string) => {
+    const { data: userRes, error: userErr } = await supabase.auth.getUser();
+    if (userErr || !userRes.user) {
+        console.error("Error getting user:", userErr?.message);
+        return null;
+    }
+
+    const userId = userRes.user.id;
+
+    const { error: updateError } = await supabase
+        .from("profiles")
+        .update({ name: name })
+        .eq("id", userId);
+
+    if (updateError) {
+        console.error("Error updating user name:", updateError.message);
+        return null;
+    }
+
+    return true;
+};
+
 export const uploadAvatarAndUpdateUser = async (fileUri: string) => {
     const { data: userRes, error: userErr } = await supabase.auth.getUser();
     if (userErr || !userRes.user) {

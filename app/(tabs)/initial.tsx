@@ -18,6 +18,7 @@ import { useEffect, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
+    Button,
     StyleSheet,
     TouchableOpacity,
     View,
@@ -86,7 +87,7 @@ const Home = () => {
     }, [isLoggedIn]);
 
     const myId = session?.user?.id;
-    const me = userProfiles.find((p) => p.id === myId);
+    const me = profile;
     const partner = userProfiles.find((p) => p.id !== myId);
 
     const handlePickAndUploadAvatar = async () => {
@@ -150,14 +151,11 @@ const Home = () => {
                 <CustomText weight="medium" style={styles.dateText}>
                     {today}
                 </CustomText>
-                {/* <SignOutButton />
+                {/* <SignOutButton /> */}
                 <Button
-                    title="check current space id"
-                    onPress={async () => {
-                        const spaceId = await getSpaceId();
-                        alert(`Current space ID: ${spaceId}`);
-                    }}
-                /> */}
+                    title="Settings"
+                    onPress={() => router.push("/(settings)")}
+                />
             </View>
             <View style={styles.debonContainer}>
                 <TouchableOpacity onLongPress={handleLogout}>
