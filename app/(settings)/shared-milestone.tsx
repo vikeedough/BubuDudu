@@ -2,7 +2,7 @@ import CustomText from "@/components/CustomText";
 import { GeneralButton } from "@/components/GeneralButton";
 import { SettingsField } from "@/components/settings/SettingsField";
 import { Colors } from "@/constants/colors";
-import { useMilestoneStore } from "@/stores/milestoneStore";
+import { useMilestoneStore } from "@/stores/MilestoneStore";
 import {
     convertToDisplayDate,
     dateToYYYYMMDD,

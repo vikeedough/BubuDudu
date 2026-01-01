@@ -1,23 +1,23 @@
-import { DateImage } from "@/api/endpoints/types";
 import { Colors } from "@/constants/colors";
+import { GalleryImage } from "@/stores/GalleryStore";
 import { FlashList } from "@shopify/flash-list";
 import React from "react";
 import { ActivityIndicator, Dimensions, StyleSheet, View } from "react-native";
 import GalleryImageItem from "./GalleryImageItem";
 
 interface GalleryImageGridProps {
-    images: DateImage[];
+    images: GalleryImage[];
     loading: boolean;
     editMode: boolean;
-    selectedImages: DateImage[];
-    onImagePress: (image: DateImage) => void;
-    onImageLongPress: (image: DateImage) => void;
-    onImageSelect: (image: DateImage) => void;
+    selectedImages: GalleryImage[];
+    onImagePress: (image: GalleryImage) => void;
+    onImageLongPress: (image: GalleryImage) => void;
+    onImageSelect: (image: GalleryImage) => void;
 }
 
 // Helper function to group pictures into pairs (rows of 2)
-const groupIntoRows = (images: DateImage[]): (DateImage | null)[][] => {
-    const rows: (DateImage | null)[][] = [];
+const groupIntoRows = (images: GalleryImage[]): (GalleryImage | null)[][] => {
+    const rows: (GalleryImage | null)[][] = [];
     for (let i = 0; i < images.length; i += 2) {
         const row = [images[i], images[i + 1] || null];
         rows.push(row);
@@ -50,7 +50,11 @@ const GalleryImageGrid: React.FC<GalleryImageGridProps> = ({
         <View style={styles.flatListContainer}>
             <FlashList
                 data={rows}
-                renderItem={({ item: row }: { item: (DateImage | null)[] }) => (
+                renderItem={({
+                    item: row,
+                }: {
+                    item: (GalleryImage | null)[];
+                }) => (
                     <View style={styles.row}>
                         {row.map((gallery, index) => (
                             <View
@@ -61,8 +65,8 @@ const GalleryImageGrid: React.FC<GalleryImageGridProps> = ({
                                     <GalleryImageItem
                                         image={gallery}
                                         editMode={editMode}
-                                        isSelected={selectedImages.includes(
-                                            gallery
+                                        isSelected={selectedImages.some(
+                                            (img) => img.id === gallery.id
                                         )}
                                         onPress={() => onImagePress(gallery)}
                                         onLongPress={() =>
@@ -78,7 +82,6 @@ const GalleryImageGrid: React.FC<GalleryImageGridProps> = ({
                     </View>
                 )}
                 ItemSeparatorComponent={() => <View style={styles.separator} />}
-                estimatedItemSize={estimatedItemSize}
             />
         </View>
     );

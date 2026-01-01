@@ -1,5 +1,5 @@
-import { Gallery as GalleryType } from "@/api/endpoints/types";
 import { Colors } from "@/constants/colors";
+import { Gallery as GalleryType } from "@/stores/GalleryStore";
 import { Image } from "expo-image";
 import React from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
@@ -11,6 +11,7 @@ interface GalleryItemProps {
 }
 
 const GalleryItem: React.FC<GalleryItemProps> = ({ gallery, onPress }) => {
+    console.log("cover image:", gallery.cover_image);
     return (
         <View style={styles.shadowContainer}>
             <TouchableOpacity
@@ -22,8 +23,12 @@ const GalleryItem: React.FC<GalleryItemProps> = ({ gallery, onPress }) => {
             >
                 <View>
                     <Image
-                        source={{ uri: gallery.cover_image }}
-                        placeholder={gallery.cover_image_blur_hash}
+                        source={
+                            gallery.cover_image
+                                ? { uri: gallery.cover_image }
+                                : undefined
+                        }
+                        placeholder={gallery.cover_image_blur_hash ?? undefined}
                         transition={200}
                         style={styles.image}
                         cachePolicy="memory-disk"

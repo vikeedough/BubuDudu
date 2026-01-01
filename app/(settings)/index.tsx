@@ -1,7 +1,7 @@
 import CustomText from "@/components/CustomText";
 import { SettingsField } from "@/components/settings/SettingsField";
 import { useAuthContext } from "@/hooks/useAuthContext";
-import { useMilestoneStore } from "@/stores/milestoneStore";
+import { useMilestoneStore } from "@/stores/MilestoneStore";
 import { formatDate } from "@/utils/settings";
 import { useRouter } from "expo-router";
 import { useEffect, useMemo } from "react";

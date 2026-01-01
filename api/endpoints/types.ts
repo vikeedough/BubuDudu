@@ -44,6 +44,7 @@ export interface Gallery {
     location: string;
     cover_image: string;
     cover_image_blur_hash: string;
+    space_id: string;
 }
 
 export interface DateImage {
@@ -52,6 +53,7 @@ export interface DateImage {
     url: string;
     created_at: string;
     blur_hash: string;
+    storage_path: string;
 }
 
 export interface Wheel {

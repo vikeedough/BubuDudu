@@ -12,7 +12,7 @@ import { fetchProfiles } from "@/api/endpoints/profiles";
 import { Profile, Quote } from "@/api/endpoints/types";
 import SignOutButton from "@/components/auth/sign-out-button";
 import { useAuthContext } from "@/hooks/useAuthContext";
-import { useMilestoneStore } from "@/stores/milestoneStore";
+import { useMilestoneStore } from "@/stores/MilestoneStore";
 import { getToday, pickAndUploadAvatar } from "@/utils/home";
 import { getSpaceId } from "@/utils/secure-store";
 import { router } from "expo-router";

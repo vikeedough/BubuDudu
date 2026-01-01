@@ -1,13 +1,7 @@
-import {
-    addNewGallery,
-    fetchGalleries,
-    getGalleryId,
-    uploadGalleryImages,
-} from "@/api/endpoints";
 import CustomText from "@/components/CustomText";
 import { Colors, listColorsArray } from "@/constants/colors";
-import { useAppStore } from "@/stores/AppStore";
-import { normalizeGalleries, pickMultipleImages } from "@/utils/gallery";
+import { useGalleryStore } from "@/stores/GalleryStore";
+import { pickMultipleImages } from "@/utils/gallery";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { FlashList } from "@shopify/flash-list";
 import { Image } from "expo-image";
@@ -39,6 +33,10 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
     isOpen,
     onClose,
 }) => {
+    const addNewGallery = useGalleryStore((s) => s.addNewGallery);
+    const uploadGalleryImages = useGalleryStore((s) => s.uploadGalleryImages);
+    const fetchGalleries = useGalleryStore((s) => s.fetchGalleries);
+
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [dateName, setDateName] = useState("");
     const [location, setLocation] = useState("");
@@ -51,102 +49,98 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
     const [isAddingImages, setIsAddingImages] = useState(false);
     const [isUploadingImages, setIsUploadingImages] = useState(false);
 
-    const handleCancel = () => {
+    const resetForm = () => {
         setDateName("");
         setLocation("");
         setDate(new Date());
         setImages([]);
         setShowDatePicker(false);
+        setSelectedColor(listColorsArray[0]);
+        setSelectedColorIndex(0);
+        setIsAddingImages(false);
+        setIsUploadingImages(false);
+    };
+
+    const handleCancel = () => {
+        resetForm();
         onClose();
     };
 
     const handleAddGallery = async () => {
-        setIsUploadingImages(true);
         if (
-            dateName === "" ||
-            date === null ||
+            dateName.trim() === "" ||
+            location.trim() === "" ||
+            !date ||
             images.length === 0 ||
-            selectedColor === "" ||
-            location === ""
+            selectedColor === ""
         ) {
             Alert.alert("Error", "Please fill in all fields.");
             return;
         }
 
-        const success = await addNewGallery(
-            dateName.trim(),
-            date.toISOString(),
-            selectedColor,
-            location.trim()
-        );
-        if (!success) {
+        setIsUploadingImages(true);
+
+        // 1) create gallery row (store updates galleries immediately)
+        const newGallery = await addNewGallery({
+            title: dateName.trim(),
+            date: date.toISOString(), // matches your current DB values
+            color: selectedColor,
+            location: location.trim(),
+        });
+
+        if (!newGallery) {
+            setIsUploadingImages(false);
             Alert.alert("Error", "Failed to add gallery");
             return;
         }
 
-        const galleryId = await getGalleryId(dateName);
-        if (!galleryId) {
-            Alert.alert("Error", "Failed to get gallery ID");
+        // 2) upload images (this will also update cover image + imagesByGalleryId in store)
+        const ok = await uploadGalleryImages(newGallery.id, images);
+
+        if (!ok) {
+            setIsUploadingImages(false);
+            Alert.alert("Error", "Failed to upload images");
             return;
         }
 
-        if (images.length > 0) {
-            const uploadSuccess = await uploadGalleryImages(galleryId, images);
-            if (!uploadSuccess) {
-                Alert.alert("Error", "Failed to upload images");
-                return;
-            }
-        }
+        // Optional safety sync (not strictly required if store updates are correct)
+        await fetchGalleries();
 
-        const updatedGalleries = await fetchGalleries();
-        useAppStore.setState({
-            galleries: normalizeGalleries(updatedGalleries),
-        });
-
-        // Reset form state and close modal
-        setDateName("");
-        setDate(new Date());
-        setImages([]);
-        setShowDatePicker(false);
-        onClose();
         setIsUploadingImages(false);
+        resetForm();
+        onClose();
     };
 
-    const imagesShown = () => {
-        return (
-            <View style={styles.flashListContainer}>
-                <FlashList
-                    data={images}
-                    keyExtractor={(item, index) => index.toString()}
-                    renderItem={({ item }) => (
-                        <TouchableOpacity
-                            onPress={() => {
-                                setImages(
-                                    images.filter((image) => image !== item)
-                                );
-                            }}
-                        >
-                            <Image
-                                source={{ uri: item }}
-                                style={styles.image}
-                                placeholder={{ blurhash }}
-                                contentFit="cover"
-                                transition={1000}
-                            />
-                        </TouchableOpacity>
-                    )}
-                    numColumns={3}
-                    estimatedItemSize={90}
-                />
-            </View>
-        );
-    };
+    const imagesShown = () => (
+        <View style={styles.flashListContainer}>
+            <FlashList
+                data={images}
+                keyExtractor={(_, index) => index.toString()}
+                renderItem={({ item }) => (
+                    <TouchableOpacity
+                        onPress={() =>
+                            setImages(images.filter((img) => img !== item))
+                        }
+                    >
+                        <Image
+                            source={{ uri: item }}
+                            style={styles.image}
+                            placeholder={{ blurhash }}
+                            contentFit="cover"
+                            transition={1000}
+                        />
+                    </TouchableOpacity>
+                )}
+                numColumns={3}
+            />
+        </View>
+    );
 
     return (
         <Modal
             visible={isOpen}
             onRequestClose={handleCancel}
-            transparent={true}
+            transparent
             animationType="fade"
         >
             <TouchableWithoutFeedback
@@ -169,15 +163,16 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
                                 onPress={() => {
                                     setIsAddingImages(true);
                                     pickMultipleImages().then((imagesToAdd) => {
-                                        if (imagesToAdd) {
-                                            setImages([
-                                                ...images,
+                                        if (imagesToAdd?.length) {
+                                            setImages((prev) => [
+                                                ...prev,
                                                 ...imagesToAdd,
                                             ]);
                                         }
                                         setIsAddingImages(false);
                                     });
                                 }}
+                                disabled={isUploadingImages}
                             >
                                 {images.length > 0 ? (
                                     isAddingImages ? (
@@ -198,6 +193,7 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
                                 )}
                             </TouchableOpacity>
                         </View>
+
                         <View style={styles.modalContainer}>
                             <View style={styles.form}>
                                 <CustomText
@@ -212,6 +208,7 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
                                     value={dateName}
                                     onChangeText={setDateName}
                                 />
+
                                 <CustomText
                                     weight="semibold"
                                     style={styles.formTitle}
@@ -224,6 +221,7 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
                                     value={location}
                                     onChangeText={setLocation}
                                 />
+
                                 <CustomText
                                     weight="semibold"
                                     style={styles.formTitle}
@@ -233,6 +231,7 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
                                 <TouchableOpacity
                                     onPress={() => setShowDatePicker(true)}
                                     style={styles.datePicker}
+                                    disabled={isUploadingImages}
                                 >
                                     <CustomText
                                         weight="semibold"
@@ -241,19 +240,19 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
                                         {date.toLocaleDateString()}
                                     </CustomText>
                                 </TouchableOpacity>
+
                                 {showDatePicker && (
                                     <DateTimePicker
                                         value={date}
                                         mode="date"
                                         display="default"
-                                        onChange={(event, date) => {
-                                            if (date) {
-                                                setDate(date);
-                                                setShowDatePicker(false);
-                                            }
+                                        onChange={(_event, picked) => {
+                                            if (picked) setDate(picked);
+                                            setShowDatePicker(false);
                                         }}
                                     />
                                 )}
+
                                 <CustomText
                                     weight="semibold"
                                     style={styles.formTitle}
@@ -274,14 +273,17 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
                                                 setSelectedColor(color);
                                                 setSelectedColorIndex(index);
                                             }}
+                                            disabled={isUploadingImages}
                                         />
                                     ))}
                                 </View>
                             </View>
+
                             <View style={styles.header}>
                                 <TouchableOpacity
                                     style={styles.confirmButton}
                                     onPress={handleAddGallery}
+                                    disabled={isUploadingImages}
                                 >
                                     {isUploadingImages ? (
                                         <ActivityIndicator />
@@ -294,9 +296,11 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
                                         </CustomText>
                                     )}
                                 </TouchableOpacity>
+
                                 <TouchableOpacity
                                     style={styles.headerButton}
                                     onPress={handleCancel}
+                                    disabled={isUploadingImages}
                                 >
                                     <CustomText
                                         weight="semibold"
@@ -316,6 +320,7 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
 
 export default AddNewGalleryModal;
 
+// styles unchanged ↓
 const styles = StyleSheet.create({
     modalOverlay: {
         flex: 1,
@@ -329,10 +334,7 @@ const styles = StyleSheet.create({
         padding: 25,
         margin: 20,
         shadowColor: "#000",
-        shadowOffset: {
-            width: 0,
-            height: 2,
-        },
+        shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.25,
         shadowRadius: 4,
         elevation: 5,
@@ -432,10 +434,7 @@ const styles = StyleSheet.create({
         padding: 20,
         borderRadius: 15,
         shadowColor: "#000",
-        shadowOffset: {
-            width: 0,
-            height: 2,
-        },
+        shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.25,
         shadowRadius: 4,
         elevation: 5,

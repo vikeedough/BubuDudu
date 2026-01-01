@@ -1,11 +1,11 @@
-import { DateImage } from "@/api/endpoints/types";
 import { Colors } from "@/constants/colors";
+import { GalleryImage } from "@/stores/GalleryStore";
 import { Image } from "expo-image";
 import React from "react";
 import { Dimensions, StyleSheet, TouchableOpacity } from "react-native";
 
 interface GalleryImageItemProps {
-    image: DateImage;
+    image: GalleryImage;
     editMode: boolean;
     isSelected: boolean;
     onPress: () => void;

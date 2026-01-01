@@ -50,7 +50,6 @@ const GalleryContent = () => {
         setIsImageModalOpen,
         setIsDeleteImagesModalOpen,
         setIsDeleteGalleryModalOpen,
-        setImages,
         setSelectedImages,
         setEditMode,
     } = useGalleryContent({ galleryId: galleryId as string });
@@ -71,7 +70,6 @@ const GalleryContent = () => {
                     onClose={() => setIsDeleteImagesModalOpen(false)}
                     selectedImages={selectedImages}
                     galleryId={galleryId as string}
-                    setImages={setImages}
                     setSelectedImages={setSelectedImages}
                     setEditMode={setEditMode}
                 />

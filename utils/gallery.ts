@@ -1,4 +1,4 @@
-import { DateImage, Gallery } from "@/api/endpoints/types";
+import { Gallery, GalleryImage } from "@/stores/GalleryStore";
 import * as FileSystem from "expo-file-system";
 import * as ImagePicker from "expo-image-picker";
 import * as MediaLibrary from "expo-media-library";
@@ -64,7 +64,7 @@ export const downloadAndSaveImage = async (image_id: string, url: string) => {
     }
 };
 
-export const multipleDownloadAndSaveImage = async (images: DateImage[]) => {
+export const multipleDownloadAndSaveImage = async (images: GalleryImage[]) => {
     const { status } = await MediaLibrary.requestPermissionsAsync();
     if (status !== "granted") {
         Alert.alert("Permission to save images was denied");

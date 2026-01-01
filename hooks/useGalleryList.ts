@@ -1,13 +1,19 @@
-import { Gallery as GalleryType } from "@/api/endpoints/types";
-import { useAppStore } from "@/stores/AppStore";
+import { Gallery, useGalleryStore } from "@/stores/GalleryStore";
 import { router } from "expo-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 export const useGalleryList = () => {
-    const galleries = useAppStore((state) => state.galleries);
+    const galleries = useGalleryStore((s) => s.galleries);
+    const fetchGalleries = useGalleryStore((s) => s.fetchGalleries);
+    const isLoadingGalleries = useGalleryStore((s) => s.isLoadingGalleries);
+
     const [sortingByDescending, setSortingByDescending] = useState(true);
     const [searchText, setSearchText] = useState("");
     const [isNewGalleryModalOpen, setIsNewGalleryModalOpen] = useState(false);
+
+    useEffect(() => {
+        fetchGalleries();
+    }, [fetchGalleries]);
 
     const filteredGalleries = useMemo(
         () =>
@@ -31,19 +37,12 @@ export const useGalleryList = () => {
         [galleries, searchText, sortingByDescending]
     );
 
-    const handleAddNewGallery = () => {
-        setIsNewGalleryModalOpen(true);
-    };
+    const handleAddNewGallery = () => setIsNewGalleryModalOpen(true);
+    const handleToggleSort = () => setSortingByDescending((v) => !v);
+    const handleSearchChange = (text: string) => setSearchText(text);
+    const handleCloseModal = () => setIsNewGalleryModalOpen(false);
 
-    const handleToggleSort = () => {
-        setSortingByDescending(!sortingByDescending);
-    };
-
-    const handleSearchChange = (text: string) => {
-        setSearchText(text);
-    };
-
-    const navigateToGalleryContent = (gallery: GalleryType) => {
+    const navigateToGalleryContent = (gallery: Gallery) => {
         router.push({
             pathname: "/(tabs)/(gallery)/galleryContent",
             params: {
@@ -59,22 +58,22 @@ export const useGalleryList = () => {
         });
     };
 
-    const handleCloseModal = () => {
-        setIsNewGalleryModalOpen(false);
+    const refresh = async () => {
+        await fetchGalleries();
     };
 
     return {
-        // State
         filteredGalleries,
         sortingByDescending,
         searchText,
         isNewGalleryModalOpen,
+        isLoadingGalleries,
 
-        // Actions
         handleAddNewGallery,
         handleToggleSort,
         handleSearchChange,
         navigateToGalleryContent,
         handleCloseModal,
+        refresh,
     };
 };

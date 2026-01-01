@@ -1,91 +1,92 @@
-import {
-    deleteGallery,
-    fetchGalleries,
-    fetchGalleryImages,
-    uploadGalleryImages,
-} from "@/api/endpoints";
-import { DateImage } from "@/api/endpoints/types";
-import { useAppStore } from "@/stores/AppStore";
+import type { GalleryImage } from "@/stores/GalleryStore";
+import { useGalleryStore } from "@/stores/GalleryStore";
 import {
     multipleDownloadAndSaveImage,
-    normalizeGalleries,
     pickMultipleImages,
 } from "@/utils/gallery";
 import { router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 
-interface UseGalleryContentProps {
-    galleryId: string;
-}
+const EMPTY_IMAGES: GalleryImage[] = [];
 
-export const useGalleryContent = ({ galleryId }: UseGalleryContentProps) => {
-    const [loading, setLoading] = useState(true);
+export const useGalleryContent = ({ galleryId }: { galleryId: string }) => {
+    const fetchGalleryImages = useGalleryStore((s) => s.fetchGalleryImages);
+    const fetchGalleries = useGalleryStore((s) => s.fetchGalleries);
+    const deleteGallery = useGalleryStore((s) => s.deleteGallery);
+    const uploadGalleryImages = useGalleryStore((s) => s.uploadGalleryImages);
+
+    const imagesFromStore = useGalleryStore(
+        (s) => s.imagesByGalleryId[galleryId] ?? EMPTY_IMAGES
+    );
+    const isLoadingImages = useGalleryStore(
+        (s) => s.isLoadingImagesByGalleryId[galleryId] ?? false
+    );
+
     const [isDownloading, setIsDownloading] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
-    const [images, setImages] = useState<DateImage[]>([]);
-    const [selectedImage, setSelectedImage] = useState<DateImage | null>(null);
+    const [selectedImage, setSelectedImage] = useState<GalleryImage | null>(
+        null
+    );
     const [isImageModalOpen, setIsImageModalOpen] = useState(false);
     const [isDeleteImagesModalOpen, setIsDeleteImagesModalOpen] =
         useState(false);
     const [isDeleteGalleryModalOpen, setIsDeleteGalleryModalOpen] =
         useState(false);
     const [editMode, setEditMode] = useState(false);
-    const [selectedImages, setSelectedImages] = useState<DateImage[]>([]);
+    const [selectedImages, setSelectedImages] = useState<GalleryImage[]>([]);
     const [sortingByAscending, setSortingByAscending] = useState(true);
 
     useEffect(() => {
-        const fetchImages = async () => {
-            const images = await fetchGalleryImages(galleryId);
-            setImages(images);
-            setLoading(false);
-        };
+        fetchGalleryImages(galleryId);
+    }, [galleryId, fetchGalleryImages]);
 
-        fetchImages();
-    }, [galleryId]);
-
-    const sortedImages = useMemo(
-        () =>
-            images.sort((a, b) => {
-                return sortingByAscending
+    const sortedImages = useMemo(() => {
+        return imagesFromStore
+            .slice()
+            .sort((a, b) =>
+                sortingByAscending
                     ? a.created_at.localeCompare(b.created_at)
-                    : b.created_at.localeCompare(a.created_at);
-            }),
-        [images, sortingByAscending]
-    );
+                    : b.created_at.localeCompare(a.created_at)
+            );
+    }, [imagesFromStore, sortingByAscending]);
 
     const handleAddImages = async () => {
         const newImages = await pickMultipleImages();
-        if (newImages) {
-            const uploadedImages = await uploadGalleryImages(
-                galleryId,
-                newImages
-            );
-            if (uploadedImages) {
-                const updatedGalleries = await fetchGalleries();
-                useAppStore.setState({
-                    galleries: normalizeGalleries(updatedGalleries),
-                });
-                const refreshedImages = await fetchGalleryImages(galleryId);
-                setImages(refreshedImages);
-            }
+        if (!newImages?.length) return;
+
+        const ok = await uploadGalleryImages(galleryId, newImages);
+        if (ok) {
+            await fetchGalleries();
         }
     };
 
-    const handleBack = () => {
-        router.back();
+    const handleDeleteGallery = async () => {
+        setIsDeleting(true);
+        const ok = await deleteGallery(galleryId);
+        setIsDeleting(false);
+
+        if (ok) {
+            setIsDeleteGalleryModalOpen(false);
+            router.back();
+            await fetchGalleries();
+        }
     };
 
-    const handleEditGallery = (image: DateImage) => {
+    const handleImagePress = (image: GalleryImage) => {
         if (editMode) {
-            setSelectedImages([]);
-            setEditMode(false);
+            setSelectedImages((prev) => {
+                const exists = prev.some((i) => i.id === image.id);
+                return exists
+                    ? prev.filter((i) => i.id !== image.id)
+                    : [...prev, image];
+            });
             return;
         }
-        setEditMode(true);
-        setSelectedImages([image]);
+        setSelectedImage(image);
+        setIsImageModalOpen(true);
     };
 
-    const handleSelectImage = (image: DateImage) => {
+    const handleSelectImage = (image: GalleryImage) => {
         if (selectedImages.includes(image)) {
             const filteredImages = selectedImages.filter(
                 (i) => i.id !== image.id
@@ -99,6 +100,13 @@ export const useGalleryContent = ({ galleryId }: UseGalleryContentProps) => {
         }
     };
 
+    const handleImageLongPress = (image: GalleryImage) => {
+        if (!editMode) {
+            setEditMode(true);
+            setSelectedImages([image]);
+        }
+    };
+
     const handleDownloadImages = async () => {
         setIsDownloading(true);
         await multipleDownloadAndSaveImage(selectedImages);
@@ -107,47 +115,15 @@ export const useGalleryContent = ({ galleryId }: UseGalleryContentProps) => {
         setIsDownloading(false);
     };
 
-    const handleDeleteGallery = async () => {
-        setIsDeleting(true);
-        const deletedGallery = await deleteGallery(galleryId);
-        if (deletedGallery) {
-            setIsDeleteGalleryModalOpen(false);
-            router.back();
-            const updatedGalleries = await fetchGalleries();
-            useAppStore.setState({
-                galleries: normalizeGalleries(updatedGalleries),
-            });
-        }
-        setIsDeleting(false);
-    };
-
-    const handleImagePress = (image: DateImage) => {
-        if (editMode) {
-            handleSelectImage(image);
-            return;
-        }
-        setSelectedImage(image);
-        setIsImageModalOpen(true);
-    };
-
-    const handleImageLongPress = (image: DateImage) => {
-        if (!editMode) {
-            handleEditGallery(image);
-        }
-    };
-
     const handleClearSelection = () => {
         setSelectedImages([]);
         setEditMode(false);
     };
 
-    const handleToggleSort = () => {
-        setSortingByAscending(!sortingByAscending);
-    };
+    const handleToggleSort = () => setSortingByAscending((v) => !v);
 
     return {
-        // State
-        loading,
+        loading: isLoadingImages,
         isDownloading,
         isDeleting,
         images: sortedImages,
@@ -159,22 +135,19 @@ export const useGalleryContent = ({ galleryId }: UseGalleryContentProps) => {
         selectedImages,
         sortingByAscending,
 
-        // Actions
         handleAddImages,
-        handleBack,
+        handleBack: () => router.back(),
         handleDownloadImages,
         handleDeleteGallery,
+        handleSelectImage,
         handleImagePress,
         handleImageLongPress,
-        handleSelectImage,
         handleClearSelection,
         handleToggleSort,
 
-        // Setters
         setIsImageModalOpen,
         setIsDeleteImagesModalOpen,
         setIsDeleteGalleryModalOpen,
-        setImages,
         setSelectedImages,
         setEditMode,
     };

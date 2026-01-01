@@ -1,12 +1,5 @@
-import {
-    deleteMultipleGalleryImages,
-    fetchGalleries,
-    fetchGalleryImages,
-} from "@/api/endpoints";
-import { DateImage } from "@/api/endpoints/types";
 import { Colors } from "@/constants/colors";
-import { useAppStore } from "@/stores/AppStore";
-import { normalizeGalleries } from "@/utils/gallery";
+import { GalleryImage, useGalleryStore } from "@/stores/GalleryStore";
 import React, { useState } from "react";
 import {
     ActivityIndicator,
@@ -20,10 +13,9 @@ import CustomText from "../CustomText";
 interface DeleteImagesModalProps {
     isOpen: boolean;
     onClose: () => void;
-    selectedImages: DateImage[];
+    selectedImages: GalleryImage[];
     galleryId: string;
-    setImages: (images: DateImage[]) => void;
-    setSelectedImages: (images: DateImage[]) => void;
+    setSelectedImages: (images: GalleryImage[]) => void;
     setEditMode: (editMode: boolean) => void;
 }
 
@@ -32,37 +24,47 @@ const DeleteImagesModal: React.FC<DeleteImagesModalProps> = ({
     onClose,
     selectedImages,
     galleryId,
-    setImages,
     setSelectedImages,
     setEditMode,
 }) => {
     const [isDeleting, setIsDeleting] = useState(false);
 
+    const fetchGalleryImages = useGalleryStore((s) => s.fetchGalleryImages);
+    const deleteMultipleGalleryImages = useGalleryStore(
+        (s) => s.deleteMultipleGalleryImages
+    );
+
     const handleDeleteImage = async () => {
+        if (!selectedImages.length) {
+            onClose();
+            return;
+        }
+
         setIsDeleting(true);
-        const deletedImages = await deleteMultipleGalleryImages(
-            galleryId as string,
-            selectedImages.map((image) => image.id.toString())
+
+        const ok = await deleteMultipleGalleryImages(
+            galleryId,
+            selectedImages.map((img) => img.id.toString())
         );
-        if (deletedImages) {
-            const updatedGalleries = await fetchGalleries();
-            useAppStore.setState({
-                galleries: normalizeGalleries(updatedGalleries),
-            });
-            const images = await fetchGalleryImages(galleryId as string);
-            setImages(images);
+
+        if (ok) {
+            await fetchGalleryImages(galleryId);
             setSelectedImages([]);
             setEditMode(false);
+            onClose();
+        } else {
+            // keep modal open if you want, but current UX closes anyway
+            onClose();
         }
+
         setIsDeleting(false);
-        onClose();
     };
 
     return (
         <Modal
             visible={isOpen}
             onRequestClose={onClose}
-            transparent={true}
+            transparent
             animationType="fade"
         >
             <View style={styles.modalOverlay}>
@@ -73,10 +75,12 @@ const DeleteImagesModal: React.FC<DeleteImagesModalProps> = ({
                     <CustomText weight="regular" style={styles.modalText}>
                         Are you sure you want to delete these images?
                     </CustomText>
+
                     <View style={styles.modalButtons}>
                         <TouchableOpacity
                             style={styles.yesButton}
                             onPress={handleDeleteImage}
+                            disabled={isDeleting}
                         >
                             {isDeleting ? (
                                 <ActivityIndicator
@@ -92,9 +96,11 @@ const DeleteImagesModal: React.FC<DeleteImagesModalProps> = ({
                                 </CustomText>
                             )}
                         </TouchableOpacity>
+
                         <TouchableOpacity
                             style={styles.noButton}
                             onPress={onClose}
+                            disabled={isDeleting}
                         >
                             <CustomText
                                 weight="semibold"
@@ -125,10 +131,7 @@ const styles = StyleSheet.create({
         padding: 30,
         margin: 20,
         shadowColor: "#000",
-        shadowOffset: {
-            width: 0,
-            height: 2,
-        },
+        shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.25,
         shadowRadius: 4,
         elevation: 5,

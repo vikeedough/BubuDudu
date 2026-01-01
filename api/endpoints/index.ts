@@ -2,7 +2,6 @@
 // This maintains backward compatibility for existing imports
 
 export * from "./auth";
-export * from "./galleries";
 export * from "./lists";
 export * from "./milestones";
 export * from "./profiles";
