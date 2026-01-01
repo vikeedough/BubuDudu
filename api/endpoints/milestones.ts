@@ -15,4 +15,26 @@ const fetchMilestones = async (spaceId: string) => {
     return milestones;
 };
 
-export { fetchMilestones };
+const insertOrUpdateMilestone = async (
+    spaceId: string,
+    title: string,
+    date: string
+) => {
+    const { data, error } = await supabase
+        .from("milestones")
+        .upsert(
+            { space_id: spaceId, title: title, date: date },
+            { onConflict: "space_id" }
+        )
+        .select()
+        .single();
+
+    if (error) {
+        console.error("Error inserting/updating milestone:", error);
+        return null;
+    }
+
+    return data;
+};
+
+export { fetchMilestones, insertOrUpdateMilestone };

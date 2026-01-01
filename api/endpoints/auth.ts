@@ -40,7 +40,12 @@ export async function signInWithEmail(email: string, password: string) {
     return data;
 }
 
-export async function signUpWithEmail(email: string, password: string) {
+export async function signUpWithEmail(
+    name: string,
+    date_of_birth: string,
+    email: string,
+    password: string
+) {
     const { data, error } = await supabase.auth.signUp({ email, password });
 
     if (error) {
@@ -52,13 +57,14 @@ export async function signUpWithEmail(email: string, password: string) {
         return null;
     }
 
-    const { data: s } = await supabase.auth.getSession();
-    console.log("session uid", s.session?.user?.id);
-    console.log("signup uid", data.user?.id);
+    const sessionUserId = data.session?.user.id;
 
     const { error: profileError } = await supabase
         .from("profiles")
-        .insert({ id: data.user.id });
+        .upsert(
+            { id: sessionUserId, name: name, date_of_birth: date_of_birth },
+            { onConflict: "id" }
+        );
 
     if (profileError) {
         Alert.alert("Profile Error", profileError.message);

@@ -1,10 +1,8 @@
-import { supabase } from "@/api/clients/supabaseClient";
 import DebonSpin from "@/assets/svgs/debon-spin.svg";
-import SignOutButton from "@/components/auth/sign-out-button";
 import CustomText from "@/components/CustomText";
 import { Colors } from "@/constants/colors";
 import { router } from "expo-router";
-import { Button, StyleSheet, TouchableOpacity, View } from "react-native";
+import { StyleSheet, TouchableOpacity, View } from "react-native";
 
 const Index = () => {
     return (
@@ -30,14 +28,14 @@ const Index = () => {
                 </CustomText>
             </TouchableOpacity>
 
-            <SignOutButton />
+            {/* <SignOutButton />
             <Button
                 title="check current session"
                 onPress={async () => {
                     const session = await supabase.auth.getSession();
                     alert(JSON.stringify(session.data.session));
                 }}
-            />
+            /> */}
         </View>
     );
 };

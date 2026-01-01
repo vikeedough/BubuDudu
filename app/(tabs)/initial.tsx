@@ -1,4 +1,4 @@
-import { fetchMilestones, fetchQuotes, updateNote } from "@/api/endpoints";
+import { fetchQuotes, updateNote } from "@/api/endpoints";
 import DebonLyingDown from "@/assets/svgs/debon-lying-down.svg";
 import CustomText from "@/components/CustomText";
 import Avatar from "@/components/home/Avatar";
@@ -9,8 +9,10 @@ import { Colors } from "@/constants/colors";
 // TEMPORARILY COMMENTED OUT - MIGRATION IN PROGRESS
 // import { useUserStore } from "@/stores/UserStore";
 import { fetchProfiles } from "@/api/endpoints/profiles";
-import { Milestone, Profile, Quote } from "@/api/endpoints/types";
+import { Profile, Quote } from "@/api/endpoints/types";
+import SignOutButton from "@/components/auth/sign-out-button";
 import { useAuthContext } from "@/hooks/useAuthContext";
+import { useMilestoneStore } from "@/stores/milestoneStore";
 import { getToday, pickAndUploadAvatar } from "@/utils/home";
 import { getSpaceId } from "@/utils/secure-store";
 import { router } from "expo-router";
@@ -32,12 +34,19 @@ const Home = () => {
     // const currentUser = useUserStore((state) => state.currentUser);
 
     // USE AUTH CONTEXT INSTEAD
-    const { profile, session, isLoggedIn } = useAuthContext();
-    const [milestones, setMilestones] = useState<Milestone[]>([]);
+    const { profile, session, isLoggedIn, refreshProfile, updateProfile } =
+        useAuthContext();
     const [quotes, setQuotes] = useState<Quote[]>([]);
     const [spaceId, setSpaceId] = useState<string | null>(null);
     const [userProfiles, setUserProfiles] = useState<Profile[]>([]);
     const [isLoadingEverything, setIsLoadingEverything] = useState(true);
+
+    const milestone = useMilestoneStore((s) => s.milestone);
+    const fetchMilestone = useMilestoneStore((s) => s.fetchMilestone);
+
+    useEffect(() => {
+        fetchMilestone();
+    }, [fetchMilestone]);
 
     const today = getToday();
 
@@ -52,14 +61,11 @@ const Home = () => {
 
             setSpaceId(fetchedSpaceId);
 
-            const [milestonesData, quotesData, profilesData] =
-                await Promise.all([
-                    fetchMilestones(fetchedSpaceId),
-                    fetchQuotes(fetchedSpaceId),
-                    fetchProfiles(fetchedSpaceId),
-                ]);
+            const [quotesData, profilesData] = await Promise.all([
+                fetchQuotes(fetchedSpaceId),
+                fetchProfiles(fetchedSpaceId),
+            ]);
 
-            setMilestones(milestonesData);
             setQuotes(quotesData);
             setUserProfiles(profilesData);
             setIsLoadingEverything(false);
@@ -98,6 +104,7 @@ const Home = () => {
             setUploadingAvatarUserId(null);
             return;
         }
+        await updateProfile({ avatar_url: newUrl });
         setUserProfiles((prev) =>
             prev.map((p) =>
                 p.id === me?.id ? { ...p, avatar_url: newUrl } : p
@@ -111,7 +118,7 @@ const Home = () => {
     };
 
     const handleCloseNoteModal = async () => {
-        await refreshProfiles();
+        await refreshProfile();
         setIsNoteModalOpen(false);
     };
 
@@ -151,7 +158,7 @@ const Home = () => {
                 <CustomText weight="medium" style={styles.dateText}>
                     {today}
                 </CustomText>
-                {/* <SignOutButton /> */}
+                <SignOutButton />
                 <Button
                     title="Settings"
                     onPress={() => router.push("/(settings)")}
@@ -167,41 +174,43 @@ const Home = () => {
                 </TouchableOpacity>
                 <QuoteContainer quotes={quotes} />
             </View>
-            {milestones.length >= 3 && (
-                <View style={styles.milestonesContainer}>
-                    <View style={{ flexDirection: "row", gap: 20 }}>
-                        <MilestoneTracker
-                            title={me?.name + "'s Birthday"}
-                            date={me?.date_of_birth}
-                            image={require("@/assets/images/dudu.jpg")}
-                            milestoneKey={0}
-                        />
-                        <MilestoneTracker
-                            title={
-                                partner
-                                    ? partner.name + "'s Birthday"
-                                    : "Partner's Birthday"
-                            }
-                            date={partner ? partner.date_of_birth : null}
-                            image={require("@/assets/images/bubu.jpg")}
-                            milestoneKey={1}
-                        />
-                    </View>
-                    <View
-                        style={{
-                            justifyContent: "center",
-                            alignItems: "center",
-                        }}
-                    >
-                        <MilestoneTracker
-                            title={milestones[2].title}
-                            date={milestones[2].date}
-                            image={require("@/assets/images/anniversary.jpg")}
-                            milestoneKey={2}
-                        />
-                    </View>
+            <View style={styles.milestonesContainer}>
+                <View style={{ flexDirection: "row", gap: 20 }}>
+                    <MilestoneTracker
+                        title={me?.name + "'s Birthday"}
+                        date={me?.date_of_birth}
+                        image={require("@/assets/images/dudu.jpg")}
+                        milestoneKey={0}
+                    />
+                    <MilestoneTracker
+                        title={
+                            partner
+                                ? partner.name + "'s Birthday"
+                                : "Partner's Birthday"
+                        }
+                        date={partner ? partner.date_of_birth : null}
+                        image={require("@/assets/images/bubu.jpg")}
+                        milestoneKey={1}
+                    />
                 </View>
-            )}
+                <View
+                    style={{
+                        justifyContent: "center",
+                        alignItems: "center",
+                    }}
+                >
+                    <MilestoneTracker
+                        title={
+                            milestone
+                                ? milestone.title
+                                : "No shared milestone yet!"
+                        }
+                        date={milestone ? milestone.date : null}
+                        image={require("@/assets/images/anniversary.jpg")}
+                        milestoneKey={2}
+                    />
+                </View>
+            </View>
             <View style={styles.avatarsContainer}>
                 {me && (
                     <View>

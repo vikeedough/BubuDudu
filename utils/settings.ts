@@ -40,3 +40,8 @@ export function dateToYYYYMMDD(date: Date): string {
 
     return `${year}-${month}-${day}`;
 }
+
+export function convertToDisplayDate(date: Date): string {
+    const convertedDate = dateToYYYYMMDD(date);
+    return formatDate(convertedDate);
+}
