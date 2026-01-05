@@ -11,7 +11,6 @@ interface GalleryItemProps {
 }
 
 const GalleryItem: React.FC<GalleryItemProps> = ({ gallery, onPress }) => {
-    console.log("cover image:", gallery.cover_image);
     return (
         <View style={styles.shadowContainer}>
             <TouchableOpacity

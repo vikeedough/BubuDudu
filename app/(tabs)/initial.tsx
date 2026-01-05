@@ -54,7 +54,6 @@ const Home = () => {
             const fetchedSpaceId = await getSpaceId();
 
             if (!fetchedSpaceId || !session) {
-                console.log("No space ID found or no session");
                 return;
             }
 
@@ -84,7 +83,6 @@ const Home = () => {
         setUserProfiles(profilesData);
     };
 
-    // TEMPORARILY COMMENTED OUT - AuthProvider handles redirect now
     useEffect(() => {
         if (!isLoggedIn) {
             router.replace("/(login)");
@@ -121,10 +119,8 @@ const Home = () => {
         setIsNoteModalOpen(false);
     };
 
-    const handleLogout = () => {
-        // TEMPORARILY COMMENTED OUT - Use SignOutButton component instead
-        // logout();
-        console.log("Use the SignOut button in the header instead");
+    const handleNavigateToSettings = () => {
+        router.push("/(settings)");
     };
 
     // Show loading while space data is being fetched
@@ -158,14 +154,9 @@ const Home = () => {
                 <CustomText weight="medium" style={styles.dateText}>
                     {today}
                 </CustomText>
-                {/* <SignOutButton />
-                <Button
-                    title="Settings"
-                    onPress={() => router.push("/(settings)")}
-                /> */}
             </View>
             <View style={styles.debonContainer}>
-                <TouchableOpacity onLongPress={handleLogout}>
+                <TouchableOpacity onLongPress={handleNavigateToSettings}>
                     <DebonLyingDown
                         width={175}
                         height={175}

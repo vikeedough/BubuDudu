@@ -38,8 +38,6 @@ export async function createSpace(spaceName: string) {
     }
 
     const { data: sessionResponse } = await supabase.auth.getSession();
-    console.log(sessionResponse);
-    console.log("create space session uid", sessionResponse.session?.user?.id);
 
     // Create space
     const { data: space, error: spaceError } = await supabase

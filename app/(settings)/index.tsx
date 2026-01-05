@@ -1,3 +1,4 @@
+import SignOutButton from "@/components/auth/sign-out-button";
 import CustomText from "@/components/CustomText";
 import { SettingsField } from "@/components/settings/SettingsField";
 import { useAuthContext } from "@/hooks/useAuthContext";
@@ -51,6 +52,8 @@ export default function Settings() {
                 value={formattedMilestone}
                 onPress={() => router.push("/(settings)/shared-milestone")}
             />
+
+            <SignOutButton />
         </View>
     );
 }
