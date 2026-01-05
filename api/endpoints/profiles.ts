@@ -48,6 +48,28 @@ export const updateProfileName = async (name: string) => {
     return true;
 };
 
+export const updateProfileNote = async (note: string) => {
+    const { data: userRes, error: userErr } = await supabase.auth.getUser();
+    if (userErr || !userRes.user) {
+        console.error("Error getting user:", userErr?.message);
+        return false;
+    }
+
+    const userId = userRes.user.id;
+
+    const { error: updateError } = await supabase
+        .from("profiles")
+        .update({ note, note_updated_at: new Date().toISOString() })
+        .eq("id", userId);
+
+    if (updateError) {
+        console.error("Error updating note:", updateError.message);
+        return false;
+    }
+
+    return true;
+};
+
 export const uploadAvatarAndUpdateUser = async (fileUri: string) => {
     const { data: userRes, error: userErr } = await supabase.auth.getUser();
     if (userErr || !userRes.user) {

@@ -1,6 +1,4 @@
-import { fetchUsers } from "@/api/endpoints";
 import { Colors } from "@/constants/colors";
-import { useAppStore } from "@/stores/AppStore";
 import { useState } from "react";
 import {
     Alert,
@@ -16,20 +14,21 @@ interface NoteModalProps {
     isOpen: boolean;
     onClose: () => void;
     updateNote: (note: string) => Promise<boolean>;
+    onSaved: () => Promise<void> | void;
 }
 
 const NoteModal: React.FC<NoteModalProps> = ({
     isOpen,
     onClose,
     updateNote,
+    onSaved,
 }) => {
     const [note, setNote] = useState<string>("");
 
     const handleSave = async () => {
         const success = await updateNote(note);
         if (success) {
-            const updatedUsers = await fetchUsers();
-            useAppStore.setState({ users: updatedUsers });
+            await onSaved();
             setNote("");
             onClose();
         } else {

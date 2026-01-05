@@ -1,4 +1,5 @@
-import { fetchQuotes, updateNote } from "@/api/endpoints";
+import { fetchQuotes } from "@/api/endpoints";
+import { updateProfileNote } from "@/api/endpoints/profiles";
 import DebonLyingDown from "@/assets/svgs/debon-lying-down.svg";
 import CustomText from "@/components/CustomText";
 import Avatar from "@/components/home/Avatar";
@@ -10,7 +11,6 @@ import { Colors } from "@/constants/colors";
 // import { useUserStore } from "@/stores/UserStore";
 import { fetchProfiles } from "@/api/endpoints/profiles";
 import { Profile, Quote } from "@/api/endpoints/types";
-import SignOutButton from "@/components/auth/sign-out-button";
 import { useAuthContext } from "@/hooks/useAuthContext";
 import { useMilestoneStore } from "@/stores/MilestoneStore";
 import { getToday, pickAndUploadAvatar } from "@/utils/home";
@@ -20,7 +20,6 @@ import { useEffect, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
-    Button,
     StyleSheet,
     TouchableOpacity,
     View,
@@ -149,7 +148,8 @@ const Home = () => {
             <NoteModal
                 isOpen={isNoteModalOpen}
                 onClose={handleCloseNoteModal}
-                updateNote={updateNote}
+                updateNote={updateProfileNote}
+                onSaved={refreshProfiles}
             />
             <View style={styles.header}>
                 <CustomText weight="extrabold" style={styles.headerText}>
@@ -158,11 +158,11 @@ const Home = () => {
                 <CustomText weight="medium" style={styles.dateText}>
                     {today}
                 </CustomText>
-                <SignOutButton />
+                {/* <SignOutButton />
                 <Button
                     title="Settings"
                     onPress={() => router.push("/(settings)")}
-                />
+                /> */}
             </View>
             <View style={styles.debonContainer}>
                 <TouchableOpacity onLongPress={handleLogout}>
