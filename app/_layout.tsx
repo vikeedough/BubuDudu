@@ -1,12 +1,9 @@
-import { useAppBootstrap } from "@/hooks/useAppBootstrap";
 import AuthProvider from "@/providers/auth-provider";
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import { ActivityIndicator, View } from "react-native";
 
 export default function RootLayout() {
-    const { loading } = useAppBootstrap();
-
     const [fontsLoaded] = useFonts({
         "Raleway-Regular": require("@/assets/fonts/Raleway-Regular.ttf"),
         "Raleway-Medium": require("@/assets/fonts/Raleway-Medium.ttf"),
@@ -15,7 +12,7 @@ export default function RootLayout() {
         "Raleway-ExtraBold": require("@/assets/fonts/Raleway-ExtraBold.ttf"),
     });
 
-    if (loading || !fontsLoaded) {
+    if (!fontsLoaded) {
         return (
             <View
                 style={{

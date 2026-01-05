@@ -1,5 +1,6 @@
 import { fetchQuotes } from "@/api/endpoints";
-import { updateProfileNote } from "@/api/endpoints/profiles";
+import { fetchProfiles, updateProfileNote } from "@/api/endpoints/profiles";
+import { Profile, Quote } from "@/api/endpoints/types";
 import DebonLyingDown from "@/assets/svgs/debon-lying-down.svg";
 import CustomText from "@/components/CustomText";
 import Avatar from "@/components/home/Avatar";
@@ -7,10 +8,6 @@ import MilestoneTracker from "@/components/home/MilestoneTracker";
 import NoteModal from "@/components/home/NoteModal";
 import QuoteContainer from "@/components/home/QuoteContainer";
 import { Colors } from "@/constants/colors";
-// TEMPORARILY COMMENTED OUT - MIGRATION IN PROGRESS
-// import { useUserStore } from "@/stores/UserStore";
-import { fetchProfiles } from "@/api/endpoints/profiles";
-import { Profile, Quote } from "@/api/endpoints/types";
 import { useAuthContext } from "@/hooks/useAuthContext";
 import { useMilestoneStore } from "@/stores/MilestoneStore";
 import { getToday, pickAndUploadAvatar } from "@/utils/home";
@@ -27,12 +24,6 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const Home = () => {
-    // TEMPORARILY COMMENTED OUT - MIGRATION IN PROGRESS
-    // const { logout } = useUserStore();
-    // const isLoggedIn = useUserStore((state) => state.isLoggedIn);
-    // const currentUser = useUserStore((state) => state.currentUser);
-
-    // USE AUTH CONTEXT INSTEAD
     const { profile, session, isLoggedIn, refreshProfile, updateProfile } =
         useAuthContext();
     const [quotes, setQuotes] = useState<Quote[]>([]);

@@ -1,10 +1,6 @@
 import { User } from "@/api/endpoints/types";
-import DebonHeart from "@/assets/svgs/debon-heart.svg";
-import DebonQuestion from "@/assets/svgs/debon-question.svg";
 import CustomText from "@/components/CustomText";
 import { Colors } from "@/constants/colors";
-import { useAppStore } from "@/stores/AppStore";
-import { useUserStore } from "@/stores/UserStore";
 import { Image } from "expo-image";
 import { router } from "expo-router";
 import { useState } from "react";
@@ -52,128 +48,128 @@ const Avatar = ({
 };
 
 export default function Login() {
-    const { login } = useUserStore();
-    const users = useAppStore((state) => state.users);
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
     const handleLogin = () => {
         if (selectedUser) {
-            login(selectedUser);
             router.replace("/(tabs)/initial");
         }
     };
 
     return (
-        <View style={styles.container}>
-            {!selectedUser && (
-                <DebonQuestion
-                    style={styles.debonQuestion}
-                    width={342}
-                    height={260}
-                />
-            )}
-
-            {/* Light up effect from heart */}
-            {selectedUser && (
-                <View
-                    style={[
-                        styles.debonHeartContainer,
-                        selectedUser?.id === users[1].id && {
-                            transform: [{ scaleX: -1 }],
-                        },
-                    ]}
-                >
-                    {/* Outer glow */}
-                    <View
-                        style={[
-                            styles.outerGlow,
-                            {
-                                backgroundColor:
-                                    selectedUser?.id === users[1].id
-                                        ? "#F49AA320"
-                                        : "#89B8C220",
-                            },
-                        ]}
-                    />
-                    {/* Middle glow */}
-                    <View
-                        style={[
-                            styles.middleGlow,
-                            {
-                                backgroundColor:
-                                    selectedUser?.id === users[1].id
-                                        ? "#F49AA330"
-                                        : "#89B8C230",
-                            },
-                        ]}
-                    />
-                    {/* Inner glow */}
-                    <View
-                        style={[
-                            styles.innerGlow,
-                            {
-                                backgroundColor:
-                                    selectedUser?.id === users[1].id
-                                        ? "#F49AA350"
-                                        : "#89B8C250",
-                            },
-                        ]}
-                    />
-                    {/* Heart */}
-                    <DebonHeart
-                        style={styles.debonHeart}
-                        width={333}
-                        height={333}
-                    />
-                </View>
-            )}
-
-            {/* Main content centered on screen */}
-            <View style={styles.centerContent}>
-                {/* Avatar containers */}
-                <View style={styles.avatarsRow}>
-                    <Avatar
-                        image={users[0].avatar_url}
-                        onPress={() => {
-                            setSelectedUser(users[0]);
-                        }}
-                        isSelected={selectedUser?.id === users[0].id}
-                        color={"#89B8C2"}
-                        textColor={"#3D575C"}
-                        name={"Dudu"}
-                    />
-                    <Avatar
-                        image={users[1].avatar_url}
-                        onPress={() => {
-                            setSelectedUser(users[1]);
-                        }}
-                        isSelected={selectedUser?.id === users[1].id}
-                        color={"#E47083"}
-                        name={"Bubu"}
-                        textColor={"#A44952"}
-                    />
-                </View>
-
-                {/* Components below avatars */}
-                <View style={styles.bottomContent}>
-                    <CustomText weight="bold" style={styles.title}>
-                        {selectedUser
-                            ? "Hello " + selectedUser.name + "!"
-                            : "Pick one!"}
-                    </CustomText>
-                    {selectedUser && (
-                        <TouchableOpacity
-                            style={styles.button}
-                            onPress={handleLogin}
-                        >
-                            <CustomText weight="bold" style={styles.buttonText}>
-                                Me!
-                            </CustomText>
-                        </TouchableOpacity>
-                    )}
-                </View>
-            </View>
+        <View>
+            <CustomText>Legacy login screen.</CustomText>
         </View>
+        // <View style={styles.container}>
+        //     {!selectedUser && (
+        //         <DebonQuestion
+        //             style={styles.debonQuestion}
+        //             width={342}
+        //             height={260}
+        //         />
+        //     )}
+
+        //     {/* Light up effect from heart */}
+        //     {selectedUser && (
+        //         <View
+        //             style={[
+        //                 styles.debonHeartContainer,
+        //                 selectedUser?.id === users[1].id && {
+        //                     transform: [{ scaleX: -1 }],
+        //                 },
+        //             ]}
+        //         >
+        //             {/* Outer glow */}
+        //             <View
+        //                 style={[
+        //                     styles.outerGlow,
+        //                     {
+        //                         backgroundColor:
+        //                             selectedUser?.id === users[1].id
+        //                                 ? "#F49AA320"
+        //                                 : "#89B8C220",
+        //                     },
+        //                 ]}
+        //             />
+        //             {/* Middle glow */}
+        //             <View
+        //                 style={[
+        //                     styles.middleGlow,
+        //                     {
+        //                         backgroundColor:
+        //                             selectedUser?.id === users[1].id
+        //                                 ? "#F49AA330"
+        //                                 : "#89B8C230",
+        //                     },
+        //                 ]}
+        //             />
+        //             {/* Inner glow */}
+        //             <View
+        //                 style={[
+        //                     styles.innerGlow,
+        //                     {
+        //                         backgroundColor:
+        //                             selectedUser?.id === users[1].id
+        //                                 ? "#F49AA350"
+        //                                 : "#89B8C250",
+        //                     },
+        //                 ]}
+        //             />
+        //             {/* Heart */}
+        //             <DebonHeart
+        //                 style={styles.debonHeart}
+        //                 width={333}
+        //                 height={333}
+        //             />
+        //         </View>
+        //     )}
+
+        //     {/* Main content centered on screen */}
+        //     <View style={styles.centerContent}>
+        //         {/* Avatar containers */}
+        //         <View style={styles.avatarsRow}>
+        //             <Avatar
+        //                 image={users[0].avatar_url}
+        //                 onPress={() => {
+        //                     setSelectedUser(users[0]);
+        //                 }}
+        //                 isSelected={selectedUser?.id === users[0].id}
+        //                 color={"#89B8C2"}
+        //                 textColor={"#3D575C"}
+        //                 name={"Dudu"}
+        //             />
+        //             <Avatar
+        //                 image={users[1].avatar_url}
+        //                 onPress={() => {
+        //                     setSelectedUser(users[1]);
+        //                 }}
+        //                 isSelected={selectedUser?.id === users[1].id}
+        //                 color={"#E47083"}
+        //                 name={"Bubu"}
+        //                 textColor={"#A44952"}
+        //             />
+        //         </View>
+
+        //         {/* Components below avatars */}
+        //         <View style={styles.bottomContent}>
+        //             <CustomText weight="bold" style={styles.title}>
+        //                 {selectedUser
+        //                     ? "Hello " + selectedUser.name + "!"
+        //                     : "Pick one!"}
+        //             </CustomText>
+        //             {selectedUser && (
+        //                 <TouchableOpacity
+        //                     style={styles.button}
+        //                     onPress={handleLogin}
+        //                 >
+        //                     <CustomText weight="bold" style={styles.buttonText}>
+        //                         Me!
+        //                     </CustomText>
+        //                 </TouchableOpacity>
+        //             )}
+        //         </View>
+        //     </View>
+        // </View>
     );
 }
 

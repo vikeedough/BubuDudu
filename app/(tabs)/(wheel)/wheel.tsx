@@ -8,7 +8,6 @@ import SpinningWheel from "@/components/wheel/SpinningWheel";
 import WheelHeader from "@/components/wheel/WheelHeader";
 import { Colors, listColorsArray } from "@/constants/colors";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
-import { useUserStore } from "@/stores/UserStore";
 import { useWheelStore } from "@/stores/WheelStore";
 import { getDate } from "@/utils/home";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -29,7 +28,6 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const Wheel = () => {
-    const { logout } = useUserStore();
     const currentDate = getDate();
 
     const wheels = useWheelStore((s) => s.wheels);
