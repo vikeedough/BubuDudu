@@ -1,9 +1,3 @@
-import {
-    addNewWheel,
-    deleteWheel,
-    fetchWheels,
-    updateWheelTitle,
-} from "@/api/endpoints";
 import DebonLyingDown from "@/assets/svgs/debon-lying-down.svg";
 import Plus from "@/assets/svgs/plus.svg";
 import TrashIcon from "@/assets/svgs/trash-bin.svg";
@@ -14,8 +8,8 @@ import SpinningWheel from "@/components/wheel/SpinningWheel";
 import WheelHeader from "@/components/wheel/WheelHeader";
 import { Colors, listColorsArray } from "@/constants/colors";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
-import { useAppStore } from "@/stores/AppStore";
 import { useUserStore } from "@/stores/UserStore";
+import { useWheelStore } from "@/stores/WheelStore";
 import { getDate } from "@/utils/home";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -34,17 +28,18 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-const fetchAndUpdateWheels = async () => {
-    const wheels = await fetchWheels();
-    useAppStore.setState({ wheels });
-};
-
 const Wheel = () => {
     const { logout } = useUserStore();
     const currentDate = getDate();
 
-    const wheels = useAppStore((state) => state.wheels);
-    const wheelNames = wheels.map((wheel) => wheel.title);
+    const wheels = useWheelStore((s) => s.wheels);
+    const fetchWheels = useWheelStore((s) => s.fetchWheels);
+    const addWheel = useWheelStore((s) => s.addWheel);
+    const updateTitle = useWheelStore((s) => s.updateWheelTitle);
+    const deleteWheelAction = useWheelStore((s) => s.deleteWheel);
+    const isDraftOpen = useWheelStore((s) => s.isDraftOpen);
+    const openDraft = useWheelStore((s) => s.openDraft);
+    const closeDraft = useWheelStore((s) => s.closeDraft);
     const [selectedIndex, setSelectedIndex] = useState(0);
     const [localTitle, setLocalTitle] = useState("");
     const [isEditChoicesModalOpen, setIsEditChoicesModalOpen] = useState(false);
@@ -52,71 +47,84 @@ const Wheel = () => {
     const [currentSelections, setCurrentSelections] = useState<string[]>([]);
     const debounceTimeoutRef = useRef<number | null>(null);
     const [isDeletingWheel, setIsDeletingWheel] = useState(false);
-    const { refreshing, onRefresh } = usePullToRefresh(fetchAndUpdateWheels);
+    const { refreshing, onRefresh } = usePullToRefresh(fetchWheels);
+
+    const wheelsForUI = isDraftOpen
+        ? [
+              ...wheels,
+              {
+                  id: "__DRAFT__",
+                  title: localTitle,
+                  choices: [],
+                  created_at: "",
+                  space_id: "",
+              } as any,
+          ]
+        : wheels;
+    const wheelNames = wheelsForUI.map((wheel) => wheel.title);
+
+    useEffect(() => {
+        fetchWheels();
+    }, [fetchWheels]);
 
     // Update local title when selected wheel changes
     useEffect(() => {
-        if (wheels.length > selectedIndex && wheels[selectedIndex]) {
-            setLocalTitle(wheels[selectedIndex].title || "");
-        }
-    }, [selectedIndex, wheels]);
+        const selected = wheelsForUI[selectedIndex];
+        if (!selected) return;
+        setLocalTitle(selected.title || "");
+    }, [selectedIndex, wheelsForUI]);
 
     // Debounced function to update wheel title
     const debouncedUpdateTitle = useCallback(
         (wheelId: string, newTitle: string) => {
-            // Clear existing timeout
-            if (debounceTimeoutRef.current) {
+            if (debounceTimeoutRef.current)
                 clearTimeout(debounceTimeoutRef.current);
-            }
 
-            // Set new timeout
             debounceTimeoutRef.current = setTimeout(async () => {
-                if (wheelId === "" && newTitle.trim() !== "") {
-                    const success = await addNewWheel(newTitle.trim(), []);
-                    if (success) {
-                        const updatedWheels = await fetchWheels();
-                        useAppStore.setState({ wheels: updatedWheels });
+                const title = newTitle.trim();
+                if (title === "") return;
+
+                try {
+                    // draft/empty -> create
+                    if (wheelId === "__DRAFT__") {
+                        const newWheel = await addWheel(title, []);
+                        closeDraft();
+                        // select created wheel
+                        const idx = useWheelStore
+                            .getState()
+                            .wheels.findIndex((w) => w.id === newWheel.id);
+                        setSelectedIndex(idx === -1 ? 0 : idx);
+
+                        setLocalTitle(newWheel.title ?? "");
                         return;
                     }
-                }
 
-                if (
-                    newTitle.trim() !== "" &&
-                    newTitle !== wheels[selectedIndex]?.title
-                ) {
-                    const success = await updateWheelTitle(
-                        wheelId,
-                        newTitle.trim()
-                    );
-                    if (success) {
-                        // Refresh wheels data
-                        const updatedWheels = await fetchWheels();
-                        useAppStore.setState({ wheels: updatedWheels });
+                    // existing -> update
+                    if (title !== wheels[selectedIndex]?.title) {
+                        await updateTitle(wheelId, title);
                     }
+                } catch {
+                    // optional: show toast / alert
                 }
-            }, 500); // 500ms delay
+            }, 500);
         },
-        [wheels, selectedIndex]
+        [addWheel, closeDraft, updateTitle, wheels, selectedIndex]
     );
 
     const handleTitleChange = (newTitle: string) => {
         setLocalTitle(newTitle);
 
-        // Call debounce for both existing wheels and new wheels (with empty id)
-        if (wheels.length > selectedIndex && wheels[selectedIndex]) {
-            debouncedUpdateTitle(wheels[selectedIndex].id, newTitle);
-        }
+        const selected = wheelsForUI[selectedIndex];
+        if (!selected) return;
+
+        debouncedUpdateTitle(selected.id, newTitle);
     };
 
     const handleAddEmptyWheel = () => {
-        wheels.push({
-            id: "",
-            title: "",
-            choices: [],
-            created_at: "",
-        });
-        setSelectedIndex(wheels.length - 1);
-        setLocalTitle(wheels[wheels.length - 1].title);
+        openDraft();
+        setSelectedIndex(wheels.length); // points to the appended draft item in wheelsForUI
+        setLocalTitle("");
+        setCurrentSelections([]);
     };
 
     // Cleanup timeout on unmount
@@ -130,17 +138,18 @@ const Wheel = () => {
 
     const handleDeleteWheel = async () => {
         setIsDeletingWheel(true);
-        const success = await deleteWheel(wheels[selectedIndex].id);
-        if (success) {
-            const updatedWheels = wheels.filter(
-                (wheel) => wheel.id !== wheels[selectedIndex].id
-            );
-            useAppStore.setState({ wheels: updatedWheels });
+        try {
+            const wheelId = wheelsForUI[selectedIndex]?.id;
+            if (!wheelId || wheelId === "__DRAFT__") return;
+
+            await deleteWheelAction(wheelId);
+
             setSelectedIndex(0);
-            setLocalTitle(wheels[0].title);
+            setLocalTitle(useWheelStore.getState().wheels[0]?.title ?? "");
             setCurrentSelections([]);
-            setIsDeletingWheel(false);
             setIsDeleteWheelModalOpen(false);
+        } finally {
+            setIsDeletingWheel(false);
         }
     };
 
@@ -214,7 +223,7 @@ const Wheel = () => {
                     <EditChoicesModal
                         isOpen={isEditChoicesModalOpen}
                         onClose={() => setIsEditChoicesModalOpen(false)}
-                        wheel={wheels[selectedIndex]}
+                        wheel={wheelsForUI[selectedIndex]}
                     />
                 </View>
             )}
@@ -331,14 +340,15 @@ const Wheel = () => {
                                 </View>
 
                                 <View style={styles.choicesList}>
-                                    {wheels.length > selectedIndex &&
-                                    wheels[selectedIndex] &&
-                                    wheels[selectedIndex].choices &&
+                                    {wheelsForUI.length > selectedIndex &&
+                                    wheelsForUI[selectedIndex] &&
+                                    wheelsForUI[selectedIndex].choices &&
                                     Array.isArray(
-                                        wheels[selectedIndex].choices
+                                        wheelsForUI[selectedIndex].choices
                                     ) &&
-                                    wheels[selectedIndex].choices.length > 0 ? (
-                                        wheels[selectedIndex].choices.map(
+                                    wheelsForUI[selectedIndex].choices.length >
+                                        0 ? (
+                                        wheelsForUI[selectedIndex].choices.map(
                                             (choice: string, index: number) => (
                                                 <ChoiceItem
                                                     item={choice}

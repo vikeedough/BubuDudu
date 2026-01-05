@@ -1,7 +1,6 @@
-import { fetchWheels, updateWheelChoices } from "@/api/endpoints";
 import { Wheel } from "@/api/endpoints/types";
 import { Colors } from "@/constants/colors";
-import { useAppStore } from "@/stores/AppStore";
+import { useWheelStore } from "@/stores/WheelStore";
 import React, { useState } from "react";
 import {
     Alert,
@@ -46,6 +45,8 @@ const EditChoicesModal: React.FC<EditChoicesModalProps> = ({
     onClose,
     wheel,
 }) => {
+    const updateWheelChoices = useWheelStore((s) => s.updateWheelChoices);
+
     const [currentChoices, setCurrentChoices] = useState<string[]>(
         wheel.choices || []
     );
@@ -64,17 +65,20 @@ const EditChoicesModal: React.FC<EditChoicesModalProps> = ({
     };
 
     const handleSaveChoicesAndClose = async () => {
-        if (wheel.choices === currentChoices) {
+        // shallow compare is fine, but this is safer:
+        const same =
+            wheel.choices?.length === currentChoices.length &&
+            wheel.choices?.every((c, i) => c === currentChoices[i]);
+
+        if (same) {
             onClose();
             return;
         }
 
-        const success = await updateWheelChoices(wheel.id, currentChoices);
-        if (success) {
-            const updatedWheels = await fetchWheels();
-            useAppStore.setState({ wheels: updatedWheels });
+        try {
+            await updateWheelChoices(wheel.id, currentChoices);
             onClose();
-        } else {
+        } catch {
             Alert.alert("Error", "Failed to update choices");
         }
     };

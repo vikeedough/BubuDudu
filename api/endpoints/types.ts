@@ -62,6 +62,7 @@ export interface Wheel {
     title: string;
     choices: string[];
     created_at: string;
+    space_id: string;
 }
 
 export interface Choice {
