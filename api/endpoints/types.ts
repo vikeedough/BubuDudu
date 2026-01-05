@@ -33,6 +33,7 @@ export interface List {
     type: string;
     content: string;
     last_updated_at: string;
+    space_id: string;
 }
 
 export interface Gallery {

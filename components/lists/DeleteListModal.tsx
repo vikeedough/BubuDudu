@@ -1,7 +1,8 @@
-import { deleteList, fetchLists } from "@/api/endpoints";
+import { useListStore } from "@/stores/ListStore";
+
 import { List } from "@/api/endpoints/types";
 import { Colors } from "@/constants/colors";
-import { useAppStore } from "@/stores/AppStore";
+
 import React from "react";
 import { Alert, Modal, StyleSheet, TouchableOpacity, View } from "react-native";
 import CustomText from "../CustomText";
@@ -17,13 +18,12 @@ const DeleteListModal: React.FC<DeleteListModalProps> = ({
     onClose,
     selectedList,
 }) => {
+    const deleteList = useListStore((s) => s.deleteList);
     const handleDeleteList = async () => {
-        const success = await deleteList(selectedList.id);
-        if (success) {
+        try {
+            await deleteList(selectedList.id);
             onClose();
-            const updatedLists = await fetchLists();
-            useAppStore.setState({ lists: updatedLists });
-        } else {
+        } catch {
             Alert.alert(
                 "Error",
                 "Failed to delete list. Please try again later."

@@ -1,4 +1,3 @@
-import { addNewList, fetchLists, updateList } from "@/api/endpoints";
 import { List } from "@/api/endpoints/types";
 import DebonHeart from "@/assets/svgs/debon-heart.svg";
 import TrashIcon from "@/assets/svgs/trash-bin.svg";
@@ -6,7 +5,7 @@ import CustomText from "@/components/CustomText";
 import DeleteListModal from "@/components/lists/DeleteListModal";
 import { Colors, listColorsArray } from "@/constants/colors";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
-import { useAppStore } from "@/stores/AppStore";
+import { useListStore } from "@/stores/ListStore";
 import { getDate } from "@/utils/home";
 import { useEffect, useState } from "react";
 import {
@@ -25,13 +24,20 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-const fetchAndUpdateLists = async () => {
-    const lists = await fetchLists();
-    useAppStore.setState({ lists });
-};
-
 const Lists = () => {
-    const lists = useAppStore((state) => state.lists);
+    const lists = useListStore((s) => s.lists);
+    const isLoadingLists = useListStore((s) => s.isLoadingLists);
+    const fetchLists = useListStore((s) => s.fetchLists);
+
+    const isDraftOpen = useListStore((s) => s.isDraftOpen);
+    const draft = useListStore((s) => s.draft);
+    const openDraft = useListStore((s) => s.openDraft);
+    const updateDraft = useListStore((s) => s.updateDraft);
+    const closeDraft = useListStore((s) => s.closeDraft);
+
+    const addList = useListStore((s) => s.addList);
+    const updateList = useListStore((s) => s.updateList);
+
     const date = getDate();
     const [selectedList, setSelectedList] = useState<List | null>(null);
     const [noteTitle, setNoteTitle] = useState("");
@@ -39,16 +45,36 @@ const Lists = () => {
     const [selectedIndex, setSelectedIndex] = useState(0);
     const [isDeleteListModalOpen, setIsDeleteListModalOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
-    const { refreshing, onRefresh } = usePullToRefresh(fetchAndUpdateLists);
+    const { refreshing, onRefresh } = usePullToRefresh(fetchLists);
 
     useEffect(() => {
-        if (lists.length > 0) {
+        fetchLists();
+    }, [fetchLists]);
+
+    useEffect(() => {
+        // if currently editing draft, don't override inputs
+        if (isDraftOpen) return;
+
+        // if nothing selected yet, select first list
+        if (!selectedList && lists.length > 0) {
             setSelectedList(lists[0]);
-            setNoteTitle(lists[0].type);
-            setNoteContent(lists[0].content);
+            setNoteTitle(lists[0].type ?? "");
+            setNoteContent(lists[0].content ?? "");
             setSelectedIndex(0);
         }
-    }, [lists]);
+
+        // if selected list got deleted, fall back
+        if (selectedList && selectedList.id !== "__DRAFT__") {
+            const stillExists = lists.some((l) => l.id === selectedList.id);
+            if (!stillExists) {
+                const next = lists[0] ?? null;
+                setSelectedList(next);
+                setNoteTitle(next?.type ?? "");
+                setNoteContent(next?.content ?? "");
+                setSelectedIndex(next ? 0 : -1);
+            }
+        }
+    }, [lists, selectedList, isDraftOpen]);
 
     const findIndex = (index: number) => {
         return index % 6;
@@ -62,56 +88,58 @@ const Lists = () => {
     };
 
     const handleAddEmptyList = () => {
-        lists.push({
-            id: "",
+        openDraft();
+
+        const draftList = {
+            id: "__DRAFT__",
             type: "",
             content: "",
             last_updated_at: "",
-        });
-        setSelectedList(lists[lists.length - 1]);
-        setNoteTitle(lists[lists.length - 1].type);
-        setNoteContent(lists[lists.length - 1].content);
-        setSelectedIndex(lists.length - 1);
+            space_id: "",
+        } as List;
+
+        setSelectedList(draftList);
+        setNoteTitle("");
+        setNoteContent("");
+        setSelectedIndex(-1);
     };
 
-    const handleSaveList = async (list: List, index: number) => {
+    const handleSaveList = async (list: List, _index: number) => {
         setIsLoading(true);
-        if (noteTitle.length === 0) {
-            Alert.alert("Error", "Please enter a name for the note!");
-            return;
-        }
 
-        if (list.id === "") {
-            const success = await addNewList(noteTitle, noteContent);
-            if (success) {
-                const updatedLists = await fetchLists();
-                useAppStore.setState({ lists: updatedLists });
-                setIsLoading(false);
+        try {
+            if (noteTitle.trim().length === 0) {
+                Alert.alert("Error", "Please enter a name for the note!");
                 return;
-            } else {
-                Alert.alert(
-                    "Error",
-                    "Failed to add new list. Please try again later."
-                );
             }
-        }
 
-        if (
-            noteContent !== lists[index].content ||
-            noteTitle !== lists[index].content
-        ) {
-            const success = await updateList(list.id, noteTitle, noteContent);
-            if (success) {
-                const updatedLists = await fetchLists();
-                useAppStore.setState({ lists: updatedLists });
-            } else {
-                Alert.alert(
-                    "Error",
-                    "Failed to update list content. Please try again later."
-                );
+            // DRAFT -> INSERT
+            if (list.id === "__DRAFT__") {
+                const newList = await addList(noteTitle, noteContent);
+                closeDraft();
+
+                // select the newly created list
+                setSelectedList(newList);
+                setNoteTitle(newList.type ?? "");
+                setNoteContent(newList.content ?? "");
+                setSelectedIndex(0);
+                return;
             }
+
+            // REAL -> UPDATE (only if changed)
+            const original = lists.find((l) => l.id === list.id);
+            const typeChanged = noteTitle !== (original?.type ?? "");
+            const contentChanged = noteContent !== (original?.content ?? "");
+
+            if (typeChanged || contentChanged) {
+                await updateList(list.id, noteTitle, noteContent);
+                setSelectedIndex(0);
+            }
+        } catch {
+            Alert.alert("Error", "Failed to save. Please try again later.");
+        } finally {
+            setIsLoading(false);
         }
-        setIsLoading(false);
     };
 
     const labelItem = (list: List, index: number) => {
@@ -201,22 +229,27 @@ const Lists = () => {
                     </View>
                     <View style={styles.noteContainer}>
                         <View style={{ flex: 1 }}>
-                            {selectedList?.id !== "" && (
-                                <TouchableOpacity
-                                    style={styles.trashIcon}
-                                    onPress={() =>
-                                        setIsDeleteListModalOpen(true)
-                                    }
-                                >
-                                    <TrashIcon />
-                                </TouchableOpacity>
-                            )}
+                            {selectedList?.id &&
+                                selectedList.id !== "__DRAFT__" && (
+                                    <TouchableOpacity
+                                        style={styles.trashIcon}
+                                        onPress={() =>
+                                            setIsDeleteListModalOpen(true)
+                                        }
+                                    >
+                                        <TrashIcon />
+                                    </TouchableOpacity>
+                                )}
                             <TextInput
                                 style={styles.noteTitle}
                                 placeholder="Title"
                                 placeholderTextColor={Colors.darkGreenText}
                                 value={noteTitle}
-                                onChangeText={setNoteTitle}
+                                onChangeText={(t) => {
+                                    setNoteTitle(t);
+                                    if (selectedList?.id === "__DRAFT__")
+                                        updateDraft({ type: t });
+                                }}
                             />
                             <KeyboardAvoidingView
                                 behavior={
@@ -235,7 +268,13 @@ const Lists = () => {
                                             Colors.darkGreenText
                                         }
                                         value={noteContent}
-                                        onChangeText={setNoteContent}
+                                        onChangeText={(t) => {
+                                            setNoteContent(t);
+                                            if (
+                                                selectedList?.id === "__DRAFT__"
+                                            )
+                                                updateDraft({ content: t });
+                                        }}
                                         multiline={true}
                                         textAlignVertical="top"
                                     />
