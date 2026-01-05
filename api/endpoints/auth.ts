@@ -46,30 +46,41 @@ export async function signUpWithEmail(
     email: string,
     password: string
 ) {
-    const { data, error } = await supabase.auth.signUp({ email, password });
+    const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+            data: {
+                name,
+                date_of_birth,
+            },
+        },
+    });
 
     if (error) {
         Alert.alert("Sign Up Error", error.message);
         return null;
     }
+
     if (!data.user) {
-        Alert.alert("Sign Up Error", "User data is missing after sign up.");
+        Alert.alert("Sign Up Error", "User missing after signup");
         return null;
     }
 
-    const sessionUserId = data.session?.user.id;
+    if (data.session) {
+        await supabase.auth.setSession({
+            access_token: data.session.access_token,
+            refresh_token: data.session.refresh_token,
+        });
+    }
 
-    const { error: profileError } = await supabase
-        .from("profiles")
-        .upsert(
-            { id: sessionUserId, name: name, date_of_birth: date_of_birth },
-            { onConflict: "id" }
-        );
-
-    if (profileError) {
-        Alert.alert("Profile Error", profileError.message);
+    const { data: s } = await supabase.auth.getSession();
+    if (!s.session?.user?.id) {
+        Alert.alert("Auth Error", "Session not active after signup");
         return null;
     }
+
+    const userId = s.session.user.id;
 
     return data;
 }

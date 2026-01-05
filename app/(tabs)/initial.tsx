@@ -13,6 +13,7 @@ import { fetchQuotes } from "@/api/endpoints";
 import { fetchProfiles, updateProfileNote } from "@/api/endpoints/profiles";
 import { Profile, Quote } from "@/api/endpoints/types";
 import DebonLyingDown from "@/assets/svgs/debon-lying-down.svg";
+import SignOutButton from "@/components/auth/sign-out-button";
 import CustomText from "@/components/CustomText";
 import Avatar from "@/components/home/Avatar";
 import MilestoneTracker from "@/components/home/MilestoneTracker";
@@ -126,6 +127,7 @@ const Home = () => {
                 }}
             >
                 <ActivityIndicator size="large" />
+                <SignOutButton />
             </View>
         );
     }
