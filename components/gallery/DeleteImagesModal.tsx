@@ -1,5 +1,3 @@
-import { Colors } from "@/constants/colors";
-import { GalleryImage, useGalleryStore } from "@/stores/GalleryStore";
 import React, { useState } from "react";
 import {
     ActivityIndicator,
@@ -8,6 +6,10 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
+
+import { Colors } from "@/constants/colors";
+import { GalleryImage, useGalleryStore } from "@/stores/GalleryStore";
+
 import CustomText from "../CustomText";
 
 interface DeleteImagesModalProps {

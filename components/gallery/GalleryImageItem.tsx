@@ -1,8 +1,9 @@
-import { Colors } from "@/constants/colors";
-import { GalleryImage } from "@/stores/GalleryStore";
 import { Image } from "expo-image";
 import React from "react";
 import { Dimensions, StyleSheet, TouchableOpacity } from "react-native";
+
+import { Colors } from "@/constants/colors";
+import { GalleryImage } from "@/stores/GalleryStore";
 
 interface GalleryImageItemProps {
     image: GalleryImage;

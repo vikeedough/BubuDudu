@@ -1,7 +1,9 @@
-import { Choice } from "@/api/endpoints/types";
-import { Colors } from "@/constants/colors";
 import { FC } from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
+
+import { Choice } from "@/api/endpoints/types";
+import { Colors } from "@/constants/colors";
+
 import CustomText from "../CustomText";
 
 interface ChoiceItemProps {

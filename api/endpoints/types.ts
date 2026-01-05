@@ -68,3 +68,10 @@ export interface Wheel {
 export interface Choice {
     choice: string;
 }
+
+export interface SpaceInvite {
+    space_id: string;
+    code: string;
+    created_by: string;
+    created_at: string;
+}

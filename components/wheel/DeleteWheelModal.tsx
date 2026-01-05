@@ -1,6 +1,8 @@
-import { Colors } from "@/constants/colors";
 import React from "react";
 import { Modal, StyleSheet, TouchableOpacity, View } from "react-native";
+
+import { Colors } from "@/constants/colors";
+
 import CustomText from "../CustomText";
 
 interface DeleteWheelModalProps {

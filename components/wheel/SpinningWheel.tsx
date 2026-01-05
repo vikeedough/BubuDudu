@@ -1,5 +1,3 @@
-import DebonSpin from "@/assets/svgs/debon-spin.svg";
-import { Colors, listColorsArray } from "@/constants/colors";
 import React, { useState } from "react";
 import { Modal, StyleSheet, TouchableOpacity, View } from "react-native";
 import Animated, {
@@ -11,6 +9,10 @@ import Animated, {
 } from "react-native-reanimated";
 import Svg, { Circle, Path, Text as SvgText } from "react-native-svg";
 import { scheduleOnRN } from "react-native-worklets";
+
+import DebonSpin from "@/assets/svgs/debon-spin.svg";
+import { Colors, listColorsArray } from "@/constants/colors";
+
 import CustomText from "../CustomText";
 
 interface SpinningWheelProps {

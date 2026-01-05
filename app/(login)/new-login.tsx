@@ -1,8 +1,9 @@
-import { signInWithEmail } from "@/api/endpoints/auth";
-import CustomText from "@/components/CustomText";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Button, StyleSheet, TextInput, View } from "react-native";
+
+import { signInWithEmail } from "@/api/endpoints/auth";
+import CustomText from "@/components/CustomText";
 
 export default function NewLogin() {
     const router = useRouter();

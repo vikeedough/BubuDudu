@@ -1,5 +1,3 @@
-import Back from "@/assets/svgs/back.svg";
-import { Colors } from "@/constants/colors";
 import { Image } from "expo-image";
 import React, { useEffect, useState } from "react";
 import {
@@ -10,6 +8,9 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
+
+import Back from "@/assets/svgs/back.svg";
+import { Colors } from "@/constants/colors";
 
 interface ImageModalProps {
     isOpen: boolean;

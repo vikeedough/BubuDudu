@@ -1,10 +1,11 @@
+import React, { useRef } from "react";
+import { StyleSheet, TextInput, TouchableOpacity, View } from "react-native";
+
 import MagnifyingGlass from "@/assets/svgs/magnifying-glass.svg";
 import Plus from "@/assets/svgs/plus.svg";
 import SortAscending from "@/assets/svgs/sort-ascending.svg";
 import SortDescending from "@/assets/svgs/sort-descending.svg";
 import { Colors } from "@/constants/colors";
-import React, { useRef } from "react";
-import { StyleSheet, TextInput, TouchableOpacity, View } from "react-native";
 
 interface GalleryListControlsProps {
     searchText: string;

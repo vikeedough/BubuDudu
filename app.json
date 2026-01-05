@@ -12,13 +12,23 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.vikeedough.bubududu",
       "teamId": "AX9XZY792A",
-      "buildConfiguration": "Release"
+      "buildConfiguration": "Release",
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "We need access to save and organize your photos.",
+        "NSPhotoLibraryAddUsageDescription": "We need access to save photos to your library."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/app-icon.png",
         "backgroundColor": "#ffffff"
       },
+      "permissions": [
+        "READ_MEDIA_IMAGES",
+        "READ_MEDIA_VIDEO",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ],
       "edgeToEdgeEnabled": true,
       "package": "com.vikeedough.bubududu"
     },

@@ -1,3 +1,7 @@
+import React from "react";
+import { StyleSheet, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+
 import DebonBlush from "@/assets/svgs/debon-blush.svg";
 import NewGalleryModal from "@/components/gallery/AddNewGalleryModal";
 import GalleryListControls from "@/components/gallery/GalleryListControls";
@@ -6,9 +10,6 @@ import GalleryListHeader from "@/components/gallery/GalleryListHeader";
 import { Colors } from "@/constants/colors";
 import { useGalleryList } from "@/hooks/useGalleryList";
 import { getDate } from "@/utils/home";
-import React from "react";
-import { StyleSheet, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 const Gallery = () => {
     const date = getDate();

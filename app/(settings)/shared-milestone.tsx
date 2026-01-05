@@ -1,3 +1,13 @@
+import DateTimePicker from "@react-native-community/datetimepicker";
+import { useEffect, useState } from "react";
+import {
+    Alert,
+    StyleSheet,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from "react-native";
+
 import CustomText from "@/components/CustomText";
 import { GeneralButton } from "@/components/GeneralButton";
 import { SettingsField } from "@/components/settings/SettingsField";
@@ -8,15 +18,6 @@ import {
     dateToYYYYMMDD,
     formatDate,
 } from "@/utils/settings";
-import DateTimePicker from "@react-native-community/datetimepicker";
-import { useEffect, useState } from "react";
-import {
-    Alert,
-    StyleSheet,
-    TextInput,
-    TouchableOpacity,
-    View,
-} from "react-native";
 
 export default function SharedMilestone() {
     const milestone = useMilestoneStore((s) => s.milestone);

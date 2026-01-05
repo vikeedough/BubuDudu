@@ -1,10 +1,11 @@
-import { User } from "@/api/endpoints/types";
-import CustomText from "@/components/CustomText";
-import { Colors } from "@/constants/colors";
 import { Image } from "expo-image";
 import { router } from "expo-router";
 import { useState } from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
+
+import { User } from "@/api/endpoints/types";
+import CustomText from "@/components/CustomText";
+import { Colors } from "@/constants/colors";
 
 const Avatar = ({
     image,

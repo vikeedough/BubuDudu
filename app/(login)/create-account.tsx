@@ -1,11 +1,12 @@
-import { signUpWithEmail } from "@/api/endpoints";
-import CustomText from "@/components/CustomText";
-import { SettingsField } from "@/components/settings/SettingsField";
-import { convertToDisplayDate, dateToYYYYMMDD } from "@/utils/settings";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Button, StyleSheet, TextInput, View } from "react-native";
+
+import { signUpWithEmail } from "@/api/endpoints";
+import CustomText from "@/components/CustomText";
+import { SettingsField } from "@/components/settings/SettingsField";
+import { convertToDisplayDate, dateToYYYYMMDD } from "@/utils/settings";
 
 export default function NewLogin() {
     const router = useRouter();

@@ -1,9 +1,3 @@
-import Plus from "@/assets/svgs/plus.svg";
-import SortAscending from "@/assets/svgs/sort-ascending.svg";
-import SortDescending from "@/assets/svgs/sort-descending.svg";
-import TrashBin from "@/assets/svgs/trash-bin.svg";
-import CustomText from "@/components/CustomText";
-import { Colors } from "@/constants/colors";
 import React from "react";
 import {
     ActivityIndicator,
@@ -11,6 +5,13 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
+
+import Plus from "@/assets/svgs/plus.svg";
+import SortAscending from "@/assets/svgs/sort-ascending.svg";
+import SortDescending from "@/assets/svgs/sort-descending.svg";
+import TrashBin from "@/assets/svgs/trash-bin.svg";
+import CustomText from "@/components/CustomText";
+import { Colors } from "@/constants/colors";
 
 interface GalleryControlsProps {
     galleryTitle: string;

@@ -1,5 +1,5 @@
 import { Gallery, GalleryImage } from "@/stores/GalleryStore";
-import * as FileSystem from "expo-file-system";
+import { Directory, File, Paths } from "expo-file-system";
 import * as ImagePicker from "expo-image-picker";
 import * as MediaLibrary from "expo-media-library";
 import { Alert } from "react-native";
@@ -45,27 +45,50 @@ export const convertDate = (date: string) => {
 };
 
 export const downloadAndSaveImage = async (image_id: string, url: string) => {
-    const { status } = await MediaLibrary.requestPermissionsAsync();
+    const { status, canAskAgain } = await MediaLibrary.requestPermissionsAsync(
+        true
+    );
+
+    console.log(
+        "Media Library Permission Status:",
+        status,
+        "Can Ask Again:",
+        canAskAgain
+    );
+
     if (status !== "granted") {
-        Alert.alert("Permission to save images was denied");
+        Alert.alert(
+            "Permission Required",
+            canAskAgain
+                ? "Please allow full access to your media library to save images."
+                : "Media library permission was denied. Please enable it in your device settings.",
+            canAskAgain ? undefined : [{ text: "OK" }]
+        );
         return;
     }
 
-    const fileUri = FileSystem.Directory + image_id + ".jpg";
+    const destination = new Directory(Paths.cache, "BubuDudu");
+    if (!destination.exists) {
+        destination.create();
+    }
 
-    const download = await FileSystem.downloadAsync(url, fileUri);
-    const asset = await MediaLibrary.createAssetAsync(download.uri);
+    const output = await File.downloadFileAsync(url, destination, {
+        idempotent: true,
+    });
 
+    const asset = await MediaLibrary.createAssetAsync(output.uri);
+
+    // Get or create the album
     const album = await MediaLibrary.getAlbumAsync("BubuDudu");
     if (!album) {
-        await MediaLibrary.createAlbumAsync("BubuDudu", asset, false);
+        await MediaLibrary.createAlbumAsync("BubuDudu", asset);
     } else {
         await MediaLibrary.addAssetsToAlbumAsync([asset], album);
     }
 };
 
 export const multipleDownloadAndSaveImage = async (images: GalleryImage[]) => {
-    const { status } = await MediaLibrary.requestPermissionsAsync();
+    const { status } = await MediaLibrary.requestPermissionsAsync(true);
     if (status !== "granted") {
         Alert.alert("Permission to save images was denied");
         return;

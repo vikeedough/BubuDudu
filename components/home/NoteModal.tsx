@@ -1,4 +1,3 @@
-import { Colors } from "@/constants/colors";
 import { useState } from "react";
 import {
     Alert,
@@ -8,6 +7,9 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
+
+import { Colors } from "@/constants/colors";
+
 import CustomText from "../CustomText";
 
 interface NoteModalProps {

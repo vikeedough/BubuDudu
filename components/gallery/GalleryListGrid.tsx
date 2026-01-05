@@ -1,8 +1,10 @@
-import { usePullToRefresh } from "@/hooks/usePullToRefresh";
-import { Gallery, useGalleryStore } from "@/stores/GalleryStore";
 import { FlashList } from "@shopify/flash-list";
 import React from "react";
 import { StyleSheet, View } from "react-native";
+
+import { usePullToRefresh } from "@/hooks/usePullToRefresh";
+import { Gallery, useGalleryStore } from "@/stores/GalleryStore";
+
 import GalleryItem from "./GalleryItem";
 
 interface GalleryListGridProps {

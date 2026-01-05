@@ -1,7 +1,3 @@
-import CustomText from "@/components/CustomText";
-import { GeneralButton } from "@/components/GeneralButton";
-import { Colors } from "@/constants/colors";
-import { useAuthContext } from "@/hooks/useAuthContext";
 import { useEffect, useState } from "react";
 import {
     Alert,
@@ -10,6 +6,11 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
+
+import CustomText from "@/components/CustomText";
+import { GeneralButton } from "@/components/GeneralButton";
+import { Colors } from "@/constants/colors";
+import { useAuthContext } from "@/hooks/useAuthContext";
 export default function Name() {
     const { profile, updateProfile } = useAuthContext();
     const [name, setName] = useState(profile?.name || "");

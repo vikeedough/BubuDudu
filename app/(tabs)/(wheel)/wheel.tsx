@@ -1,15 +1,3 @@
-import DebonLyingDown from "@/assets/svgs/debon-lying-down.svg";
-import Plus from "@/assets/svgs/plus.svg";
-import TrashIcon from "@/assets/svgs/trash-bin.svg";
-import CustomText from "@/components/CustomText";
-import DeleteWheelModal from "@/components/wheel/DeleteWheelModal";
-import EditChoicesModal from "@/components/wheel/EditChoicesModal";
-import SpinningWheel from "@/components/wheel/SpinningWheel";
-import WheelHeader from "@/components/wheel/WheelHeader";
-import { Colors, listColorsArray } from "@/constants/colors";
-import { usePullToRefresh } from "@/hooks/usePullToRefresh";
-import { useWheelStore } from "@/stores/WheelStore";
-import { getDate } from "@/utils/home";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
     ActivityIndicator,
@@ -26,6 +14,19 @@ import {
     View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+import DebonLyingDown from "@/assets/svgs/debon-lying-down.svg";
+import Plus from "@/assets/svgs/plus.svg";
+import TrashIcon from "@/assets/svgs/trash-bin.svg";
+import CustomText from "@/components/CustomText";
+import DeleteWheelModal from "@/components/wheel/DeleteWheelModal";
+import EditChoicesModal from "@/components/wheel/EditChoicesModal";
+import SpinningWheel from "@/components/wheel/SpinningWheel";
+import WheelHeader from "@/components/wheel/WheelHeader";
+import { Colors, listColorsArray } from "@/constants/colors";
+import { usePullToRefresh } from "@/hooks/usePullToRefresh";
+import { useWheelStore } from "@/stores/WheelStore";
+import { getDate } from "@/utils/home";
 
 const Wheel = () => {
     const currentDate = getDate();

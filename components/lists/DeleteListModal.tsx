@@ -1,10 +1,11 @@
-import { useListStore } from "@/stores/ListStore";
-
-import { List } from "@/api/endpoints/types";
-import { Colors } from "@/constants/colors";
 
 import React from "react";
 import { Alert, Modal, StyleSheet, TouchableOpacity, View } from "react-native";
+
+import { List } from "@/api/endpoints/types";
+import { Colors } from "@/constants/colors";
+import { useListStore } from "@/stores/ListStore";
+
 import CustomText from "../CustomText";
 
 interface DeleteListModalProps {

@@ -1,5 +1,7 @@
-import { Colors } from "@/constants/colors";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
+
+import { Colors } from "@/constants/colors";
+
 import CustomText from "../CustomText";
 
 interface SettingsFieldProps {

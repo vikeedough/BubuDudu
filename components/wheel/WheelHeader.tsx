@@ -1,7 +1,8 @@
-import CustomText from "@/components/CustomText";
-import { Colors } from "@/constants/colors";
 import React from "react";
 import { StyleSheet, View } from "react-native";
+
+import CustomText from "@/components/CustomText";
+import { Colors } from "@/constants/colors";
 
 interface WheelHeaderProps {
     currentDate: string;

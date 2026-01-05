@@ -1,6 +1,3 @@
-import { Wheel } from "@/api/endpoints/types";
-import { Colors } from "@/constants/colors";
-import { useWheelStore } from "@/stores/WheelStore";
 import React, { useState } from "react";
 import {
     Alert,
@@ -11,6 +8,11 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
+
+import { Wheel } from "@/api/endpoints/types";
+import { Colors } from "@/constants/colors";
+import { useWheelStore } from "@/stores/WheelStore";
+
 import CustomText from "../CustomText";
 
 interface EditChoicesModalProps {

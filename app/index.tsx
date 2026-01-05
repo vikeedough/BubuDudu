@@ -1,8 +1,9 @@
-import { useAuthContext } from "@/hooks/useAuthContext";
-import { getSpaceId } from "@/utils/secure-store";
 import { Redirect } from "expo-router";
 import { useEffect, useState } from "react";
 import { ActivityIndicator } from "react-native";
+
+import { useAuthContext } from "@/hooks/useAuthContext";
+import { getSpaceId } from "@/utils/secure-store";
 
 export default function Index() {
     const { isLoading, isLoggedIn } = useAuthContext();

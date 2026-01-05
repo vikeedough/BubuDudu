@@ -1,4 +1,5 @@
 import { StyleSheet, TouchableOpacity } from "react-native";
+
 import CustomText from "./CustomText";
 
 interface GeneralButtonProps {

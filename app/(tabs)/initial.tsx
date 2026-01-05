@@ -1,3 +1,14 @@
+import { router } from "expo-router";
+import { useEffect, useState } from "react";
+import {
+    ActivityIndicator,
+    Alert,
+    StyleSheet,
+    TouchableOpacity,
+    View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+
 import { fetchQuotes } from "@/api/endpoints";
 import { fetchProfiles, updateProfileNote } from "@/api/endpoints/profiles";
 import { Profile, Quote } from "@/api/endpoints/types";
@@ -12,16 +23,6 @@ import { useAuthContext } from "@/hooks/useAuthContext";
 import { useMilestoneStore } from "@/stores/MilestoneStore";
 import { getToday, pickAndUploadAvatar } from "@/utils/home";
 import { getSpaceId } from "@/utils/secure-store";
-import { router } from "expo-router";
-import { useEffect, useState } from "react";
-import {
-    ActivityIndicator,
-    Alert,
-    StyleSheet,
-    TouchableOpacity,
-    View,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 const Home = () => {
     const { profile, session, isLoggedIn, refreshProfile, updateProfile } =

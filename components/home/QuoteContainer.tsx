@@ -1,8 +1,10 @@
+import { useEffect, useState } from "react";
+import { StyleSheet, View } from "react-native";
+
 import { Quote } from "@/api/endpoints/types";
 import { Colors } from "@/constants/colors";
 import { randomNumber } from "@/utils/home";
-import { useEffect, useState } from "react";
-import { StyleSheet, View } from "react-native";
+
 import CustomText from "../CustomText";
 
 interface QuoteContainerProps {

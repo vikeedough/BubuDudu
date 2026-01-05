@@ -1,3 +1,7 @@
+import { Tabs } from "expo-router";
+import React, { useEffect, useRef } from "react";
+import { Animated, StyleSheet } from "react-native";
+
 import FocusedGalleryIcon from "@/assets/svgs/nav-bar/gallery-focused.svg";
 import GalleryIcon from "@/assets/svgs/nav-bar/gallery.svg";
 import FocusedHomeIcon from "@/assets/svgs/nav-bar/home-focused.svg";
@@ -7,9 +11,6 @@ import ListsIcon from "@/assets/svgs/nav-bar/lists.svg";
 import FocusedWheelIcon from "@/assets/svgs/nav-bar/wheel-focused.svg";
 import WheelIcon from "@/assets/svgs/nav-bar/wheel.svg";
 import { Colors } from "@/constants/colors";
-import { Tabs } from "expo-router";
-import React, { useEffect, useRef } from "react";
-import { Animated, StyleSheet } from "react-native";
 
 interface AnimatedTabIconProps {
     focused: boolean;

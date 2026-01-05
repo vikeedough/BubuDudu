@@ -1,8 +1,9 @@
+import React from "react";
+import { StyleSheet, TouchableOpacity, View } from "react-native";
+
 import Back from "@/assets/svgs/back.svg";
 import CustomText from "@/components/CustomText";
 import { Colors } from "@/constants/colors";
-import React from "react";
-import { StyleSheet, TouchableOpacity, View } from "react-native";
 
 interface GalleryHeaderProps {
     onBack: () => void;

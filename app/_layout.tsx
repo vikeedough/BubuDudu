@@ -1,7 +1,8 @@
-import AuthProvider from "@/providers/auth-provider";
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import { ActivityIndicator, View } from "react-native";
+
+import AuthProvider from "@/providers/auth-provider";
 
 export default function RootLayout() {
     const [fontsLoaded] = useFonts({

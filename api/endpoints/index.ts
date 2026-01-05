@@ -6,4 +6,6 @@ export * from "./lists";
 export * from "./milestones";
 export * from "./profiles";
 export * from "./quotes";
+export * from "./space-invites";
 export * from "./wheels";
+

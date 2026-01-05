@@ -1,3 +1,8 @@
+import { useLocalSearchParams } from "expo-router";
+import React from "react";
+import { StyleSheet, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+
 import DeleteGalleryModal from "@/components/gallery/DeleteGalleryModal";
 import DeleteImagesModal from "@/components/gallery/DeleteImagesModal";
 import GalleryControls from "@/components/gallery/GalleryControls";
@@ -10,10 +15,6 @@ import { Colors } from "@/constants/colors";
 import { useGalleryContent } from "@/hooks/useGalleryContent";
 import { convertDate } from "@/utils/gallery";
 import { getDate } from "@/utils/home";
-import { useLocalSearchParams } from "expo-router";
-import React from "react";
-import { StyleSheet, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 const GalleryContent = () => {
     const {

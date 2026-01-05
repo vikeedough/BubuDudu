@@ -1,9 +1,10 @@
-import CustomText from "@/components/CustomText";
-import { getSpaceId } from "@/utils/secure-store";
-import { createSpace, joinSpace } from "@/utils/space-management";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Button, StyleSheet, TextInput, View } from "react-native";
+
+import CustomText from "@/components/CustomText";
+import { getSpaceId } from "@/utils/secure-store";
+import { createSpace, joinSpace } from "@/utils/space-management";
 
 export default function SpaceManagementPage() {
     const router = useRouter();

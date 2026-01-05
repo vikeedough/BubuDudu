@@ -1,4 +1,3 @@
-import { Colors } from "@/constants/colors";
 import { Image } from "expo-image";
 import {
     ActivityIndicator,
@@ -6,6 +5,8 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
+
+import { Colors } from "@/constants/colors";
 
 interface AvatarProps {
     image: any;

@@ -1,12 +1,14 @@
+import { useRouter } from "expo-router";
+import { useEffect, useMemo } from "react";
+import { StyleSheet, View } from "react-native";
+
 import SignOutButton from "@/components/auth/sign-out-button";
 import CustomText from "@/components/CustomText";
+import { InviteCode } from "@/components/settings/InviteCode";
 import { SettingsField } from "@/components/settings/SettingsField";
 import { useAuthContext } from "@/hooks/useAuthContext";
 import { useMilestoneStore } from "@/stores/MilestoneStore";
 import { formatDate } from "@/utils/settings";
-import { useRouter } from "expo-router";
-import { useEffect, useMemo } from "react";
-import { StyleSheet, View } from "react-native";
 
 export default function Settings() {
     const router = useRouter();
@@ -52,6 +54,8 @@ export default function Settings() {
                 value={formattedMilestone}
                 onPress={() => router.push("/(settings)/shared-milestone")}
             />
+
+            <InviteCode />
 
             <SignOutButton />
         </View>

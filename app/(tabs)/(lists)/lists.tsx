@@ -1,12 +1,3 @@
-import { List } from "@/api/endpoints/types";
-import DebonHeart from "@/assets/svgs/debon-heart.svg";
-import TrashIcon from "@/assets/svgs/trash-bin.svg";
-import CustomText from "@/components/CustomText";
-import DeleteListModal from "@/components/lists/DeleteListModal";
-import { Colors, listColorsArray } from "@/constants/colors";
-import { usePullToRefresh } from "@/hooks/usePullToRefresh";
-import { useListStore } from "@/stores/ListStore";
-import { getDate } from "@/utils/home";
 import { useEffect, useState } from "react";
 import {
     ActivityIndicator,
@@ -23,6 +14,16 @@ import {
     View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+import { List } from "@/api/endpoints/types";
+import DebonHeart from "@/assets/svgs/debon-heart.svg";
+import TrashIcon from "@/assets/svgs/trash-bin.svg";
+import CustomText from "@/components/CustomText";
+import DeleteListModal from "@/components/lists/DeleteListModal";
+import { Colors, listColorsArray } from "@/constants/colors";
+import { usePullToRefresh } from "@/hooks/usePullToRefresh";
+import { useListStore } from "@/stores/ListStore";
+import { getDate } from "@/utils/home";
 
 const Lists = () => {
     const lists = useListStore((s) => s.lists);

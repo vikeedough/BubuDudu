@@ -1,8 +1,10 @@
-import { Colors } from "@/constants/colors";
-import { GalleryImage } from "@/stores/GalleryStore";
 import { FlashList } from "@shopify/flash-list";
 import React from "react";
 import { ActivityIndicator, Dimensions, StyleSheet, View } from "react-native";
+
+import { Colors } from "@/constants/colors";
+import { GalleryImage } from "@/stores/GalleryStore";
+
 import GalleryImageItem from "./GalleryImageItem";
 
 interface GalleryImageGridProps {

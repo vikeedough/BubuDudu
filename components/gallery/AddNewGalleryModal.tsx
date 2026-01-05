@@ -1,7 +1,3 @@
-import CustomText from "@/components/CustomText";
-import { Colors, listColorsArray } from "@/constants/colors";
-import { useGalleryStore } from "@/stores/GalleryStore";
-import { pickMultipleImages } from "@/utils/gallery";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { FlashList } from "@shopify/flash-list";
 import { Image } from "expo-image";
@@ -20,6 +16,11 @@ import {
     TouchableWithoutFeedback,
     View,
 } from "react-native";
+
+import CustomText from "@/components/CustomText";
+import { Colors, listColorsArray } from "@/constants/colors";
+import { useGalleryStore } from "@/stores/GalleryStore";
+import { pickMultipleImages } from "@/utils/gallery";
 
 interface AddNewGalleryModalProps {
     isOpen: boolean;
