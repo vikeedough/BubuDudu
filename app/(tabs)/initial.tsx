@@ -15,7 +15,7 @@ import { Profile, Quote } from "@/api/endpoints/types";
 import DebonLyingDown from "@/assets/svgs/debon-lying-down.svg";
 import SignOutButton from "@/components/auth/sign-out-button";
 import CustomText from "@/components/CustomText";
-import Avatar from "@/components/home/Avatar";
+import AvatarDisplay from "@/components/home/AvatarDisplay";
 import MilestoneTracker from "@/components/home/MilestoneTracker";
 import NoteModal from "@/components/home/NoteModal";
 import QuoteContainer from "@/components/home/QuoteContainer";
@@ -65,9 +65,6 @@ const Home = () => {
         loadData();
     }, [session?.user?.id]);
 
-    const [uploadingAvatarUserId, setUploadingAvatarUserId] = useState<
-        string | null
-    >(null);
     const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
 
     const refreshProfiles = async () => {
@@ -87,11 +84,9 @@ const Home = () => {
     const partner = userProfiles.find((p) => p.id !== myId);
 
     const handlePickAndUploadAvatar = async () => {
-        setUploadingAvatarUserId(me?.id || null);
         const newUrl = await pickAndUploadAvatar();
         if (!newUrl) {
             Alert.alert("Error", "Failed to upload avatar.");
-            setUploadingAvatarUserId(null);
             return;
         }
         await updateProfile({ avatar_url: newUrl });
@@ -100,7 +95,6 @@ const Home = () => {
                 p.id === me?.id ? { ...p, avatar_url: newUrl } : p
             )
         );
-        setUploadingAvatarUserId(null);
     };
 
     const handleOpenNoteModal = () => {
@@ -178,12 +172,7 @@ const Home = () => {
                         milestoneKey={1}
                     />
                 </View>
-                <View
-                    style={{
-                        justifyContent: "center",
-                        alignItems: "center",
-                    }}
-                >
+                <View style={styles.bottomMilestoneContainer}>
                     <MilestoneTracker
                         title={
                             milestone
@@ -198,62 +187,49 @@ const Home = () => {
             </View>
             <View style={styles.avatarsContainer}>
                 {me && (
-                    <View>
-                        <TouchableOpacity
-                            style={[
-                                styles.messageBubble,
-                                styles.duduMessageBubble,
-                            ]}
-                            onPress={handleOpenNoteModal}
-                            disabled={false}
-                        >
+                    <View style={styles.avatarContainer}>
+                        <TouchableOpacity onPress={handlePickAndUploadAvatar}>
+                            <AvatarDisplay
+                                image={me.avatar_url}
+                                borderColor={Colors.darkBlue}
+                            />
+                        </TouchableOpacity>
+                        <View style={styles.bubbleWrapper}>
+                            <TouchableOpacity
+                                style={styles.messageBubble}
+                                onPress={handleOpenNoteModal}
+                                disabled={false}
+                            >
+                                <CustomText
+                                    weight="semibold"
+                                    style={styles.messageText}
+                                >
+                                    {me?.note
+                                        ? me.note
+                                        : "You have no note yet!"}
+                                </CustomText>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                )}
+                <View style={styles.avatarContainer}>
+                    <AvatarDisplay
+                        image={partner ? partner.avatar_url : null}
+                        borderColor={Colors.hotPink}
+                    />
+                    <View style={styles.bubbleWrapper}>
+                        <View style={styles.messageBubble}>
                             <CustomText
                                 weight="semibold"
                                 style={styles.messageText}
                             >
-                                {me?.note ? me.note : "You have no note yet!"}
+                                {partner
+                                    ? partner.note ??
+                                      "Your partner has no note yet!"
+                                    : "Invite your partner to join!"}
                             </CustomText>
-                        </TouchableOpacity>
-                        <Avatar
-                            image={me.avatar_url}
-                            onPressNoteButton={handleOpenNoteModal}
-                            onPressImage={() => handlePickAndUploadAvatar()}
-                            isUploadingAvatar={uploadingAvatarUserId === me.id}
-                            isSelected={false}
-                            hasAddMessageButton={true}
-                            isBubu={false}
-                            disabled={false}
-                        />
+                        </View>
                     </View>
-                )}
-                <View>
-                    <TouchableOpacity
-                        style={[styles.messageBubble, styles.bubuMessageBubble]}
-                        onPress={handleOpenNoteModal}
-                        disabled={true} // TODO: Re-enable after migration
-                    >
-                        <CustomText
-                            weight="semibold"
-                            style={styles.messageText}
-                        >
-                            {partner
-                                ? partner.note ??
-                                  "Your partner has no note yet!"
-                                : "Invite your partner to join!"}
-                        </CustomText>
-                    </TouchableOpacity>
-                    <Avatar
-                        image={partner?.avatar_url}
-                        onPressNoteButton={handleOpenNoteModal}
-                        onPressImage={() => {}}
-                        isUploadingAvatar={
-                            uploadingAvatarUserId === partner?.id
-                        }
-                        isSelected={false}
-                        hasAddMessageButton={false}
-                        isBubu={true}
-                        disabled={true}
-                    />
                 </View>
             </View>
         </SafeAreaView>
@@ -278,17 +254,17 @@ const styles = StyleSheet.create({
         fontSize: 12,
         color: Colors.darkGreenText,
     },
+    bubbleWrapper: {
+        width: "100%",
+        alignItems: "center",
+    },
     messageBubble: {
-        position: "absolute",
-        bottom: -27,
-        left: 0,
-        right: 0,
         zIndex: 100,
-        backgroundColor: "#fff",
+        backgroundColor: Colors.yellow,
         padding: 10,
         borderRadius: 15,
-        maxWidth: "100%",
-        marginHorizontal: "auto",
+        width: "85%",
+        marginTop: "-5%",
         shadowColor: "#000",
         shadowOffset: {
             width: 0,
@@ -300,15 +276,17 @@ const styles = StyleSheet.create({
     },
     avatarsContainer: {
         flexDirection: "row",
-        gap: 20,
-        marginBottom: 40,
+        gap: "5%",
         justifyContent: "center",
     },
-    duduMessageBubble: {
-        backgroundColor: Colors.yellow,
+    avatarContainer: {
+        flex: 1,
+        alignItems: "center",
+        justifyContent: "flex-start",
     },
-    bubuMessageBubble: {
-        backgroundColor: Colors.yellow,
+    bottomMilestoneContainer: {
+        justifyContent: "center",
+        alignItems: "center",
     },
     messageText: {
         fontSize: 11,
