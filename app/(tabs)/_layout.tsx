@@ -1,6 +1,6 @@
 import { Tabs } from "expo-router";
 import React, { useEffect, useRef } from "react";
-import { Animated, StyleSheet } from "react-native";
+import { Animated, Platform, StyleSheet } from "react-native";
 
 import FocusedGalleryIcon from "@/assets/svgs/nav-bar/gallery-focused.svg";
 import GalleryIcon from "@/assets/svgs/nav-bar/gallery.svg";
@@ -16,6 +16,8 @@ interface AnimatedTabIconProps {
     focused: boolean;
     children: React.ReactNode;
 }
+
+const bottomTabBarOffset = Platform.OS === "ios" ? 35 : 55;
 
 function AnimatedTabIcon({ focused, children }: AnimatedTabIconProps) {
     const scaleValue = useRef(new Animated.Value(1)).current;
@@ -128,7 +130,7 @@ const styles = StyleSheet.create({
         borderTopRightRadius: 60,
         borderBottomLeftRadius: 60,
         borderBottomRightRadius: 60,
-        bottom: 35,
+        bottom: bottomTabBarOffset,
         height: 51,
         alignSelf: "center",
         marginHorizontal: 30,
