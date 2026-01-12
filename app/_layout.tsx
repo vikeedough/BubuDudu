@@ -2,7 +2,9 @@ import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import { ActivityIndicator, View } from "react-native";
 
+import { ToastRoot } from "@/components/toast/ToastRoot";
 import AuthProvider from "@/providers/auth-provider";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 export default function RootLayout() {
     const [fontsLoaded] = useFonts({
@@ -28,16 +30,28 @@ export default function RootLayout() {
     }
 
     return (
-        <AuthProvider>
-            <Stack screenOptions={{ headerShown: false }}>
-                <Stack.Screen name="index" options={{ headerShown: false }} />
-                <Stack.Screen name="(login)" options={{ headerShown: false }} />
-                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                <Stack.Screen
-                    name="(settings)"
-                    options={{ headerShown: false }}
-                />
-            </Stack>
-        </AuthProvider>
+        <GestureHandlerRootView style={{ flex: 1 }}>
+            <AuthProvider>
+                <Stack screenOptions={{ headerShown: false }}>
+                    <Stack.Screen
+                        name="index"
+                        options={{ headerShown: false }}
+                    />
+                    <Stack.Screen
+                        name="(login)"
+                        options={{ headerShown: false }}
+                    />
+                    <Stack.Screen
+                        name="(tabs)"
+                        options={{ headerShown: false }}
+                    />
+                    <Stack.Screen
+                        name="(settings)"
+                        options={{ headerShown: false }}
+                    />
+                </Stack>
+                <ToastRoot />
+            </AuthProvider>
+        </GestureHandlerRootView>
     );
 }

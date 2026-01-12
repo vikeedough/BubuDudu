@@ -10,6 +10,7 @@ import {
 
 import { Colors } from "@/constants/colors";
 
+import { toast } from "@/toast/api";
 import CustomText from "../CustomText";
 
 interface NoteModalProps {
@@ -31,6 +32,11 @@ const NoteModal: React.FC<NoteModalProps> = ({
         const success = await updateNote(note);
         if (success) {
             await onSaved();
+            toast.show({
+                title: "Success!",
+                message: "Your note has been updated.",
+                durationMs: 2500,
+            });
             setNote("");
             onClose();
         } else {

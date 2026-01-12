@@ -22,6 +22,7 @@ import QuoteContainer from "@/components/home/QuoteContainer";
 import { Colors } from "@/constants/colors";
 import { useAuthContext } from "@/hooks/useAuthContext";
 import { useMilestoneStore } from "@/stores/MilestoneStore";
+import { toast } from "@/toast/api";
 import { getToday, pickAndUploadAvatar } from "@/utils/home";
 import { getSpaceId } from "@/utils/secure-store";
 
@@ -95,6 +96,11 @@ const Home = () => {
                 p.id === me?.id ? { ...p, avatar_url: newUrl } : p
             )
         );
+        toast.show({
+            title: "Success",
+            message: "Avatar updated successfully!",
+            durationMs: 3000,
+        });
     };
 
     const handleOpenNoteModal = () => {
