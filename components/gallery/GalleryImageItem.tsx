@@ -1,6 +1,6 @@
 import { Image } from "expo-image";
 import React from "react";
-import { Dimensions, StyleSheet, TouchableOpacity } from "react-native";
+import { Dimensions, StyleSheet, TouchableOpacity, View } from "react-native";
 
 import { Colors } from "@/constants/colors";
 import { GalleryImage } from "@/stores/GalleryStore";
@@ -14,6 +14,8 @@ interface GalleryImageItemProps {
     onSelect: () => void;
 }
 
+const SIZE = (Dimensions.get("window").width - 110) / 2;
+
 const GalleryImageItem: React.FC<GalleryImageItemProps> = ({
     image,
     editMode,
@@ -24,35 +26,46 @@ const GalleryImageItem: React.FC<GalleryImageItemProps> = ({
 }) => {
     return (
         <TouchableOpacity onPress={onPress} onLongPress={onLongPress}>
-            {editMode && (
-                <TouchableOpacity
-                    style={[
-                        styles.editDeleteButton,
-                        {
-                            backgroundColor: isSelected
-                                ? "rgba(255,255,255,0.7)"
-                                : "transparent",
-                        },
-                    ]}
-                    onPress={onSelect}
+            <View style={styles.container}>
+                {editMode && (
+                    <TouchableOpacity
+                        style={[
+                            styles.editDeleteButton,
+                            {
+                                backgroundColor: isSelected
+                                    ? "rgba(255,255,255,0.7)"
+                                    : "transparent",
+                            },
+                        ]}
+                        onPress={onSelect}
+                    />
+                )}
+
+                <Image
+                    source={{ uri: image.url }}
+                    style={StyleSheet.absoluteFill}
+                    contentFit="cover"
+                    placeholder={
+                        image.blur_hash
+                            ? { blurhash: image.blur_hash }
+                            : undefined
+                    }
+                    placeholderContentFit="cover"
+                    transition={150}
+                    cachePolicy="disk"
                 />
-            )}
-            <Image
-                source={{ uri: image.url }}
-                placeholder={image.blur_hash}
-                transition={200}
-                style={styles.image}
-                cachePolicy="memory-disk"
-            />
+            </View>
         </TouchableOpacity>
     );
 };
 
 const styles = StyleSheet.create({
-    image: {
-        width: (Dimensions.get("window").width - 110) / 2,
-        height: (Dimensions.get("window").width - 110) / 2,
+    container: {
+        width: SIZE,
+        height: SIZE,
         borderRadius: 15,
+        overflow: "hidden",
+        backgroundColor: "rgba(255,255,255,0.2)",
     },
     editDeleteButton: {
         position: "absolute",
@@ -62,7 +75,7 @@ const styles = StyleSheet.create({
         borderColor: Colors.white,
         padding: 10,
         borderRadius: 999,
-        zIndex: 1000,
+        zIndex: 10,
     },
 });
 

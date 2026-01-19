@@ -16,16 +16,16 @@ export const useGalleryContent = ({ galleryId }: { galleryId: string }) => {
     const uploadGalleryImages = useGalleryStore((s) => s.uploadGalleryImages);
 
     const imagesFromStore = useGalleryStore(
-        (s) => s.imagesByGalleryId[galleryId] ?? EMPTY_IMAGES
+        (s) => s.imagesByGalleryId[galleryId] ?? EMPTY_IMAGES,
     );
     const isLoadingImages = useGalleryStore(
-        (s) => s.isLoadingImagesByGalleryId[galleryId] ?? false
+        (s) => s.isLoadingImagesByGalleryId[galleryId] ?? false,
     );
 
     const [isDownloading, setIsDownloading] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [selectedImage, setSelectedImage] = useState<GalleryImage | null>(
-        null
+        null,
     );
     const [isImageModalOpen, setIsImageModalOpen] = useState(false);
     const [isDeleteImagesModalOpen, setIsDeleteImagesModalOpen] =
@@ -46,7 +46,7 @@ export const useGalleryContent = ({ galleryId }: { galleryId: string }) => {
             .sort((a, b) =>
                 sortingByAscending
                     ? a.created_at.localeCompare(b.created_at)
-                    : b.created_at.localeCompare(a.created_at)
+                    : b.created_at.localeCompare(a.created_at),
             );
     }, [imagesFromStore, sortingByAscending]);
 
@@ -62,14 +62,12 @@ export const useGalleryContent = ({ galleryId }: { galleryId: string }) => {
 
     const handleDeleteGallery = async () => {
         setIsDeleting(true);
-        const ok = await deleteGallery(galleryId);
+        deleteGallery(galleryId);
         setIsDeleting(false);
 
-        if (ok) {
-            setIsDeleteGalleryModalOpen(false);
-            router.back();
-            await fetchGalleries();
-        }
+        setIsDeleteGalleryModalOpen(false);
+        router.back();
+        await fetchGalleries();
     };
 
     const handleImagePress = (image: GalleryImage) => {
@@ -89,7 +87,7 @@ export const useGalleryContent = ({ galleryId }: { galleryId: string }) => {
     const handleSelectImage = (image: GalleryImage) => {
         if (selectedImages.includes(image)) {
             const filteredImages = selectedImages.filter(
-                (i) => i.id !== image.id
+                (i) => i.id !== image.id,
             );
             setSelectedImages(filteredImages);
             if (filteredImages.length === 0) {

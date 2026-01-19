@@ -44,7 +44,7 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
     const [date, setDate] = useState(new Date());
     const [images, setImages] = useState<string[]>([]);
     const [selectedColor, setSelectedColor] = useState<string>(
-        listColorsArray[0]
+        listColorsArray[0],
     );
     const [selectedColorIndex, setSelectedColorIndex] = useState<number>(0);
     const [isAddingImages, setIsAddingImages] = useState(false);
@@ -80,6 +80,8 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
         }
 
         setIsUploadingImages(true);
+        resetForm();
+        onClose();
 
         // 1) create gallery row (store updates galleries immediately)
         const newGallery = await addNewGallery({
@@ -108,8 +110,6 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
         await fetchGalleries();
 
         setIsUploadingImages(false);
-        resetForm();
-        onClose();
     };
 
     const imagesShown = () => (
@@ -206,6 +206,7 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
                                 <TextInput
                                     style={styles.input}
                                     placeholder="Enter date name"
+                                    placeholderTextColor={Colors.gray}
                                     value={dateName}
                                     onChangeText={setDateName}
                                 />
@@ -219,6 +220,7 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
                                 <TextInput
                                     style={styles.input}
                                     placeholder="Enter location"
+                                    placeholderTextColor={Colors.gray}
                                     value={location}
                                     onChangeText={setLocation}
                                 />
@@ -386,6 +388,7 @@ const styles = StyleSheet.create({
         fontFamily: "Raleway-Regular",
         borderWidth: 1,
         borderColor: "#EBEAEC",
+        color: Colors.black,
     },
     datePicker: {
         backgroundColor: Colors.white,

@@ -1,4 +1,5 @@
 import { supabase } from "@/api/clients/supabaseClient";
+import { toast } from "@/toast/api";
 import { generateBlurhash } from "@/utils/generateBlurhash";
 import { getSpaceId } from "@/utils/secure-store";
 import { decode } from "base64-arraybuffer";
@@ -48,16 +49,16 @@ export type GalleryState = {
 
     uploadGalleryImages: (
         galleryId: string,
-        images: string[]
+        images: string[],
     ) => Promise<boolean>;
 
     deleteOneGalleryImage: (
         galleryId: string,
-        imageId: string
+        imageId: string,
     ) => Promise<boolean>;
     deleteMultipleGalleryImages: (
         galleryId: string,
-        imageIds: string[]
+        imageIds: string[],
     ) => Promise<boolean>;
 
     deleteGallery: (galleryId: string) => Promise<boolean>;
@@ -210,7 +211,7 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
         if (galleryError) {
             console.error(
                 "Error fetching gallery for cover_image check:",
-                galleryError
+                galleryError,
             );
             set((state) => ({
                 error: galleryError.message,
@@ -224,6 +225,11 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
 
         const hasCoverImage = !!galleryData?.cover_image;
         let hasUploadedFirstImage = false;
+
+        const toastId = toast.show({
+            title: "Uploading images...",
+            message: "Uploaded 0/" + images.length + " images...",
+        });
 
         for (const image of images) {
             const fileName = `${Date.now()}-${Math.random()}.jpg`;
@@ -315,7 +321,7 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
                     if (coverErr) {
                         console.error(
                             "Error updating gallery cover:",
-                            coverErr
+                            coverErr,
                         );
                         // not fatal to upload; continue
                     } else {
@@ -328,12 +334,20 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
                                           cover_image: publicUrl,
                                           cover_image_blur_hash: blurHash,
                                       }
-                                    : g
+                                    : g,
                             ),
                         }));
                     }
                 }
             }
+            toast.update(toastId, {
+                message:
+                    "Uploaded " +
+                    (images.indexOf(image) + 1) +
+                    "/" +
+                    images.length +
+                    " images...",
+            });
         }
 
         set((state) => ({
@@ -343,6 +357,12 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
             },
         }));
 
+        toast.dismiss(toastId);
+        toast.show({
+            title: "Upload complete!",
+            message: `Uploaded ${images.length} images!`,
+            durationMs: 2000,
+        });
         return true;
     },
 
@@ -415,7 +435,7 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
                                   cover_image: null,
                                   cover_image_blur_hash: null,
                               }
-                            : g
+                            : g,
                     ),
                 }));
             } else {
@@ -441,7 +461,7 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
                                   cover_image: replacement.url,
                                   cover_image_blur_hash: replacement.blur_hash,
                               }
-                            : g
+                            : g,
                     ),
                 }));
             }
@@ -485,7 +505,7 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
 
     deleteMultipleGalleryImages: async (
         galleryId: string,
-        imageIds: string[]
+        imageIds: string[],
     ) => {
         for (const id of imageIds) {
             await get().deleteOneGalleryImage(galleryId, id);
@@ -521,7 +541,7 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
         if (bucketError) {
             console.error(
                 "Error deleting gallery folder in bucket:",
-                bucketError
+                bucketError,
             );
         }
 
@@ -534,6 +554,11 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
             };
         });
 
+        toast.show({
+            title: "Success!",
+            message: "The gallery has been successfully deleted!",
+            durationMs: 2000,
+        });
         return true;
     },
 }));

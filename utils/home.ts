@@ -45,7 +45,7 @@ export const pickAndUploadAvatar = async (): Promise<string | undefined> => {
     if (!permission.granted) {
         Alert.alert(
             "Permission required",
-            "Please allow access to your gallery."
+            "Please allow access to your gallery.",
         );
         return;
     }
@@ -54,7 +54,7 @@ export const pickAndUploadAvatar = async (): Promise<string | undefined> => {
         mediaTypes: ["images"],
         allowsEditing: true,
         aspect: [1, 1],
-        quality: 0.8,
+        quality: 0.7,
         preferredAssetRepresentationMode:
             ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Automatic,
     });
@@ -69,7 +69,7 @@ export const pickAndUploadAvatar = async (): Promise<string | undefined> => {
     if (!publicUrl) {
         Alert.alert(
             "Upload failed",
-            "Something went wrong while uploading your image. Please try again later."
+            "Something went wrong while uploading your image. Please try again later.",
         );
         return;
     }

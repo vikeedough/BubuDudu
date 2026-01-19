@@ -1,83 +1,51 @@
+// generateBlurhash.ts
+// Real BlurHash generation (iOS/Android/Web) using NEW expo-image-manipulator + NEW expo-file-system APIs.
+// Generates blurhash ONCE at upload time, store in DB, reuse in UI.
+
 import { encode } from "blurhash";
-import * as ImageManipulator from "expo-image-manipulator";
-import { Platform } from "react-native";
+import { File } from "expo-file-system";
+import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
+import UPNG from "upng-js";
 
-export const generateBlurhash = async (imageUri: string): Promise<string> => {
-    try {
-        // For now, return different blurhashes based on simple image analysis
-        // This is a temporary solution until proper pixel data extraction is implemented
+const BLUR_W = 32;
+const BLUR_H = 32;
+const COMPONENTS_X = 4;
+const COMPONENTS_Y = 3;
 
-        if (Platform.OS === "web") {
-            // Web platform - can use canvas for proper blurhash generation
-            return await generateBlurhashWeb(imageUri);
-        } else {
-            // Mobile platforms - use simple color-based approximation
-            return await generateBlurhashMobile(imageUri);
-        }
-    } catch (err) {
-        console.error("❌ Failed to generate BlurHash:", err);
-        return "LKN]Rv%2Tw=w]~RBVZRi};RPxuwH"; // Pleasant fallback
-    }
-};
+export async function generateBlurhash(imageUri: string): Promise<string> {
+    // 1) Resize to a tiny PNG using the new ImageManipulator context API
+    const ctx = ImageManipulator.manipulate(imageUri);
+    ctx.resize({ width: BLUR_W, height: BLUR_H });
 
-// Web implementation using canvas
-const generateBlurhashWeb = async (imageUri: string): Promise<string> => {
-    const {
-        base64,
-        width = 32,
-        height = 32,
-    } = await ImageManipulator.manipulateAsync(
-        imageUri,
-        [{ resize: { width: 32, height: 32 } }],
-        { base64: true, format: ImageManipulator.SaveFormat.PNG }
+    const imageRef = await ctx.renderAsync();
+    const saved = await imageRef.saveAsync({ format: SaveFormat.PNG });
+
+    // Optional: release native refs if you’re generating many hashes in a loop
+    imageRef.release();
+    ctx.release();
+
+    // 2) Read base64 via NEW expo-file-system File API
+    const base64 = await new File(saved.uri).base64();
+
+    // 3) Decode PNG -> RGBA
+    const bytes = base64ToUint8Array(base64);
+    const png = UPNG.decode(bytes.buffer);
+    const rgba = UPNG.toRGBA8(png)[0]; // Uint8Array RGBA
+
+    // 4) Encode BlurHash
+    return encode(
+        new Uint8ClampedArray(rgba),
+        BLUR_W,
+        BLUR_H,
+        COMPONENTS_X,
+        COMPONENTS_Y,
     );
+}
 
-    if (!base64) throw new Error("No base64 from manipulation.");
-
-    return new Promise((resolve, reject) => {
-        const canvas = document.createElement("canvas");
-        const ctx = canvas.getContext("2d");
-        const img = new Image();
-
-        img.onload = () => {
-            canvas.width = width;
-            canvas.height = height;
-            ctx?.drawImage(img, 0, 0, width, height);
-
-            const imageData = ctx?.getImageData(0, 0, width, height);
-            if (imageData) {
-                const blurhash = encode(imageData.data, width, height, 4, 3);
-                resolve(blurhash);
-            } else {
-                reject(new Error("Failed to get image data"));
-            }
-        };
-
-        img.onerror = reject;
-        img.src = `data:image/png;base64,${base64}`;
-    });
-};
-
-// Mobile implementation - simplified approach
-const generateBlurhashMobile = async (imageUri: string): Promise<string> => {
-    // For mobile, we'll create a simple approximation based on image characteristics
-    // This is not a true blurhash but provides variety for different images
-
-    const hash = imageUri
-        .split("")
-        .reduce((acc, char) => acc + char.charCodeAt(0), 0);
-
-    // Generate different pleasant blurhashes based on the image URI hash
-    const blurhashes = [
-        "LKN]Rv%2Tw=w]~RBVZRi};RPxuwH", // Default pleasant blue
-        "LGFFaXYk^6#M@-5c,1J5@[or[Q6.", // Warm orange
-        "L6PZfSi_.AyE_3t7t7R**0o#DgR4", // Cool purple
-        "LKO2:N%2Tw=w]~RBVZRi};RPxuwH", // Green tint
-        "L9AS}+%M~qPV-;kCfQx]*JtRRjRi", // Pink/red
-        "LEHV6nWB2yk8pyo0adR*.7kCMdnj", // Neutral gray
-        "LGF5]+Yk^6#M@-5c,1J5@[or[Q6.", // Bright blue
-        "L5H2EC=PM+yV0g-mq.wG9c010J}I", // Soft yellow
-    ];
-
-    return blurhashes[hash % blurhashes.length];
-};
+function base64ToUint8Array(base64: string) {
+    const binary = globalThis.atob(base64);
+    const len = binary.length;
+    const out = new Uint8Array(len);
+    for (let i = 0; i < len; i++) out[i] = binary.charCodeAt(i);
+    return out;
+}
