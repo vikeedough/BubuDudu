@@ -3,6 +3,7 @@ import dayjs from "dayjs";
 import advancedFormat from "dayjs/plugin/advancedFormat";
 import * as ImagePicker from "expo-image-picker";
 import { Alert } from "react-native";
+import { shrinkImage } from "./shrinkImage";
 
 dayjs.extend(advancedFormat);
 
@@ -54,7 +55,7 @@ export const pickAndUploadAvatar = async (): Promise<string | undefined> => {
         mediaTypes: ["images"],
         allowsEditing: true,
         aspect: [1, 1],
-        quality: 0.7,
+        quality: 1, // keep original; shrinkImage controls compression
         preferredAssetRepresentationMode:
             ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Automatic,
     });
@@ -63,8 +64,14 @@ export const pickAndUploadAvatar = async (): Promise<string | undefined> => {
         return;
     }
 
-    const fileUri = result.assets[0].uri;
-    const publicUrl = await uploadAvatarAndUpdateUser(fileUri);
+    const originalUri = result.assets[0].uri;
+
+    const { uri: processedUri } = await shrinkImage(originalUri, {
+        maxLongEdge: 512,
+        jpegQuality: 0.65,
+    });
+
+    const publicUrl = await uploadAvatarAndUpdateUser(processedUri);
 
     if (!publicUrl) {
         Alert.alert(

@@ -3,23 +3,22 @@ import { Directory, File, Paths } from "expo-file-system";
 import * as ImagePicker from "expo-image-picker";
 import * as MediaLibrary from "expo-media-library";
 import { Alert } from "react-native";
+import { shrinkImage } from "./shrinkImage";
 
-export const pickMultipleImages = async () => {
+export const pickMultipleImages = async (): Promise<string[] | undefined> => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (!permission.granted) {
         Alert.alert(
             "Permission required",
-            "Please allow access to your gallery."
+            "Please allow access to your gallery.",
         );
         return;
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ["images"],
-        // allowsEditing: false,
-        aspect: [1, 1],
-        quality: 0.7,
+        quality: 1, // picker quality stays high; we compress ourselves
         allowsMultipleSelection: true,
         preferredAssetRepresentationMode:
             ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Automatic,
@@ -29,9 +28,17 @@ export const pickMultipleImages = async () => {
         return;
     }
 
-    const images = result.assets.map((asset) => asset.uri);
+    const processedUris: string[] = [];
 
-    return images;
+    for (const asset of result.assets) {
+        const { uri } = await shrinkImage(asset.uri, {
+            maxLongEdge: 1600,
+            jpegQuality: 0.65,
+        });
+        processedUris.push(uri);
+    }
+
+    return processedUris;
 };
 
 export const convertDate = (date: string) => {
@@ -45,15 +52,14 @@ export const convertDate = (date: string) => {
 };
 
 export const downloadAndSaveImage = async (image_id: string, url: string) => {
-    const { status, canAskAgain } = await MediaLibrary.requestPermissionsAsync(
-        true
-    );
+    const { status, canAskAgain } =
+        await MediaLibrary.requestPermissionsAsync(true);
 
     console.log(
         "Media Library Permission Status:",
         status,
         "Can Ask Again:",
-        canAskAgain
+        canAskAgain,
     );
 
     if (status !== "granted") {
@@ -62,7 +68,7 @@ export const downloadAndSaveImage = async (image_id: string, url: string) => {
             canAskAgain
                 ? "Please allow full access to your media library to save images."
                 : "Media library permission was denied. Please enable it in your device settings.",
-            canAskAgain ? undefined : [{ text: "OK" }]
+            canAskAgain ? undefined : [{ text: "OK" }],
         );
         return;
     }
