@@ -25,8 +25,8 @@ const GalleryItem: React.FC<GalleryItemProps> = ({ gallery, onPress }) => {
                 <View>
                     <Image
                         source={
-                            gallery.cover_image
-                                ? { uri: gallery.cover_image }
+                            gallery.cover_thumb_url
+                                ? { uri: gallery.cover_thumb_url }
                                 : undefined
                         }
                         placeholder={gallery.cover_image_blur_hash ?? undefined}

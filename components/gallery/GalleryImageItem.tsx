@@ -42,7 +42,9 @@ const GalleryImageItem: React.FC<GalleryImageItemProps> = ({
                 )}
 
                 <Image
-                    source={{ uri: image.url }}
+                    source={
+                        image.url_thumb ? { uri: image.url_thumb } : undefined
+                    }
                     style={StyleSheet.absoluteFill}
                     contentFit="cover"
                     placeholder={

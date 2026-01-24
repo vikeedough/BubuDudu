@@ -2,7 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 type Body = {
     galleryId: string;
-    imageIds: Array<number>;
+    imageIds: string[];
 };
 
 const BUCKET = "gallery-private";

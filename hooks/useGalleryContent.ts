@@ -1,3 +1,4 @@
+import { supabase } from "@/api/clients/supabaseClient";
 import type { GalleryImage } from "@/stores/GalleryStore";
 import { useGalleryStore } from "@/stores/GalleryStore";
 import {
@@ -107,7 +108,29 @@ export const useGalleryContent = ({ galleryId }: { galleryId: string }) => {
 
     const handleDownloadImages = async () => {
         setIsDownloading(true);
+        const needs = selectedImages
+            .filter((i) => !i.url_orig)
+            .map((i) => i.id);
+        if (needs.length) {
+            const { data: signedMap, error } = await supabase.functions.invoke(
+                "sign-gallery-urls",
+                {
+                    body: { galleryId, imageIds: needs },
+                },
+            );
+            if (!error) {
+                setSelectedImages((prev) =>
+                    prev.map((img) => ({
+                        ...img,
+                        url_orig:
+                            img.url_orig ??
+                            signedMap?.[String(img.id)]?.url_orig,
+                    })),
+                );
+            }
+        }
         await multipleDownloadAndSaveImage(selectedImages);
+
         setSelectedImages([]);
         setEditMode(false);
         setIsDownloading(false);

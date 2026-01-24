@@ -1,10 +1,12 @@
 import { supabase } from "@/api/clients/supabaseClient";
 import { toast } from "@/toast/api";
 import { generateBlurhash } from "@/utils/generateBlurhash";
+import { generateVariants } from "@/utils/generateImageVariants";
 import { getSpaceId } from "@/utils/secure-store";
-import { decode } from "base64-arraybuffer";
-import * as FileSystem from "expo-file-system";
 import { create } from "zustand";
+
+const GALLERY_BUCKET = "gallery-private";
+const SIGN_TTL_SECONDS = 60 * 60;
 
 export type Gallery = {
     id: string;
@@ -13,18 +15,42 @@ export type Gallery = {
     date: string | Date;
     color: string;
     location: string;
-    cover_image: string | null;
+
+    cover_image_path: string | null;
+    cover_image_thumb_path: string | null;
     cover_image_blur_hash: string | null;
+
+    cover_thumb_url?: string | null;
+
     created_at?: string;
 };
 
 export type GalleryImage = {
     id: string;
     gallery_id: string;
-    url: string;
+
+    storage_path_thumb: string;
+    storage_path_grid: string;
+    storage_path_orig: string;
+
     blur_hash: string | null;
-    storage_path: string;
     created_at: string;
+
+    width_thumb?: number | null;
+    height_thumb?: number | null;
+    width_grid?: number | null;
+    height_grid?: number | null;
+    width_orig?: number | null;
+    height_orig?: number | null;
+
+    bytes_thumb?: number | null;
+    bytes_grid?: number | null;
+    bytes_orig?: number | null;
+    bytes_total?: number | null;
+
+    url_thumb?: string;
+    url_grid?: string;
+    url_orig?: string;
 };
 
 export type GalleryState = {
@@ -107,11 +133,27 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
             return [];
         }
 
-        set({
-            galleries: (data as Gallery[]) ?? [],
-            isLoadingGalleries: false,
-        });
-        return (data as Gallery[]) ?? [];
+        const galleries = ((data as Gallery[]) ?? []).map((g) => ({
+            ...g,
+            cover_thumb_url: null,
+        }));
+
+        const signed = await Promise.all(
+            galleries.map(async (g) => {
+                if (!g.cover_image_thumb_path) return g;
+                const { data: s, error: e } = await supabase.storage
+                    .from(GALLERY_BUCKET)
+                    .createSignedUrl(
+                        g.cover_image_thumb_path,
+                        SIGN_TTL_SECONDS,
+                    );
+                if (e || !s?.signedUrl) return g;
+                return { ...g, cover_thumb_url: s.signedUrl };
+            }),
+        );
+
+        set({ galleries: signed, isLoadingGalleries: false });
+        return signed;
     },
 
     fetchGalleryImages: async (galleryId: string) => {
@@ -141,10 +183,55 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
             return [];
         }
 
+        const rows = (data as GalleryImage[]) ?? [];
+
+        if (rows.length === 0) {
+            set((state) => ({
+                imagesByGalleryId: {
+                    ...state.imagesByGalleryId,
+                    [galleryId]: [],
+                },
+                isLoadingImagesByGalleryId: {
+                    ...state.isLoadingImagesByGalleryId,
+                    [galleryId]: false,
+                },
+            }));
+            return [];
+        }
+
+        const imageIds = rows.map((r) => r.id);
+
+        const { data: signedMap, error: signErr } =
+            await supabase.functions.invoke("sign-gallery-urls", {
+                body: { galleryId, imageIds },
+            });
+
+        if (signErr) {
+            console.warn("Signing failed, returning unsigned rows", signErr);
+            set((state) => ({
+                imagesByGalleryId: {
+                    ...state.imagesByGalleryId,
+                    [galleryId]: rows,
+                },
+                isLoadingImagesByGalleryId: {
+                    ...state.isLoadingImagesByGalleryId,
+                    [galleryId]: false,
+                },
+            }));
+            return rows;
+        }
+
+        const merged = rows.map((r) => ({
+            ...r,
+            url_thumb: signedMap?.[String(r.id)]?.url_thumb,
+            url_grid: signedMap?.[String(r.id)]?.url_grid,
+            url_orig: signedMap?.[String(r.id)]?.url_orig,
+        }));
+
         set((state) => ({
             imagesByGalleryId: {
                 ...state.imagesByGalleryId,
-                [galleryId]: (data as GalleryImage[]) ?? [],
+                [galleryId]: merged,
             },
             isLoadingImagesByGalleryId: {
                 ...state.isLoadingImagesByGalleryId,
@@ -152,7 +239,7 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
             },
         }));
 
-        return (data as GalleryImage[]) ?? [];
+        return merged;
     },
 
     addNewGallery: async ({ title, date, color, location }) => {
@@ -201,169 +288,208 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
             error: null,
         }));
 
-        // Fetch gallery to check if cover_image exists
-        const { data: galleryData, error: galleryError } = await supabase
-            .from("galleries")
-            .select("cover_image")
-            .eq("id", galleryId)
-            .single();
+        const toastId = toast.show({
+            title: "Uploading images...",
+            message: `Uploaded 0/${images.length} images...`,
+        });
 
-        if (galleryError) {
-            console.error(
-                "Error fetching gallery for cover_image check:",
-                galleryError,
-            );
+        try {
+            const { data: galleryRow, error: galleryError } = await supabase
+                .from("galleries")
+                .select("space_id, cover_image_path, cover_image_thumb_path")
+                .eq("id", galleryId)
+                .single();
+
+            if (galleryError || !galleryRow?.space_id) {
+                toast.show({
+                    title: "Something went wrong!",
+                    message: "Gallery fetching failed. Please try again later.",
+                    durationMs: 2000,
+                });
+                set((s) => ({
+                    error: galleryError?.message ?? "Gallery not found",
+                }));
+                return false;
+            }
+
+            const spaceId = galleryRow.space_id as string;
+            const hasCover = !!galleryRow.cover_image_path;
+
+            let firstUploadedInCall = false;
+
+            for (let idx = 0; idx < images.length; idx++) {
+                const imageUri = images[idx];
+
+                // 1) Insert placeholder row to get UUID id
+                const { data: inserted, error: insErr } = await supabase
+                    .from("date_images")
+                    .insert({ gallery_id: galleryId })
+                    .select("*")
+                    .single();
+
+                if (insErr || !inserted?.id) {
+                    set((s) => ({
+                        error: insErr?.message ?? "Failed to create image row",
+                    }));
+                    return false;
+                }
+
+                const imageId = inserted.id as string;
+
+                // 2) variants + blurhash from thumb
+                const variants = await generateVariants(imageUri);
+                const blurHash = await generateBlurhash(variants.thumb.uri);
+
+                // 3) storage paths
+                const base = `spaces/${spaceId}/galleries/${galleryId}/images/${imageId}`;
+                const pThumb = `${base}/thumb.jpg`;
+                const pGrid = `${base}/grid.jpg`;
+                const pOrig = `${base}/orig.jpg`;
+
+                // 4) upload 3 objects
+                const uploads = await Promise.all([
+                    supabase.storage
+                        .from(GALLERY_BUCKET)
+                        .upload(pThumb, variants.thumb.arrayBuffer, {
+                            contentType: "image/jpeg",
+                        }),
+                    supabase.storage
+                        .from(GALLERY_BUCKET)
+                        .upload(pGrid, variants.grid.arrayBuffer, {
+                            contentType: "image/jpeg",
+                        }),
+                    supabase.storage
+                        .from(GALLERY_BUCKET)
+                        .upload(pOrig, variants.orig.arrayBuffer, {
+                            contentType: "image/jpeg",
+                        }),
+                ]);
+
+                const uploadErr = uploads.find((u) => u.error)?.error;
+                if (uploadErr) {
+                    toast.show({
+                        title: "Something went wrong!",
+                        message: "Image upload failed. Please try again later.",
+                        durationMs: 2000,
+                    });
+                    await supabase.storage
+                        .from(GALLERY_BUCKET)
+                        .remove([pThumb, pGrid, pOrig]);
+                    await supabase
+                        .from("date_images")
+                        .delete()
+                        .eq("id", imageId);
+                    set((s) => ({ error: uploadErr.message }));
+                    return false;
+                }
+
+                // 5) update DB row with paths + dims + bytes + blurhash
+                const { data: updatedRow, error: updErr } = await supabase
+                    .from("date_images")
+                    .update({
+                        storage_path_thumb: pThumb,
+                        storage_path_grid: pGrid,
+                        storage_path_orig: pOrig,
+                        blur_hash: blurHash,
+
+                        width_thumb: variants.thumb.width,
+                        height_thumb: variants.thumb.height,
+                        width_grid: variants.grid.width,
+                        height_grid: variants.grid.height,
+                        width_orig: variants.orig.width,
+                        height_orig: variants.orig.height,
+
+                        bytes_thumb: variants.thumb.bytes,
+                        bytes_grid: variants.grid.bytes,
+                        bytes_orig: variants.orig.bytes,
+                    })
+                    .eq("id", imageId)
+                    .select("*")
+                    .single();
+
+                if (updErr || !updatedRow) {
+                    await supabase.storage
+                        .from(GALLERY_BUCKET)
+                        .remove([pThumb, pGrid, pOrig]);
+                    await supabase
+                        .from("date_images")
+                        .delete()
+                        .eq("id", imageId);
+                    set((s) => ({
+                        error: updErr?.message ?? "Failed to update image row",
+                    }));
+                    toast.show({
+                        title: "Something went wrong!",
+                        message:
+                            "Failed to update image row. Please try again later.",
+                        durationMs: 2000,
+                    });
+                    return false;
+                }
+
+                // 6) sign URLs for immediate UI
+                let url_thumb: string | undefined;
+                let url_grid: string | undefined;
+                let url_orig: string | undefined;
+
+                const { data: signedOne, error: signErr } =
+                    await supabase.functions.invoke("sign-gallery-urls", {
+                        body: { galleryId, imageIds: [imageId] },
+                    });
+
+                if (!signErr && signedOne?.[imageId]) {
+                    url_thumb = signedOne[imageId].url_thumb;
+                    url_grid = signedOne[imageId].url_grid;
+                    url_orig = signedOne[imageId].url_orig;
+                }
+
+                const mergedImage: GalleryImage = {
+                    ...(updatedRow as GalleryImage),
+                    url_thumb,
+                    url_grid,
+                    url_orig,
+                };
+
+                set((state) => {
+                    const prev = state.imagesByGalleryId[galleryId] ?? [];
+                    return {
+                        imagesByGalleryId: {
+                            ...state.imagesByGalleryId,
+                            [galleryId]: [mergedImage, ...prev],
+                        },
+                    };
+                });
+
+                // 7) cover on first upload if no cover exists
+                if (!firstUploadedInCall) {
+                    firstUploadedInCall = true;
+                    if (!hasCover) {
+                        await supabase
+                            .from("galleries")
+                            .update({
+                                cover_image_path: pGrid,
+                                cover_image_thumb_path: pThumb,
+                                cover_image_blur_hash: blurHash,
+                            })
+                            .eq("id", galleryId);
+                    }
+                }
+
+                toast.update(toastId, {
+                    message: `Uploaded ${idx + 1}/${images.length} images...`,
+                });
+            }
+
+            return true;
+        } finally {
             set((state) => ({
-                error: galleryError.message,
                 isUploadingByGalleryId: {
                     ...state.isUploadingByGalleryId,
                     [galleryId]: false,
                 },
             }));
-            return false;
+            toast.dismiss(toastId);
         }
-
-        const hasCoverImage = !!galleryData?.cover_image;
-        let hasUploadedFirstImage = false;
-
-        const toastId = toast.show({
-            title: "Uploading images...",
-            message: "Uploaded 0/" + images.length + " images...",
-        });
-
-        for (const image of images) {
-            const fileName = `${Date.now()}-${Math.random()}.jpg`;
-            const storagePath = `${galleryId}/${fileName}`;
-
-            // blurhash
-            const blurHash = await generateBlurhash(image);
-
-            // read file -> base64 -> arraybuffer
-            const file = new FileSystem.File(image);
-            const base64 = await file.base64();
-            const arrayBuffer = decode(base64);
-
-            const { error: uploadError } = await supabase.storage
-                .from("gallery")
-                .upload(storagePath, arrayBuffer, {
-                    contentType: "image/jpeg",
-                });
-
-            if (uploadError) {
-                console.error("Error uploading gallery images:", uploadError);
-                set((state) => ({
-                    error: uploadError.message,
-                    isUploadingByGalleryId: {
-                        ...state.isUploadingByGalleryId,
-                        [galleryId]: false,
-                    },
-                }));
-                return false;
-            }
-
-            const { data: urlData } = supabase.storage
-                .from("gallery")
-                .getPublicUrl(storagePath);
-            const publicUrl = urlData.publicUrl;
-
-            const { data: inserted, error: insertErr } = await supabase
-                .from("date_images")
-                .insert([
-                    {
-                        gallery_id: galleryId,
-                        url: publicUrl,
-                        blur_hash: blurHash,
-                        storage_path: storagePath,
-                    },
-                ])
-                .select("*")
-                .single();
-
-            if (insertErr) {
-                console.error("Error inserting image row:", insertErr);
-                await supabase.storage.from("gallery").remove([storagePath]);
-                set((state) => ({
-                    error: insertErr.message,
-                    isUploadingByGalleryId: {
-                        ...state.isUploadingByGalleryId,
-                        [galleryId]: false,
-                    },
-                }));
-                return false;
-            }
-
-            const insertedImage = inserted as GalleryImage;
-
-            // Update store images list immediately
-            set((state) => {
-                const prev = state.imagesByGalleryId[galleryId] ?? [];
-                return {
-                    imagesByGalleryId: {
-                        ...state.imagesByGalleryId,
-                        [galleryId]: [insertedImage, ...prev],
-                    },
-                };
-            });
-
-            // Set cover image if no cover yet and this is first upload in this call
-            if (!hasUploadedFirstImage) {
-                hasUploadedFirstImage = true;
-
-                if (!hasCoverImage) {
-                    const { error: coverErr } = await supabase
-                        .from("galleries")
-                        .update({
-                            cover_image: publicUrl,
-                            cover_image_blur_hash: blurHash,
-                        })
-                        .eq("id", galleryId);
-
-                    if (coverErr) {
-                        console.error(
-                            "Error updating gallery cover:",
-                            coverErr,
-                        );
-                        // not fatal to upload; continue
-                    } else {
-                        // Update gallery in store
-                        set((state) => ({
-                            galleries: state.galleries.map((g) =>
-                                g.id === galleryId
-                                    ? {
-                                          ...g,
-                                          cover_image: publicUrl,
-                                          cover_image_blur_hash: blurHash,
-                                      }
-                                    : g,
-                            ),
-                        }));
-                    }
-                }
-            }
-            toast.update(toastId, {
-                message:
-                    "Uploaded " +
-                    (images.indexOf(image) + 1) +
-                    "/" +
-                    images.length +
-                    " images...",
-            });
-        }
-
-        set((state) => ({
-            isUploadingByGalleryId: {
-                ...state.isUploadingByGalleryId,
-                [galleryId]: false,
-            },
-        }));
-
-        toast.dismiss(toastId);
-        toast.show({
-            title: "Upload complete!",
-            message: `Uploaded ${images.length} images!`,
-            durationMs: 2000,
-        });
-        return true;
     },
 
     deleteOneGalleryImage: async (galleryId: string, imageId: string) => {
@@ -372,7 +498,7 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
         // Fetch gallery cover
         const { data: galleryData, error: galleryError } = await supabase
             .from("galleries")
-            .select("cover_image")
+            .select("cover_image_path, cover_image_thumb_path")
             .eq("id", galleryId)
             .single();
 
@@ -385,7 +511,7 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
         // Fetch image row
         const { data: imgRow, error: imgErr } = await supabase
             .from("date_images")
-            .select("id, url, blur_hash, created_at, storage_path")
+            .select("storage_path_thumb, storage_path_grid, storage_path_orig")
             .eq("id", imageId)
             .single();
 
@@ -395,13 +521,14 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
             return false;
         }
 
-        const isDeletingCover = galleryData?.cover_image === imgRow.url;
+        const isDeletingCover =
+            galleryData?.cover_image_path === imgRow.storage_path_grid;
 
         // If deleting cover, pick replacement or clear cover
         if (isDeletingCover) {
             const { data: otherImages, error: otherErr } = await supabase
                 .from("date_images")
-                .select("id, url, blur_hash, created_at")
+                .select("storage_path_grid, storage_path_thumb, blur_hash")
                 .eq("gallery_id", galleryId)
                 .neq("id", imageId)
                 .order("created_at", { ascending: false })
@@ -416,50 +543,55 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
             const replacement = otherImages?.[0];
 
             if (!replacement) {
-                const { error: updateError } = await supabase
+                await supabase
                     .from("galleries")
-                    .update({ cover_image: null, cover_image_blur_hash: null })
+                    .update({
+                        cover_image_path: null,
+                        cover_image_thumb_path: null,
+                        cover_image_blur_hash: null,
+                    })
                     .eq("id", galleryId);
-
-                if (updateError) {
-                    console.error("Error clearing gallery cover:", updateError);
-                    set({ error: updateError.message });
-                    return false;
-                }
 
                 set((state) => ({
                     galleries: state.galleries.map((g) =>
                         g.id === galleryId
                             ? {
                                   ...g,
-                                  cover_image: null,
+                                  cover_image_path: null,
+                                  cover_image_thumb_path: null,
                                   cover_image_blur_hash: null,
                               }
                             : g,
                     ),
                 }));
             } else {
-                const { error: updateError } = await supabase
+                await supabase
                     .from("galleries")
                     .update({
-                        cover_image: replacement.url,
+                        cover_image_path: replacement.storage_path_grid,
+                        cover_image_thumb_path: replacement.storage_path_thumb,
                         cover_image_blur_hash: replacement.blur_hash,
                     })
                     .eq("id", galleryId);
 
-                if (updateError) {
-                    console.error("Error updating gallery cover:", updateError);
-                    set({ error: updateError.message });
-                    return false;
-                }
+                const { data: signed } = await supabase.storage
+                    .from(GALLERY_BUCKET)
+                    .createSignedUrl(
+                        replacement.storage_path_thumb,
+                        SIGN_TTL_SECONDS,
+                    );
 
                 set((state) => ({
                     galleries: state.galleries.map((g) =>
                         g.id === galleryId
                             ? {
                                   ...g,
-                                  cover_image: replacement.url,
+                                  cover_image_path:
+                                      replacement.storage_path_grid,
+                                  cover_image_thumb_path:
+                                      replacement.storage_path_thumb,
                                   cover_image_blur_hash: replacement.blur_hash,
+                                  cover_thumb_url: signed?.signedUrl ?? null,
                               }
                             : g,
                     ),
@@ -467,27 +599,20 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
             }
         }
 
-        // Delete file from storage (your naming uses `${imageId}.jpg`)
-        const { error: bucketError } = await supabase.storage
-            .from("gallery")
-            .remove([imgRow.storage_path]);
+        const { error: storageErr } = await supabase.storage
+            .from(GALLERY_BUCKET)
+            .remove([
+                imgRow.storage_path_thumb,
+                imgRow.storage_path_grid,
+                imgRow.storage_path_orig,
+            ]);
 
-        if (bucketError) {
-            console.error("Error deleting from bucket:", bucketError);
-            set({ error: bucketError.message });
-            return false;
+        if (storageErr) {
+            console.error("Error deleting image from storage:", storageErr);
         }
 
         // Delete DB row
-        const { error: delErr } = await supabase
-            .from("date_images")
-            .delete()
-            .eq("id", imageId);
-        if (delErr) {
-            console.error("Error deleting image row:", delErr);
-            set({ error: delErr.message });
-            return false;
-        }
+        await supabase.from("date_images").delete().eq("id", imageId);
 
         // Update store images list immediately
         set((state) => {
@@ -507,9 +632,10 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
         galleryId: string,
         imageIds: string[],
     ) => {
-        for (const id of imageIds) {
-            await get().deleteOneGalleryImage(galleryId, id);
-        }
+        await Promise.all(
+            imageIds.map((id) => get().deleteOneGalleryImage(galleryId, id)),
+        );
+
         return true;
     },
 
@@ -533,16 +659,6 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
             console.error("Error deleting gallery:", delGalleryErr);
             set({ error: delGalleryErr.message });
             return false;
-        }
-
-        const { error: bucketError } = await supabase.storage
-            .from("gallery")
-            .remove([`${galleryId}`]);
-        if (bucketError) {
-            console.error(
-                "Error deleting gallery folder in bucket:",
-                bucketError,
-            );
         }
 
         // Update store

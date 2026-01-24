@@ -3,42 +3,21 @@ import { Directory, File, Paths } from "expo-file-system";
 import * as ImagePicker from "expo-image-picker";
 import * as MediaLibrary from "expo-media-library";
 import { Alert } from "react-native";
-import { shrinkImage } from "./shrinkImage";
 
 export const pickMultipleImages = async (): Promise<string[] | undefined> => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-    if (!permission.granted) {
-        Alert.alert(
-            "Permission required",
-            "Please allow access to your gallery.",
-        );
-        return;
-    }
+    if (!permission.granted) return;
 
     const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ["images"],
-        quality: 1, // picker quality stays high; we compress ourselves
+        quality: 1,
         allowsMultipleSelection: true,
         preferredAssetRepresentationMode:
             ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Automatic,
     });
 
-    if (result.canceled) {
-        return;
-    }
-
-    const processedUris: string[] = [];
-
-    for (const asset of result.assets) {
-        const { uri } = await shrinkImage(asset.uri, {
-            maxLongEdge: 1600,
-            jpegQuality: 0.65,
-        });
-        processedUris.push(uri);
-    }
-
-    return processedUris;
+    if (result.canceled) return;
+    return result.assets.map((a) => a.uri);
 };
 
 export const convertDate = (date: string) => {
@@ -102,7 +81,9 @@ export const multipleDownloadAndSaveImage = async (images: GalleryImage[]) => {
 
     try {
         for (const image of images) {
-            await downloadAndSaveImage(image.id.toString(), image.url);
+            const url = image.url_orig;
+            if (!url) continue; // or throw
+            await downloadAndSaveImage(image.id, url);
         }
     } catch (error) {
         console.error(error);
