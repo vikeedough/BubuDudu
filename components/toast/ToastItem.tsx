@@ -30,6 +30,8 @@ export const ToastItem: React.FC<Props> = ({ toast: t }) => {
     const timerProgress = useSharedValue(1);
 
     const hasDeterminate = typeof payload.progress === "number";
+    const showDeterminateBar = hasDeterminate; // keep upload progress bar
+    // const showTimerBar = false; // disabled UI for timer-based dismissal
     const durationMs = payload.durationMs ?? null;
     const persistent = payload.persistent === true || durationMs == null;
 
@@ -44,7 +46,7 @@ export const ToastItem: React.FC<Props> = ({ toast: t }) => {
                 { duration: durationMs, easing: Easing.linear },
                 (finished) => {
                     if (finished) runOnJS(toast.dismiss)(id);
-                }
+                },
             );
         };
     }, [id, durationMs, payload.persistent, timerProgress]);
@@ -71,7 +73,7 @@ export const ToastItem: React.FC<Props> = ({ toast: t }) => {
                     { duration: 140 },
                     (finished) => {
                         if (finished) runOnJS(toast.dismiss)(id);
-                    }
+                    },
                 );
             } else {
                 translateY.value = withSpring(0, {
@@ -126,31 +128,14 @@ export const ToastItem: React.FC<Props> = ({ toast: t }) => {
                     </Pressable>
                 </View>
 
-                {(hasDeterminate ||
-                    (!persistent && durationMs != null) ||
-                    (payload.persistent === true && durationMs != null)) && (
+                {showDeterminateBar && (
                     <View style={styles.progressTrack}>
-                        {hasDeterminate ? (
-                            <Animated.View
-                                style={[
-                                    styles.progressFill,
-                                    {
-                                        width: `${
-                                            (determinateValue ?? 0) * 100
-                                        }%`,
-                                    },
-                                ]}
-                            />
-                        ) : (
-                            <Animated.View
-                                style={[
-                                    styles.progressFill,
-                                    useAnimatedStyle(() => ({
-                                        width: `${timerProgress.value * 100}%`,
-                                    })),
-                                ]}
-                            />
-                        )}
+                        <Animated.View
+                            style={[
+                                styles.progressFill,
+                                { width: `${(determinateValue ?? 0) * 100}%` },
+                            ]}
+                        />
                     </View>
                 )}
             </Animated.View>
