@@ -48,7 +48,7 @@ export const useGalleryContent = ({ galleryId }: { galleryId: string }) => {
         useState(false);
     const [editMode, setEditMode] = useState(false);
     const [selectedImages, setSelectedImages] = useState<GalleryImage[]>([]);
-    const [sortingByAscending, setSortingByAscending] = useState(true);
+    const [sortingByAscending, setSortingByAscending] = useState(false);
 
     useEffect(() => {
         loadInitialGalleryImages(galleryId);
