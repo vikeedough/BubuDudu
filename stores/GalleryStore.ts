@@ -2,6 +2,7 @@ import { supabase } from "@/api/clients/supabaseClient";
 import { toast } from "@/toast/api";
 import { generateBlurhash } from "@/utils/generateBlurhash";
 import { generateVariants } from "@/utils/generateImageVariants";
+import { runWithConcurrency } from "@/utils/runWithConcurrency";
 import { getSpaceId } from "@/utils/secure-store";
 import { create } from "zustand";
 
@@ -92,6 +93,138 @@ export type GalleryState = {
     // Helpers
     clear: () => void;
 };
+
+async function uploadSingleImage(
+  galleryId: string,
+  imageUri: string,
+  idx: number,
+  total: number,
+  spaceId: string,
+  hasCover: boolean,
+  toastId: string,
+  set: any,
+) {
+  const { data: inserted, error: insErr } = await supabase
+    .from("date_images")
+    .insert({ gallery_id: galleryId })
+    .select("*")
+    .single();
+
+  if (insErr || !inserted?.id) {
+    throw new Error(insErr?.message ?? "Failed to create image row");
+  }
+
+  const imageId = inserted.id as string;
+
+  const variants = await generateVariants(imageUri);
+  const blurHash = await generateBlurhash(variants.thumb.uri);
+
+  const base = `spaces/${spaceId}/galleries/${galleryId}/images/${imageId}`;
+  const pThumb = `${base}/thumb.jpg`;
+  const pGrid = `${base}/grid.jpg`;
+  const pOrig = `${base}/orig.jpg`;
+
+  const uploads = await Promise.all([
+    supabase.storage.from(GALLERY_BUCKET).upload(
+      pThumb,
+      variants.thumb.arrayBuffer,
+      { contentType: "image/jpeg" },
+    ),
+    supabase.storage.from(GALLERY_BUCKET).upload(
+      pGrid,
+      variants.grid.arrayBuffer,
+      { contentType: "image/jpeg" },
+    ),
+    supabase.storage.from(GALLERY_BUCKET).upload(
+      pOrig,
+      variants.orig.arrayBuffer,
+      { contentType: "image/jpeg" },
+    ),
+  ]);
+
+  const uploadErr = uploads.find((u) => u.error)?.error;
+  if (uploadErr) {
+    await supabase.storage.from(GALLERY_BUCKET).remove([pThumb, pGrid, pOrig]);
+    await supabase.from("date_images").delete().eq("id", imageId);
+    throw uploadErr;
+  }
+
+  const { error: updErr } = await supabase
+    .from("date_images")
+    .update({
+      storage_path_thumb: pThumb,
+      storage_path_grid: pGrid,
+      storage_path_orig: pOrig,
+      blur_hash: blurHash,
+
+      width_thumb: variants.thumb.width,
+      height_thumb: variants.thumb.height,
+      width_grid: variants.grid.width,
+      height_grid: variants.grid.height,
+      width_orig: variants.orig.width,
+      height_orig: variants.orig.height,
+
+      bytes_thumb: variants.thumb.bytes,
+      bytes_grid: variants.grid.bytes,
+      bytes_orig: variants.orig.bytes,
+    })
+    .eq("id", imageId);
+
+  if (updErr) {
+    await supabase.storage.from(GALLERY_BUCKET).remove([pThumb, pGrid, pOrig]);
+    await supabase.from("date_images").delete().eq("id", imageId);
+    throw updErr;
+  }
+
+  const { data: signedOne } = await supabase.functions.invoke(
+    "sign-gallery-urls",
+    { body: { galleryId, imageIds: [imageId] } },
+  );
+
+  const mergedImage: GalleryImage = {
+    id: imageId,
+    gallery_id: galleryId,
+    storage_path_thumb: pThumb,
+    storage_path_grid: pGrid,
+    storage_path_orig: pOrig,
+    blur_hash: blurHash,
+    created_at: inserted.created_at,
+
+    width_thumb: variants.thumb.width,
+    height_thumb: variants.thumb.height,
+    width_grid: variants.grid.width,
+    height_grid: variants.grid.height,
+    width_orig: variants.orig.width,
+    height_orig: variants.orig.height,
+
+    bytes_thumb: variants.thumb.bytes,
+    bytes_grid: variants.grid.bytes,
+    bytes_orig: variants.orig.bytes,
+
+    url_thumb: signedOne?.[imageId]?.url_thumb,
+    url_grid: signedOne?.[imageId]?.url_grid,
+    url_orig: signedOne?.[imageId]?.url_orig,
+  };
+
+  set((state: any) => {
+    const prev = state.imagesByGalleryId[galleryId] ?? [];
+    return {
+      imagesByGalleryId: {
+        ...state.imagesByGalleryId,
+        [galleryId]: [mergedImage, ...prev],
+      },
+    };
+  });
+
+  if (!hasCover && idx === 0) {
+    await supabase.from("galleries").update({
+      cover_image_path: pGrid,
+      cover_image_thumb_path: pThumb,
+      cover_image_blur_hash: blurHash,
+    }).eq("id", galleryId);
+  }
+}
+
 
 export const useGalleryStore = create<GalleryState>((set, get) => ({
     galleries: [],
@@ -291,6 +424,7 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
         const toastId = toast.show({
             title: "Uploading images...",
             message: `Uploaded 0/${images.length} images...`,
+            progress: 0,
         });
 
         try {
@@ -315,170 +449,27 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
             const spaceId = galleryRow.space_id as string;
             const hasCover = !!galleryRow.cover_image_path;
 
-            let firstUploadedInCall = false;
+            const CONCURRENCY = 3;
+            let completedImages = 0;
 
-            for (let idx = 0; idx < images.length; idx++) {
-                const imageUri = images[idx];
+            await runWithConcurrency(images, CONCURRENCY, async (imageUri, idx) => {
+                await uploadSingleImage(
+                    galleryId,
+                    imageUri,
+                    idx,
+                    images.length,
+                    spaceId,
+                    hasCover,
+                    toastId,
+                    set,
+                );
 
-                // 1) Insert placeholder row to get UUID id
-                const { data: inserted, error: insErr } = await supabase
-                    .from("date_images")
-                    .insert({ gallery_id: galleryId })
-                    .select("*")
-                    .single();
-
-                if (insErr || !inserted?.id) {
-                    set((s) => ({
-                        error: insErr?.message ?? "Failed to create image row",
-                    }));
-                    return false;
-                }
-
-                const imageId = inserted.id as string;
-
-                // 2) variants + blurhash from thumb
-                const variants = await generateVariants(imageUri);
-                const blurHash = await generateBlurhash(variants.thumb.uri);
-
-                // 3) storage paths
-                const base = `spaces/${spaceId}/galleries/${galleryId}/images/${imageId}`;
-                const pThumb = `${base}/thumb.jpg`;
-                const pGrid = `${base}/grid.jpg`;
-                const pOrig = `${base}/orig.jpg`;
-
-                // 4) upload 3 objects
-                const uploads = await Promise.all([
-                    supabase.storage
-                        .from(GALLERY_BUCKET)
-                        .upload(pThumb, variants.thumb.arrayBuffer, {
-                            contentType: "image/jpeg",
-                        }),
-                    supabase.storage
-                        .from(GALLERY_BUCKET)
-                        .upload(pGrid, variants.grid.arrayBuffer, {
-                            contentType: "image/jpeg",
-                        }),
-                    supabase.storage
-                        .from(GALLERY_BUCKET)
-                        .upload(pOrig, variants.orig.arrayBuffer, {
-                            contentType: "image/jpeg",
-                        }),
-                ]);
-
-                const uploadErr = uploads.find((u) => u.error)?.error;
-                if (uploadErr) {
-                    toast.show({
-                        title: "Something went wrong!",
-                        message: "Image upload failed. Please try again later.",
-                        durationMs: 2000,
-                    });
-                    await supabase.storage
-                        .from(GALLERY_BUCKET)
-                        .remove([pThumb, pGrid, pOrig]);
-                    await supabase
-                        .from("date_images")
-                        .delete()
-                        .eq("id", imageId);
-                    set((s) => ({ error: uploadErr.message }));
-                    return false;
-                }
-
-                // 5) update DB row with paths + dims + bytes + blurhash
-                const { data: updatedRow, error: updErr } = await supabase
-                    .from("date_images")
-                    .update({
-                        storage_path_thumb: pThumb,
-                        storage_path_grid: pGrid,
-                        storage_path_orig: pOrig,
-                        blur_hash: blurHash,
-
-                        width_thumb: variants.thumb.width,
-                        height_thumb: variants.thumb.height,
-                        width_grid: variants.grid.width,
-                        height_grid: variants.grid.height,
-                        width_orig: variants.orig.width,
-                        height_orig: variants.orig.height,
-
-                        bytes_thumb: variants.thumb.bytes,
-                        bytes_grid: variants.grid.bytes,
-                        bytes_orig: variants.orig.bytes,
-                    })
-                    .eq("id", imageId)
-                    .select("*")
-                    .single();
-
-                if (updErr || !updatedRow) {
-                    await supabase.storage
-                        .from(GALLERY_BUCKET)
-                        .remove([pThumb, pGrid, pOrig]);
-                    await supabase
-                        .from("date_images")
-                        .delete()
-                        .eq("id", imageId);
-                    set((s) => ({
-                        error: updErr?.message ?? "Failed to update image row",
-                    }));
-                    toast.show({
-                        title: "Something went wrong!",
-                        message:
-                            "Failed to update image row. Please try again later.",
-                        durationMs: 2000,
-                    });
-                    return false;
-                }
-
-                // 6) sign URLs for immediate UI
-                let url_thumb: string | undefined;
-                let url_grid: string | undefined;
-                let url_orig: string | undefined;
-
-                const { data: signedOne, error: signErr } =
-                    await supabase.functions.invoke("sign-gallery-urls", {
-                        body: { galleryId, imageIds: [imageId] },
-                    });
-
-                if (!signErr && signedOne?.[imageId]) {
-                    url_thumb = signedOne[imageId].url_thumb;
-                    url_grid = signedOne[imageId].url_grid;
-                    url_orig = signedOne[imageId].url_orig;
-                }
-
-                const mergedImage: GalleryImage = {
-                    ...(updatedRow as GalleryImage),
-                    url_thumb,
-                    url_grid,
-                    url_orig,
-                };
-
-                set((state) => {
-                    const prev = state.imagesByGalleryId[galleryId] ?? [];
-                    return {
-                        imagesByGalleryId: {
-                            ...state.imagesByGalleryId,
-                            [galleryId]: [mergedImage, ...prev],
-                        },
-                    };
-                });
-
-                // 7) cover on first upload if no cover exists
-                if (!firstUploadedInCall) {
-                    firstUploadedInCall = true;
-                    if (!hasCover) {
-                        await supabase
-                            .from("galleries")
-                            .update({
-                                cover_image_path: pGrid,
-                                cover_image_thumb_path: pThumb,
-                                cover_image_blur_hash: blurHash,
-                            })
-                            .eq("id", galleryId);
-                    }
-                }
-
+                completedImages++;
                 toast.update(toastId, {
-                    message: `Uploaded ${idx + 1}/${images.length} images...`,
+                    message: `Uploaded ${completedImages}/${images.length} images...`,
+                    progress: completedImages / images.length,
                 });
-            }
+            });
 
             return true;
         } finally {
