@@ -1,6 +1,6 @@
 import { FlashList } from "@shopify/flash-list";
 import React from "react";
-import { ActivityIndicator, Dimensions, StyleSheet, View } from "react-native";
+import { ActivityIndicator, StyleSheet, View } from "react-native";
 
 import { Colors } from "@/constants/colors";
 import { GalleryImage } from "@/stores/GalleryStore";
@@ -9,7 +9,9 @@ import GalleryImageItem from "./GalleryImageItem";
 
 interface GalleryImageGridProps {
     images: GalleryImage[];
-    loading: boolean;
+    isLoadingInitial: boolean;
+    isLoadingMore: boolean;
+    onEndReached: () => void;
     editMode: boolean;
     selectedImages: GalleryImage[];
     onImagePress: (image: GalleryImage) => void;
@@ -29,14 +31,16 @@ const groupIntoRows = (images: GalleryImage[]): (GalleryImage | null)[][] => {
 
 const GalleryImageGrid: React.FC<GalleryImageGridProps> = ({
     images,
-    loading,
+    isLoadingInitial,
+    isLoadingMore,
+    onEndReached,
     editMode,
     selectedImages,
     onImagePress,
     onImageLongPress,
     onImageSelect,
 }) => {
-    if (loading) {
+    if (isLoadingInitial) {
         return (
             <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color={Colors.lightBlue} />
@@ -45,8 +49,6 @@ const GalleryImageGrid: React.FC<GalleryImageGridProps> = ({
     }
 
     const rows = groupIntoRows(images);
-    const screenWidth = Dimensions.get("window").width;
-    const estimatedItemSize = (screenWidth - 110) / 2;
 
     return (
         <View style={styles.flatListContainer}>
@@ -68,7 +70,7 @@ const GalleryImageGrid: React.FC<GalleryImageGridProps> = ({
                                         image={gallery}
                                         editMode={editMode}
                                         isSelected={selectedImages.some(
-                                            (img) => img.id === gallery.id
+                                            (img) => img.id === gallery.id,
                                         )}
                                         onPress={() => onImagePress(gallery)}
                                         onLongPress={() =>
@@ -84,6 +86,21 @@ const GalleryImageGrid: React.FC<GalleryImageGridProps> = ({
                     </View>
                 )}
                 ItemSeparatorComponent={() => <View style={styles.separator} />}
+                onEndReached={() => {
+                    if (isLoadingMore) return;
+                    onEndReached();
+                }}
+                onEndReachedThreshold={0.5}
+                ListFooterComponent={
+                    isLoadingMore ? (
+                        <View style={styles.footer}>
+                            <ActivityIndicator
+                                size="small"
+                                color={Colors.lightBlue}
+                            />
+                        </View>
+                    ) : null
+                }
             />
         </View>
     );
@@ -109,6 +126,9 @@ const styles = StyleSheet.create({
     },
     separator: {
         height: 15,
+    },
+    footer: {
+        paddingVertical: 15,
     },
 });
 

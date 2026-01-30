@@ -28,7 +28,9 @@ const GalleryContent = () => {
     const date = getDate();
 
     const {
-        loading,
+        isLoadingInitialImages,
+        isLoadingMoreImages,
+        loadMoreGalleryImages,
         isDownloading,
         isDeleting,
         images,
@@ -117,7 +119,11 @@ const GalleryContent = () => {
 
                 <GalleryImageGrid
                     images={images}
-                    loading={loading}
+                    isLoadingInitial={isLoadingInitialImages}
+                    isLoadingMore={isLoadingMoreImages}
+                    onEndReached={() =>
+                        loadMoreGalleryImages(galleryId as string)
+                    }
                     editMode={editMode}
                     selectedImages={selectedImages}
                     onImagePress={handleImagePress}

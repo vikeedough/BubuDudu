@@ -4,41 +4,37 @@ import { useEffect, useMemo, useState } from "react";
 
 export const useGalleryList = () => {
     const galleries = useGalleryStore((s) => s.galleries);
-    const fetchGalleries = useGalleryStore((s) => s.fetchGalleries);
-    const isLoadingGalleries = useGalleryStore((s) => s.isLoadingGalleries);
+    const galleriesQuery = useGalleryStore((s) => s.galleriesQuery);
+    const galleriesPage = useGalleryStore((s) => s.galleriesPage);
 
-    const [sortingByDescending, setSortingByDescending] = useState(true);
-    const [searchText, setSearchText] = useState("");
+    const loadInitialGalleries = useGalleryStore((s) => s.loadInitialGalleries);
+    const loadMoreGalleries = useGalleryStore((s) => s.loadMoreGalleries);
+    const refreshGalleries = useGalleryStore((s) => s.refreshGalleries);
+    const setGalleriesQuery = useGalleryStore((s) => s.setGalleriesQuery);
+
+    const [searchText, setSearchText] = useState(galleriesQuery.searchText);
     const [isNewGalleryModalOpen, setIsNewGalleryModalOpen] = useState(false);
 
     useEffect(() => {
-        fetchGalleries();
-    }, [fetchGalleries]);
+        loadInitialGalleries();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
-    const filteredGalleries = useMemo(
-        () =>
-            galleries
-                .filter((gallery) =>
-                    gallery.title
-                        .toLowerCase()
-                        .includes(searchText.toLowerCase())
-                )
-                .sort((a, b) => {
-                    const da =
-                        a.date instanceof Date
-                            ? a.date.getTime()
-                            : Date.parse(a.date as string);
-                    const db =
-                        b.date instanceof Date
-                            ? b.date.getTime()
-                            : Date.parse(b.date as string);
-                    return sortingByDescending ? db - da : da - db;
-                }),
-        [galleries, searchText, sortingByDescending]
-    );
+    useEffect(() => {
+        if (searchText === galleriesQuery.searchText) return;
+
+        const handle = setTimeout(() => {
+            setGalleriesQuery({ searchText });
+        }, 300);
+        return () => clearTimeout(handle);
+    }, [searchText, galleriesQuery.searchText, setGalleriesQuery]);
+
+    const filteredGalleries = useMemo(() => galleries, [galleries]);
 
     const handleAddNewGallery = () => setIsNewGalleryModalOpen(true);
-    const handleToggleSort = () => setSortingByDescending((v) => !v);
+    const sortingByDescending = galleriesQuery.sortDir === "desc";
+    const handleToggleSort = () =>
+        setGalleriesQuery({ sortDir: sortingByDescending ? "asc" : "desc" });
     const handleSearchChange = (text: string) => setSearchText(text);
     const handleCloseModal = () => setIsNewGalleryModalOpen(false);
 
@@ -59,7 +55,7 @@ export const useGalleryList = () => {
     };
 
     const refresh = async () => {
-        await fetchGalleries();
+        await refreshGalleries();
     };
 
     return {
@@ -67,7 +63,13 @@ export const useGalleryList = () => {
         sortingByDescending,
         searchText,
         isNewGalleryModalOpen,
-        isLoadingGalleries,
+        isLoadingGalleries: galleriesPage.isLoadingInitial,
+
+        isLoadingInitialGalleries: galleriesPage.isLoadingInitial,
+        isLoadingMoreGalleries: galleriesPage.isLoadingMore,
+        hasMoreGalleries: galleriesPage.hasMore,
+        loadMoreGalleries,
+        refreshGalleries,
 
         handleAddNewGallery,
         handleToggleSort,

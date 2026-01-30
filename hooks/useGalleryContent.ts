@@ -11,16 +11,29 @@ import { useEffect, useMemo, useState } from "react";
 const EMPTY_IMAGES: GalleryImage[] = [];
 
 export const useGalleryContent = ({ galleryId }: { galleryId: string }) => {
-    const fetchGalleryImages = useGalleryStore((s) => s.fetchGalleryImages);
-    const fetchGalleries = useGalleryStore((s) => s.fetchGalleries);
+    const loadInitialGalleryImages = useGalleryStore(
+        (s) => s.loadInitialGalleryImages,
+    );
+    const loadMoreGalleryImages = useGalleryStore(
+        (s) => s.loadMoreGalleryImages,
+    );
+    const refreshGalleryImages = useGalleryStore((s) => s.refreshGalleryImages);
+
+    const refreshGalleries = useGalleryStore((s) => s.refreshGalleries);
     const deleteGallery = useGalleryStore((s) => s.deleteGallery);
     const uploadGalleryImages = useGalleryStore((s) => s.uploadGalleryImages);
 
     const imagesFromStore = useGalleryStore(
         (s) => s.imagesByGalleryId[galleryId] ?? EMPTY_IMAGES,
     );
-    const isLoadingImages = useGalleryStore(
-        (s) => s.isLoadingImagesByGalleryId[galleryId] ?? false,
+    const imagesPage = useGalleryStore(
+        (s) =>
+            s.imagesPageByGalleryId[galleryId] ?? {
+                cursor: null,
+                hasMore: true,
+                isLoadingInitial: false,
+                isLoadingMore: false,
+            },
     );
 
     const [isDownloading, setIsDownloading] = useState(false);
@@ -38,8 +51,8 @@ export const useGalleryContent = ({ galleryId }: { galleryId: string }) => {
     const [sortingByAscending, setSortingByAscending] = useState(true);
 
     useEffect(() => {
-        fetchGalleryImages(galleryId);
-    }, [galleryId, fetchGalleryImages]);
+        loadInitialGalleryImages(galleryId);
+    }, [galleryId, loadInitialGalleryImages]);
 
     const sortedImages = useMemo(() => {
         return imagesFromStore
@@ -57,18 +70,18 @@ export const useGalleryContent = ({ galleryId }: { galleryId: string }) => {
 
         const ok = await uploadGalleryImages(galleryId, newImages);
         if (ok) {
-            await fetchGalleries();
+            await refreshGalleries();
         }
     };
 
     const handleDeleteGallery = async () => {
         setIsDeleting(true);
-        deleteGallery(galleryId);
+        await deleteGallery(galleryId);
         setIsDeleting(false);
 
         setIsDeleteGalleryModalOpen(false);
         router.back();
-        await fetchGalleries();
+        await refreshGalleries();
     };
 
     const handleImagePress = (image: GalleryImage) => {
@@ -144,7 +157,13 @@ export const useGalleryContent = ({ galleryId }: { galleryId: string }) => {
     const handleToggleSort = () => setSortingByAscending((v) => !v);
 
     return {
-        loading: isLoadingImages,
+        loading: imagesPage.isLoadingInitial,
+        isLoadingInitialImages: imagesPage.isLoadingInitial,
+        isLoadingMoreImages: imagesPage.isLoadingMore,
+        hasMoreImages: imagesPage.hasMore,
+        loadMoreGalleryImages,
+        refreshGalleryImages,
+
         isDownloading,
         isDeleting,
         images: sortedImages,

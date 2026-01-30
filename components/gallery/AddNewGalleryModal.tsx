@@ -36,7 +36,7 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
 }) => {
     const addNewGallery = useGalleryStore((s) => s.addNewGallery);
     const uploadGalleryImages = useGalleryStore((s) => s.uploadGalleryImages);
-    const fetchGalleries = useGalleryStore((s) => s.fetchGalleries);
+    const refreshGalleries = useGalleryStore((s) => s.refreshGalleries);
 
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [dateName, setDateName] = useState("");
@@ -83,7 +83,7 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
         resetForm();
         onClose();
 
-        // 1) create gallery row (store updates galleries immediately)
+        // 1) create gallery row
         const newGallery = await addNewGallery({
             title: dateName.trim(),
             date: date.toISOString(), // matches your current DB values
@@ -106,8 +106,8 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
             return;
         }
 
-        // Optional safety sync (not strictly required if store updates are correct)
-        await fetchGalleries();
+        // Sync list ordering + cover thumbs for current query
+        await refreshGalleries();
 
         setIsUploadingImages(false);
     };

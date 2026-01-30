@@ -1,7 +1,8 @@
 import { FlashList } from "@shopify/flash-list";
 import React from "react";
-import { StyleSheet, View } from "react-native";
+import { ActivityIndicator, StyleSheet, View } from "react-native";
 
+import { Colors } from "@/constants/colors";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { Gallery, useGalleryStore } from "@/stores/GalleryStore";
 
@@ -25,10 +26,18 @@ const GalleryListGrid: React.FC<GalleryListGridProps> = ({
     galleries,
     onGalleryPress,
 }) => {
-    const fetchGalleries = useGalleryStore((s) => s.fetchGalleries);
+    const refreshGalleries = useGalleryStore((s) => s.refreshGalleries);
+    const loadMoreGalleries = useGalleryStore((s) => s.loadMoreGalleries);
+    const isLoadingMore = useGalleryStore((s) => s.galleriesPage.isLoadingMore);
+    const hasMore = useGalleryStore((s) => s.galleriesPage.hasMore);
 
     const rows = groupIntoRows(galleries);
-    const { refreshing, onRefresh } = usePullToRefresh(fetchGalleries);
+    const { refreshing, onRefresh } = usePullToRefresh(refreshGalleries);
+
+    const handleEndReached = React.useCallback(() => {
+        if (!hasMore || isLoadingMore) return;
+        loadMoreGalleries();
+    }, [hasMore, isLoadingMore, loadMoreGalleries]);
 
     return (
         <FlashList
@@ -60,6 +69,18 @@ const GalleryListGrid: React.FC<GalleryListGridProps> = ({
             ItemSeparatorComponent={() => <View style={styles.separator} />}
             refreshing={refreshing}
             onRefresh={onRefresh}
+            onEndReached={handleEndReached}
+            onEndReachedThreshold={0.5}
+            ListFooterComponent={
+                isLoadingMore ? (
+                    <View style={styles.footer}>
+                        <ActivityIndicator
+                            size="small"
+                            color={Colors.lightBlue}
+                        />
+                    </View>
+                ) : null
+            }
         />
     );
 };
@@ -82,6 +103,9 @@ const styles = StyleSheet.create({
     },
     separator: {
         height: 15,
+    },
+    footer: {
+        paddingVertical: 15,
     },
 });
 

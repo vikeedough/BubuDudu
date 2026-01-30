@@ -8,12 +8,29 @@ import { create } from "zustand";
 
 const GALLERY_BUCKET = "gallery-private";
 const SIGN_TTL_SECONDS = 60 * 60;
+const GALLERIES_PAGE_SIZE = 10;
+const IMAGES_PAGE_SIZE = 20;
+
+function mergeUniqueById<T extends { id: string }>(prev: T[], next: T[]): T[] {
+    if (next.length === 0) return prev;
+    if (prev.length === 0) return next;
+
+    const seen = new Set(prev.map((x) => x.id));
+    const merged = prev.slice();
+    for (const item of next) {
+        if (seen.has(item.id)) continue;
+        seen.add(item.id);
+        merged.push(item);
+    }
+    return merged;
+}
 
 export type Gallery = {
     id: string;
     space_id: string;
     title: string;
     date: string | Date;
+    date_date?: string | null;
     color: string;
     location: string;
 
@@ -56,7 +73,24 @@ export type GalleryImage = {
 
 export type GalleryState = {
     galleries: Gallery[];
+    galleriesQuery: { searchText: string; sortDir: "asc" | "desc" };
+    galleriesPage: {
+        cursor: { date: string; id: string } | null;
+        hasMore: boolean;
+        isLoadingInitial: boolean;
+        isLoadingMore: boolean;
+    };
+
     imagesByGalleryId: Record<string, GalleryImage[]>;
+    imagesPageByGalleryId: Record<
+        string,
+        {
+            cursor: { created_at: string; id: string } | null;
+            hasMore: boolean;
+            isLoadingInitial: boolean;
+            isLoadingMore: boolean;
+        }
+    >;
 
     isLoadingGalleries: boolean;
     isLoadingImagesByGalleryId: Record<string, boolean>;
@@ -66,6 +100,18 @@ export type GalleryState = {
     // Actions
     fetchGalleries: () => Promise<Gallery[]>;
     fetchGalleryImages: (galleryId: string) => Promise<GalleryImage[]>;
+
+    // Pagination actions (new)
+    setGalleriesQuery: (
+        partial: Partial<{ searchText: string; sortDir: "asc" | "desc" }>,
+    ) => void;
+    loadInitialGalleries: () => Promise<Gallery[]>;
+    loadMoreGalleries: () => Promise<Gallery[]>;
+    refreshGalleries: () => Promise<Gallery[]>;
+
+    loadInitialGalleryImages: (galleryId: string) => Promise<GalleryImage[]>;
+    loadMoreGalleryImages: (galleryId: string) => Promise<GalleryImage[]>;
+    refreshGalleryImages: (galleryId: string) => Promise<GalleryImage[]>;
 
     addNewGallery: (input: {
         title: string;
@@ -95,140 +141,155 @@ export type GalleryState = {
 };
 
 async function uploadSingleImage(
-  galleryId: string,
-  imageUri: string,
-  idx: number,
-  total: number,
-  spaceId: string,
-  hasCover: boolean,
-  toastId: string,
-  set: any,
+    galleryId: string,
+    imageUri: string,
+    idx: number,
+    total: number,
+    spaceId: string,
+    hasCover: boolean,
+    toastId: string,
+    set: any,
 ) {
-  const { data: inserted, error: insErr } = await supabase
-    .from("date_images")
-    .insert({ gallery_id: galleryId })
-    .select("*")
-    .single();
+    const { data: inserted, error: insErr } = await supabase
+        .from("date_images")
+        .insert({ gallery_id: galleryId })
+        .select("*")
+        .single();
 
-  if (insErr || !inserted?.id) {
-    throw new Error(insErr?.message ?? "Failed to create image row");
-  }
+    if (insErr || !inserted?.id) {
+        throw new Error(insErr?.message ?? "Failed to create image row");
+    }
 
-  const imageId = inserted.id as string;
+    const imageId = inserted.id as string;
 
-  const variants = await generateVariants(imageUri);
-  const blurHash = await generateBlurhash(variants.thumb.uri);
+    const variants = await generateVariants(imageUri);
+    const blurHash = await generateBlurhash(variants.thumb.uri);
 
-  const base = `spaces/${spaceId}/galleries/${galleryId}/images/${imageId}`;
-  const pThumb = `${base}/thumb.jpg`;
-  const pGrid = `${base}/grid.jpg`;
-  const pOrig = `${base}/orig.jpg`;
+    const base = `spaces/${spaceId}/galleries/${galleryId}/images/${imageId}`;
+    const pThumb = `${base}/thumb.jpg`;
+    const pGrid = `${base}/grid.jpg`;
+    const pOrig = `${base}/orig.jpg`;
 
-  const uploads = await Promise.all([
-    supabase.storage.from(GALLERY_BUCKET).upload(
-      pThumb,
-      variants.thumb.arrayBuffer,
-      { contentType: "image/jpeg" },
-    ),
-    supabase.storage.from(GALLERY_BUCKET).upload(
-      pGrid,
-      variants.grid.arrayBuffer,
-      { contentType: "image/jpeg" },
-    ),
-    supabase.storage.from(GALLERY_BUCKET).upload(
-      pOrig,
-      variants.orig.arrayBuffer,
-      { contentType: "image/jpeg" },
-    ),
-  ]);
+    const uploads = await Promise.all([
+        supabase.storage
+            .from(GALLERY_BUCKET)
+            .upload(pThumb, variants.thumb.arrayBuffer, {
+                contentType: "image/jpeg",
+            }),
+        supabase.storage
+            .from(GALLERY_BUCKET)
+            .upload(pGrid, variants.grid.arrayBuffer, {
+                contentType: "image/jpeg",
+            }),
+        supabase.storage
+            .from(GALLERY_BUCKET)
+            .upload(pOrig, variants.orig.arrayBuffer, {
+                contentType: "image/jpeg",
+            }),
+    ]);
 
-  const uploadErr = uploads.find((u) => u.error)?.error;
-  if (uploadErr) {
-    await supabase.storage.from(GALLERY_BUCKET).remove([pThumb, pGrid, pOrig]);
-    await supabase.from("date_images").delete().eq("id", imageId);
-    throw uploadErr;
-  }
+    const uploadErr = uploads.find((u) => u.error)?.error;
+    if (uploadErr) {
+        await supabase.storage
+            .from(GALLERY_BUCKET)
+            .remove([pThumb, pGrid, pOrig]);
+        await supabase.from("date_images").delete().eq("id", imageId);
+        throw uploadErr;
+    }
 
-  const { error: updErr } = await supabase
-    .from("date_images")
-    .update({
-      storage_path_thumb: pThumb,
-      storage_path_grid: pGrid,
-      storage_path_orig: pOrig,
-      blur_hash: blurHash,
+    const { error: updErr } = await supabase
+        .from("date_images")
+        .update({
+            storage_path_thumb: pThumb,
+            storage_path_grid: pGrid,
+            storage_path_orig: pOrig,
+            blur_hash: blurHash,
 
-      width_thumb: variants.thumb.width,
-      height_thumb: variants.thumb.height,
-      width_grid: variants.grid.width,
-      height_grid: variants.grid.height,
-      width_orig: variants.orig.width,
-      height_orig: variants.orig.height,
+            width_thumb: variants.thumb.width,
+            height_thumb: variants.thumb.height,
+            width_grid: variants.grid.width,
+            height_grid: variants.grid.height,
+            width_orig: variants.orig.width,
+            height_orig: variants.orig.height,
 
-      bytes_thumb: variants.thumb.bytes,
-      bytes_grid: variants.grid.bytes,
-      bytes_orig: variants.orig.bytes,
-    })
-    .eq("id", imageId);
+            bytes_thumb: variants.thumb.bytes,
+            bytes_grid: variants.grid.bytes,
+            bytes_orig: variants.orig.bytes,
+        })
+        .eq("id", imageId);
 
-  if (updErr) {
-    await supabase.storage.from(GALLERY_BUCKET).remove([pThumb, pGrid, pOrig]);
-    await supabase.from("date_images").delete().eq("id", imageId);
-    throw updErr;
-  }
+    if (updErr) {
+        await supabase.storage
+            .from(GALLERY_BUCKET)
+            .remove([pThumb, pGrid, pOrig]);
+        await supabase.from("date_images").delete().eq("id", imageId);
+        throw updErr;
+    }
 
-  const { data: signedOne } = await supabase.functions.invoke(
-    "sign-gallery-urls",
-    { body: { galleryId, imageIds: [imageId] } },
-  );
+    const { data: signedOne } = await supabase.functions.invoke(
+        "sign-gallery-urls",
+        { body: { galleryId, imageIds: [imageId] } },
+    );
 
-  const mergedImage: GalleryImage = {
-    id: imageId,
-    gallery_id: galleryId,
-    storage_path_thumb: pThumb,
-    storage_path_grid: pGrid,
-    storage_path_orig: pOrig,
-    blur_hash: blurHash,
-    created_at: inserted.created_at,
+    const mergedImage: GalleryImage = {
+        id: imageId,
+        gallery_id: galleryId,
+        storage_path_thumb: pThumb,
+        storage_path_grid: pGrid,
+        storage_path_orig: pOrig,
+        blur_hash: blurHash,
+        created_at: inserted.created_at,
 
-    width_thumb: variants.thumb.width,
-    height_thumb: variants.thumb.height,
-    width_grid: variants.grid.width,
-    height_grid: variants.grid.height,
-    width_orig: variants.orig.width,
-    height_orig: variants.orig.height,
+        width_thumb: variants.thumb.width,
+        height_thumb: variants.thumb.height,
+        width_grid: variants.grid.width,
+        height_grid: variants.grid.height,
+        width_orig: variants.orig.width,
+        height_orig: variants.orig.height,
 
-    bytes_thumb: variants.thumb.bytes,
-    bytes_grid: variants.grid.bytes,
-    bytes_orig: variants.orig.bytes,
+        bytes_thumb: variants.thumb.bytes,
+        bytes_grid: variants.grid.bytes,
+        bytes_orig: variants.orig.bytes,
 
-    url_thumb: signedOne?.[imageId]?.url_thumb,
-    url_grid: signedOne?.[imageId]?.url_grid,
-    url_orig: signedOne?.[imageId]?.url_orig,
-  };
-
-  set((state: any) => {
-    const prev = state.imagesByGalleryId[galleryId] ?? [];
-    return {
-      imagesByGalleryId: {
-        ...state.imagesByGalleryId,
-        [galleryId]: [mergedImage, ...prev],
-      },
+        url_thumb: signedOne?.[imageId]?.url_thumb,
+        url_grid: signedOne?.[imageId]?.url_grid,
+        url_orig: signedOne?.[imageId]?.url_orig,
     };
-  });
 
-  if (!hasCover && idx === 0) {
-    await supabase.from("galleries").update({
-      cover_image_path: pGrid,
-      cover_image_thumb_path: pThumb,
-      cover_image_blur_hash: blurHash,
-    }).eq("id", galleryId);
-  }
+    set((state: any) => {
+        const prev = state.imagesByGalleryId[galleryId] ?? [];
+        return {
+            imagesByGalleryId: {
+                ...state.imagesByGalleryId,
+                [galleryId]: [mergedImage, ...prev],
+            },
+        };
+    });
+
+    if (!hasCover && idx === 0) {
+        await supabase
+            .from("galleries")
+            .update({
+                cover_image_path: pGrid,
+                cover_image_thumb_path: pThumb,
+                cover_image_blur_hash: blurHash,
+            })
+            .eq("id", galleryId);
+    }
 }
-
 
 export const useGalleryStore = create<GalleryState>((set, get) => ({
     galleries: [],
+    galleriesQuery: { searchText: "", sortDir: "desc" },
+    galleriesPage: {
+        cursor: null,
+        hasMore: true,
+        isLoadingInitial: false,
+        isLoadingMore: false,
+    },
+
     imagesByGalleryId: {},
+    imagesPageByGalleryId: {},
 
     isLoadingGalleries: false,
     isLoadingImagesByGalleryId: {},
@@ -238,55 +299,472 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
     clear: () =>
         set({
             galleries: [],
+            galleriesQuery: { searchText: "", sortDir: "desc" },
+            galleriesPage: {
+                cursor: null,
+                hasMore: true,
+                isLoadingInitial: false,
+                isLoadingMore: false,
+            },
             imagesByGalleryId: {},
+            imagesPageByGalleryId: {},
             isLoadingGalleries: false,
             isLoadingImagesByGalleryId: {},
             isUploadingByGalleryId: {},
             error: null,
         }),
 
-    fetchGalleries: async () => {
-        set({ isLoadingGalleries: true, error: null });
+    setGalleriesQuery: (partial) => {
+        set((state) => ({
+            galleriesQuery: {
+                ...state.galleriesQuery,
+                ...partial,
+            },
+        }));
+        void get().loadInitialGalleries();
+    },
 
-        const spaceId = await getSpaceId();
-        if (!spaceId) {
-            set({ galleries: [], isLoadingGalleries: false });
-            return [];
+    loadInitialGalleries: async () => {
+        set({
+            galleries: [],
+            isLoadingGalleries: true,
+            error: null,
+            galleriesPage: {
+                cursor: null,
+                hasMore: true,
+                isLoadingInitial: true,
+                isLoadingMore: false,
+            },
+        });
+
+        try {
+            const spaceId = await getSpaceId();
+            if (!spaceId) {
+                set({
+                    galleries: [],
+                    isLoadingGalleries: false,
+                    galleriesPage: {
+                        cursor: null,
+                        hasMore: false,
+                        isLoadingInitial: false,
+                        isLoadingMore: false,
+                    },
+                });
+                return [];
+            }
+
+            const { searchText, sortDir } = get().galleriesQuery;
+            const ascending = sortDir === "asc";
+
+            let query = supabase
+                .from("galleries")
+                .select("*")
+                .eq("space_id", spaceId);
+
+            if (searchText.trim().length > 0) {
+                query = query.ilike("title", `%${searchText}%`);
+            }
+
+            query = query
+                .order("date_date", { ascending })
+                .order("id", { ascending })
+                .limit(GALLERIES_PAGE_SIZE);
+
+            const { data, error } = await query;
+            if (error) {
+                console.error("Error loading initial galleries:", error);
+                set({ error: error.message });
+                return [];
+            }
+
+            const page = ((data as Gallery[]) ?? []).map((g) => ({
+                ...g,
+                cover_thumb_url: null,
+            }));
+
+            const signed = await Promise.all(
+                page.map(async (g) => {
+                    if (!g.cover_image_thumb_path) return g;
+                    const { data: s, error: e } = await supabase.storage
+                        .from(GALLERY_BUCKET)
+                        .createSignedUrl(
+                            g.cover_image_thumb_path,
+                            SIGN_TTL_SECONDS,
+                        );
+                    if (e || !s?.signedUrl) return g;
+                    return { ...g, cover_thumb_url: s.signedUrl };
+                }),
+            );
+
+            const last = signed[signed.length - 1];
+            const cursor = last?.date_date
+                ? { date: String(last.date_date), id: String(last.id) }
+                : null;
+
+            set({
+                galleries: signed,
+                galleriesPage: {
+                    cursor,
+                    hasMore: signed.length === GALLERIES_PAGE_SIZE,
+                    isLoadingInitial: false,
+                    isLoadingMore: false,
+                },
+            });
+
+            return signed;
+        } finally {
+            set((state) => ({
+                isLoadingGalleries: false,
+                galleriesPage: {
+                    ...state.galleriesPage,
+                    isLoadingInitial: false,
+                    isLoadingMore: false,
+                },
+            }));
         }
+    },
 
-        const { data, error } = await supabase
-            .from("galleries")
-            .select("*")
-            .eq("space_id", spaceId)
-            .order("date", { ascending: false });
-
-        if (error) {
-            console.error("Error fetching galleries:", error);
-            set({ error: error.message, isLoadingGalleries: false });
-            return [];
+    loadMoreGalleries: async () => {
+        const { galleriesPage } = get();
+        if (galleriesPage.isLoadingMore || galleriesPage.isLoadingInitial) {
+            return get().galleries;
         }
+        if (!galleriesPage.hasMore) return get().galleries;
+        if (!galleriesPage.cursor) return get().galleries;
 
-        const galleries = ((data as Gallery[]) ?? []).map((g) => ({
-            ...g,
-            cover_thumb_url: null,
+        set((state) => ({
+            galleriesPage: {
+                ...state.galleriesPage,
+                isLoadingMore: true,
+            },
         }));
 
-        const signed = await Promise.all(
-            galleries.map(async (g) => {
-                if (!g.cover_image_thumb_path) return g;
-                const { data: s, error: e } = await supabase.storage
-                    .from(GALLERY_BUCKET)
-                    .createSignedUrl(
-                        g.cover_image_thumb_path,
-                        SIGN_TTL_SECONDS,
-                    );
-                if (e || !s?.signedUrl) return g;
-                return { ...g, cover_thumb_url: s.signedUrl };
-            }),
-        );
+        try {
+            const spaceId = await getSpaceId();
+            if (!spaceId) return get().galleries;
 
-        set({ galleries: signed, isLoadingGalleries: false });
-        return signed;
+            const { searchText, sortDir } = get().galleriesQuery;
+            const ascending = sortDir === "asc";
+            const cursor = get().galleriesPage.cursor;
+            if (!cursor) return get().galleries;
+
+            let query = supabase
+                .from("galleries")
+                .select("*")
+                .eq("space_id", spaceId);
+
+            if (searchText.trim().length > 0) {
+                query = query.ilike("title", `%${searchText}%`);
+            }
+
+            if (sortDir === "desc") {
+                query = query.or(
+                    `date_date.lt.${cursor.date},and(date_date.eq.${cursor.date},id.lt.${cursor.id})`,
+                );
+            } else {
+                query = query.or(
+                    `date_date.gt.${cursor.date},and(date_date.eq.${cursor.date},id.gt.${cursor.id})`,
+                );
+            }
+
+            query = query
+                .order("date_date", { ascending })
+                .order("id", { ascending })
+                .limit(GALLERIES_PAGE_SIZE);
+
+            const { data, error } = await query;
+            if (error) {
+                console.error("Error loading more galleries:", error);
+                set({ error: error.message });
+                return get().galleries;
+            }
+
+            const page = ((data as Gallery[]) ?? []).map((g) => ({
+                ...g,
+                cover_thumb_url: null,
+            }));
+
+            const signed = await Promise.all(
+                page.map(async (g) => {
+                    if (!g.cover_image_thumb_path) return g;
+                    const { data: s, error: e } = await supabase.storage
+                        .from(GALLERY_BUCKET)
+                        .createSignedUrl(
+                            g.cover_image_thumb_path,
+                            SIGN_TTL_SECONDS,
+                        );
+                    if (e || !s?.signedUrl) return g;
+                    return { ...g, cover_thumb_url: s.signedUrl };
+                }),
+            );
+
+            const lastFetched = signed[signed.length - 1];
+            const nextCursor = lastFetched?.date_date
+                ? {
+                      date: String(lastFetched.date_date),
+                      id: String(lastFetched.id),
+                  }
+                : get().galleriesPage.cursor;
+
+            set((state) => ({
+                galleries: mergeUniqueById(state.galleries, signed),
+                galleriesPage: {
+                    cursor: nextCursor,
+                    hasMore: signed.length === GALLERIES_PAGE_SIZE,
+                    isLoadingInitial: false,
+                    isLoadingMore: false,
+                },
+            }));
+
+            return get().galleries;
+        } finally {
+            set((state) => ({
+                galleriesPage: {
+                    ...state.galleriesPage,
+                    isLoadingMore: false,
+                },
+            }));
+        }
+    },
+
+    refreshGalleries: async () => {
+        return await get().loadInitialGalleries();
+    },
+
+    loadInitialGalleryImages: async (galleryId: string) => {
+        set((state) => ({
+            imagesByGalleryId: {
+                ...state.imagesByGalleryId,
+                [galleryId]: [],
+            },
+            imagesPageByGalleryId: {
+                ...state.imagesPageByGalleryId,
+                [galleryId]: {
+                    cursor: null,
+                    hasMore: true,
+                    isLoadingInitial: true,
+                    isLoadingMore: false,
+                },
+            },
+            isLoadingImagesByGalleryId: {
+                ...state.isLoadingImagesByGalleryId,
+                [galleryId]: true,
+            },
+            error: null,
+        }));
+
+        try {
+            let query = supabase
+                .from("date_images")
+                .select("*")
+                .eq("gallery_id", galleryId)
+                .order("created_at", { ascending: false })
+                .order("id", { ascending: false })
+                .limit(IMAGES_PAGE_SIZE);
+
+            const { data, error } = await query;
+            if (error) {
+                console.error("Error loading initial gallery images:", error);
+                set({ error: error.message });
+                return [];
+            }
+
+            const rows = (data as GalleryImage[]) ?? [];
+
+            let merged = rows;
+            if (rows.length > 0) {
+                const imageIds = rows.map((r) => r.id);
+                const { data: signedMap, error: signErr } =
+                    await supabase.functions.invoke("sign-gallery-urls", {
+                        body: { galleryId, imageIds },
+                    });
+
+                if (signErr) {
+                    console.warn(
+                        "Signing failed, returning unsigned rows",
+                        signErr,
+                    );
+                } else {
+                    merged = rows.map((r) => ({
+                        ...r,
+                        url_thumb: signedMap?.[String(r.id)]?.url_thumb,
+                        url_grid: signedMap?.[String(r.id)]?.url_grid,
+                        url_orig: signedMap?.[String(r.id)]?.url_orig,
+                    }));
+                }
+            }
+
+            const last = rows[rows.length - 1];
+            const cursor = last
+                ? { created_at: String(last.created_at), id: String(last.id) }
+                : null;
+
+            set((state) => ({
+                imagesByGalleryId: {
+                    ...state.imagesByGalleryId,
+                    [galleryId]: merged,
+                },
+                imagesPageByGalleryId: {
+                    ...state.imagesPageByGalleryId,
+                    [galleryId]: {
+                        cursor,
+                        hasMore: rows.length === IMAGES_PAGE_SIZE,
+                        isLoadingInitial: false,
+                        isLoadingMore: false,
+                    },
+                },
+            }));
+
+            return merged;
+        } finally {
+            set((state) => ({
+                imagesPageByGalleryId: {
+                    ...state.imagesPageByGalleryId,
+                    [galleryId]: {
+                        ...(state.imagesPageByGalleryId[galleryId] ?? {
+                            cursor: null,
+                            hasMore: true,
+                            isLoadingInitial: false,
+                            isLoadingMore: false,
+                        }),
+                        isLoadingInitial: false,
+                        isLoadingMore: false,
+                    },
+                },
+                isLoadingImagesByGalleryId: {
+                    ...state.isLoadingImagesByGalleryId,
+                    [galleryId]: false,
+                },
+            }));
+        }
+    },
+
+    loadMoreGalleryImages: async (galleryId: string) => {
+        const page = get().imagesPageByGalleryId[galleryId];
+        if (page?.isLoadingMore || page?.isLoadingInitial) {
+            return get().imagesByGalleryId[galleryId] ?? [];
+        }
+        if (page && !page.hasMore) {
+            return get().imagesByGalleryId[galleryId] ?? [];
+        }
+        if (page && !page.cursor) {
+            return get().imagesByGalleryId[galleryId] ?? [];
+        }
+
+        set((state) => ({
+            imagesPageByGalleryId: {
+                ...state.imagesPageByGalleryId,
+                [galleryId]: {
+                    ...(state.imagesPageByGalleryId[galleryId] ?? {
+                        cursor: null,
+                        hasMore: true,
+                        isLoadingInitial: false,
+                        isLoadingMore: false,
+                    }),
+                    isLoadingMore: true,
+                },
+            },
+        }));
+
+        try {
+            const cursor = get().imagesPageByGalleryId[galleryId]?.cursor;
+            if (!cursor) return get().imagesByGalleryId[galleryId] ?? [];
+
+            let query = supabase
+                .from("date_images")
+                .select("*")
+                .eq("gallery_id", galleryId)
+                .or(
+                    `created_at.lt.${cursor.created_at},and(created_at.eq.${cursor.created_at},id.lt.${cursor.id})`,
+                )
+                .order("created_at", { ascending: false })
+                .order("id", { ascending: false })
+                .limit(IMAGES_PAGE_SIZE);
+
+            const { data, error } = await query;
+            if (error) {
+                console.error("Error loading more gallery images:", error);
+                set({ error: error.message });
+                return get().imagesByGalleryId[galleryId] ?? [];
+            }
+
+            const rows = (data as GalleryImage[]) ?? [];
+
+            let merged = rows;
+            if (rows.length > 0) {
+                const imageIds = rows.map((r) => r.id);
+                const { data: signedMap, error: signErr } =
+                    await supabase.functions.invoke("sign-gallery-urls", {
+                        body: { galleryId, imageIds },
+                    });
+                if (signErr) {
+                    console.warn(
+                        "Signing failed, returning unsigned rows",
+                        signErr,
+                    );
+                } else {
+                    merged = rows.map((r) => ({
+                        ...r,
+                        url_thumb: signedMap?.[String(r.id)]?.url_thumb,
+                        url_grid: signedMap?.[String(r.id)]?.url_grid,
+                        url_orig: signedMap?.[String(r.id)]?.url_orig,
+                    }));
+                }
+            }
+
+            const lastFetched = rows[rows.length - 1];
+            const nextCursor = lastFetched
+                ? {
+                      created_at: String(lastFetched.created_at),
+                      id: String(lastFetched.id),
+                  }
+                : cursor;
+
+            set((state) => ({
+                imagesByGalleryId: {
+                    ...state.imagesByGalleryId,
+                    [galleryId]: mergeUniqueById(
+                        state.imagesByGalleryId[galleryId] ?? [],
+                        merged,
+                    ),
+                },
+                imagesPageByGalleryId: {
+                    ...state.imagesPageByGalleryId,
+                    [galleryId]: {
+                        cursor: nextCursor,
+                        hasMore: rows.length === IMAGES_PAGE_SIZE,
+                        isLoadingInitial: false,
+                        isLoadingMore: false,
+                    },
+                },
+            }));
+
+            return get().imagesByGalleryId[galleryId] ?? [];
+        } finally {
+            set((state) => ({
+                imagesPageByGalleryId: {
+                    ...state.imagesPageByGalleryId,
+                    [galleryId]: {
+                        ...(state.imagesPageByGalleryId[galleryId] ?? {
+                            cursor: null,
+                            hasMore: true,
+                            isLoadingInitial: false,
+                            isLoadingMore: false,
+                        }),
+                        isLoadingMore: false,
+                    },
+                },
+            }));
+        }
+    },
+
+    refreshGalleryImages: async (galleryId: string) => {
+        return await get().loadInitialGalleryImages(galleryId);
+    },
+
+    fetchGalleries: async () => {
+        // Legacy alias kept for compatibility; now loads the first paged screen.
+        return await get().refreshGalleries();
     },
 
     fetchGalleryImages: async (galleryId: string) => {
@@ -403,12 +881,6 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
         }
 
         const newGallery = data as Gallery;
-
-        // Update store immediately
-        set((state) => ({
-            galleries: [newGallery, ...state.galleries],
-        }));
-
         return newGallery;
     },
 
@@ -452,24 +924,28 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
             const CONCURRENCY = 3;
             let completedImages = 0;
 
-            await runWithConcurrency(images, CONCURRENCY, async (imageUri, idx) => {
-                await uploadSingleImage(
-                    galleryId,
-                    imageUri,
-                    idx,
-                    images.length,
-                    spaceId,
-                    hasCover,
-                    toastId,
-                    set,
-                );
+            await runWithConcurrency(
+                images,
+                CONCURRENCY,
+                async (imageUri, idx) => {
+                    await uploadSingleImage(
+                        galleryId,
+                        imageUri,
+                        idx,
+                        images.length,
+                        spaceId,
+                        hasCover,
+                        toastId,
+                        set,
+                    );
 
-                completedImages++;
-                toast.update(toastId, {
-                    message: `Uploaded ${completedImages}/${images.length} images...`,
-                    progress: completedImages / images.length,
-                });
-            });
+                    completedImages++;
+                    toast.update(toastId, {
+                        message: `Uploaded ${completedImages}/${images.length} images...`,
+                        progress: completedImages / images.length,
+                    });
+                },
+            );
 
             return true;
         } finally {
@@ -652,12 +1128,14 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
             return false;
         }
 
-        // Update store
+        // Clear cached images for this gallery; list ordering is reloaded via refresh.
         set((state) => {
             const { [galleryId]: _removed, ...rest } = state.imagesByGalleryId;
+            const { [galleryId]: _removedPage, ...restPages } =
+                state.imagesPageByGalleryId;
             return {
-                galleries: state.galleries.filter((g) => g.id !== galleryId),
                 imagesByGalleryId: rest,
+                imagesPageByGalleryId: restPages,
             };
         });
 

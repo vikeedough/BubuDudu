@@ -31,9 +31,9 @@ const DeleteImagesModal: React.FC<DeleteImagesModalProps> = ({
 }) => {
     const [isDeleting, setIsDeleting] = useState(false);
 
-    const fetchGalleryImages = useGalleryStore((s) => s.fetchGalleryImages);
+    const refreshGalleryImages = useGalleryStore((s) => s.refreshGalleryImages);
     const deleteMultipleGalleryImages = useGalleryStore(
-        (s) => s.deleteMultipleGalleryImages
+        (s) => s.deleteMultipleGalleryImages,
     );
 
     const handleDeleteImage = async () => {
@@ -46,11 +46,11 @@ const DeleteImagesModal: React.FC<DeleteImagesModalProps> = ({
 
         const ok = await deleteMultipleGalleryImages(
             galleryId,
-            selectedImages.map((img) => img.id.toString())
+            selectedImages.map((img) => img.id.toString()),
         );
 
         if (ok) {
-            await fetchGalleryImages(galleryId);
+            await refreshGalleryImages(galleryId);
             setSelectedImages([]);
             setEditMode(false);
             onClose();
