@@ -23,25 +23,25 @@ export const useGalleryContent = ({ galleryId }: { galleryId: string }) => {
     const deleteGallery = useGalleryStore((s) => s.deleteGallery);
     const uploadGalleryImages = useGalleryStore((s) => s.uploadGalleryImages);
 
-    const imagesFromStore = useGalleryStore(
+    const canonicalImages = useGalleryStore(
         (s) => s.imagesByGalleryId[galleryId] ?? EMPTY_IMAGES,
     );
-    const imagesPage = useGalleryStore(
-        (s) =>
-            s.imagesPageByGalleryId[galleryId] ?? {
-                cursor: null,
-                hasMore: true,
-                isLoadingInitial: false,
-                isLoadingMore: false,
-            },
+    const hasMoreImages = useGalleryStore(
+        (s) => s.imagesPageByGalleryId[galleryId]?.hasMore ?? false,
+    );
+    const isLoadingInitialImages = useGalleryStore(
+        (s) => s.imagesPageByGalleryId[galleryId]?.isLoadingInitial ?? false,
+    );
+    const isLoadingMoreImages = useGalleryStore(
+        (s) => s.imagesPageByGalleryId[galleryId]?.isLoadingMore ?? false,
     );
 
     const [isDownloading, setIsDownloading] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
-    const [selectedImage, setSelectedImage] = useState<GalleryImage | null>(
-        null,
-    );
-    const [isImageModalOpen, setIsImageModalOpen] = useState(false);
+    const [viewerInitialImageId, setViewerInitialImageId] = useState<
+        string | null
+    >(null);
+    const [isViewerOpen, setIsViewerOpen] = useState(false);
     const [isDeleteImagesModalOpen, setIsDeleteImagesModalOpen] =
         useState(false);
     const [isDeleteGalleryModalOpen, setIsDeleteGalleryModalOpen] =
@@ -55,14 +55,14 @@ export const useGalleryContent = ({ galleryId }: { galleryId: string }) => {
     }, [galleryId, loadInitialGalleryImages]);
 
     const sortedImages = useMemo(() => {
-        return imagesFromStore
+        return canonicalImages
             .slice()
             .sort((a, b) =>
                 sortingByAscending
                     ? a.created_at.localeCompare(b.created_at)
                     : b.created_at.localeCompare(a.created_at),
             );
-    }, [imagesFromStore, sortingByAscending]);
+    }, [canonicalImages, sortingByAscending]);
 
     const handleAddImages = async () => {
         const newImages = await pickMultipleImages();
@@ -94,8 +94,8 @@ export const useGalleryContent = ({ galleryId }: { galleryId: string }) => {
             });
             return;
         }
-        setSelectedImage(image);
-        setIsImageModalOpen(true);
+        setViewerInitialImageId(image.id);
+        setIsViewerOpen(true);
     };
 
     const handleSelectImage = (image: GalleryImage) => {
@@ -157,18 +157,20 @@ export const useGalleryContent = ({ galleryId }: { galleryId: string }) => {
     const handleToggleSort = () => setSortingByAscending((v) => !v);
 
     return {
-        loading: imagesPage.isLoadingInitial,
-        isLoadingInitialImages: imagesPage.isLoadingInitial,
-        isLoadingMoreImages: imagesPage.isLoadingMore,
-        hasMoreImages: imagesPage.hasMore,
+        loading: isLoadingInitialImages,
+        isLoadingInitialImages,
+        isLoadingMoreImages,
+        hasMoreImages,
         loadMoreGalleryImages,
         refreshGalleryImages,
+
+        canonicalImages,
+        isViewerOpen,
+        viewerInitialImageId,
 
         isDownloading,
         isDeleting,
         images: sortedImages,
-        selectedImage,
-        isImageModalOpen,
         isDeleteImagesModalOpen,
         isDeleteGalleryModalOpen,
         editMode,
@@ -185,7 +187,8 @@ export const useGalleryContent = ({ galleryId }: { galleryId: string }) => {
         handleClearSelection,
         handleToggleSort,
 
-        setIsImageModalOpen,
+        setIsViewerOpen,
+        setViewerInitialImageId,
         setIsDeleteImagesModalOpen,
         setIsDeleteGalleryModalOpen,
         setSelectedImages,

@@ -1,10 +1,12 @@
+import "react-native-gesture-handler";
+
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import { ActivityIndicator, View } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import { ToastRoot } from "@/components/toast/ToastRoot";
 import AuthProvider from "@/providers/auth-provider";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 export default function RootLayout() {
     const [fontsLoaded] = useFonts({
@@ -17,15 +19,17 @@ export default function RootLayout() {
 
     if (!fontsLoaded) {
         return (
-            <View
-                style={{
-                    flex: 1,
-                    justifyContent: "center",
-                    alignItems: "center",
-                }}
-            >
-                <ActivityIndicator size="large" />
-            </View>
+            <GestureHandlerRootView style={{ flex: 1 }}>
+                <View
+                    style={{
+                        flex: 1,
+                        justifyContent: "center",
+                        alignItems: "center",
+                    }}
+                >
+                    <ActivityIndicator size="large" />
+                </View>
+            </GestureHandlerRootView>
         );
     }
 

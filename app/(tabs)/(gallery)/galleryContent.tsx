@@ -9,8 +9,8 @@ import GalleryControls from "@/components/gallery/GalleryControls";
 import GalleryEditControls from "@/components/gallery/GalleryEditControls";
 import GalleryHeader from "@/components/gallery/GalleryHeader";
 import GalleryImageGrid from "@/components/gallery/GalleryImageGrid";
+import GalleryImageViewerModal from "@/components/gallery/GalleryImageViewerModal";
 import GalleryLocationBar from "@/components/gallery/GalleryLocationBar";
-import ImageModal from "@/components/gallery/ImageModal";
 import { Colors } from "@/constants/colors";
 import { useGalleryContent } from "@/hooks/useGalleryContent";
 import { convertDate } from "@/utils/gallery";
@@ -30,12 +30,14 @@ const GalleryContent = () => {
     const {
         isLoadingInitialImages,
         isLoadingMoreImages,
+        hasMoreImages,
         loadMoreGalleryImages,
         isDownloading,
         isDeleting,
         images,
-        selectedImage,
-        isImageModalOpen,
+        canonicalImages,
+        isViewerOpen,
+        viewerInitialImageId,
         isDeleteImagesModalOpen,
         isDeleteGalleryModalOpen,
         editMode,
@@ -50,7 +52,8 @@ const GalleryContent = () => {
         handleSelectImage,
         handleClearSelection,
         handleToggleSort,
-        setIsImageModalOpen,
+        setIsViewerOpen,
+        setViewerInitialImageId,
         setIsDeleteImagesModalOpen,
         setIsDeleteGalleryModalOpen,
         setSelectedImages,
@@ -59,14 +62,18 @@ const GalleryContent = () => {
 
     return (
         <SafeAreaView style={styles.container}>
-            {selectedImage && (
-                <ImageModal
-                    isOpen={isImageModalOpen}
-                    imageId={selectedImage.id.toString()}
-                    imageUri={selectedImage.url_grid ?? ""}
-                    onClose={() => setIsImageModalOpen(false)}
-                />
-            )}
+            <GalleryImageViewerModal
+                isOpen={isViewerOpen}
+                initialImageId={viewerInitialImageId}
+                images={canonicalImages}
+                hasMore={hasMoreImages}
+                isLoadingMore={isLoadingMoreImages}
+                onLoadMore={() => loadMoreGalleryImages(galleryId as string)}
+                onClose={() => {
+                    setIsViewerOpen(false);
+                    setViewerInitialImageId(null);
+                }}
+            />
             {isDeleteImagesModalOpen && (
                 <DeleteImagesModal
                     isOpen={isDeleteImagesModalOpen}
