@@ -107,7 +107,7 @@ const Wheel = () => {
                 }
             }, 500);
         },
-        [addWheel, closeDraft, updateTitle, wheels, selectedIndex]
+        [addWheel, closeDraft, updateTitle, wheels, selectedIndex],
     );
 
     const handleTitleChange = (newTitle: string) => {
@@ -242,7 +242,7 @@ const Wheel = () => {
                 <KeyboardAvoidingView
                     behavior={Platform.OS === "ios" ? "padding" : "height"}
                     style={styles.keyboardAvoidingView}
-                    keyboardVerticalOffset={Platform.OS === "ios" ? 120 : 50}
+                    keyboardVerticalOffset={0}
                 >
                     <ScrollView
                         contentContainerStyle={styles.scrollContent}
@@ -343,7 +343,7 @@ const Wheel = () => {
                                     wheelsForUI[selectedIndex] &&
                                     wheelsForUI[selectedIndex].choices &&
                                     Array.isArray(
-                                        wheelsForUI[selectedIndex].choices
+                                        wheelsForUI[selectedIndex].choices,
                                     ) &&
                                     wheelsForUI[selectedIndex].choices.length >
                                         0 ? (
@@ -353,7 +353,7 @@ const Wheel = () => {
                                                     item={choice}
                                                     key={`${choice}-${index}`}
                                                 />
-                                            )
+                                            ),
                                         )
                                     ) : (
                                         <CustomText
