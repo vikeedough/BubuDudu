@@ -7,9 +7,8 @@ on:
 
 jobs:
     build-android-apk:
-        if: ${{ github.event.pull_request.merged == true }}
+        if: ${{ github.event.pull_request.merged == true && contains(github.event.pull_request.labels.*.name, 'build-apk') }}
         runs-on: ubuntu-latest
-
         steps:
             - name: Send Telegram (Build Started)
               env:
@@ -90,14 +89,14 @@ jobs:
               run: |
                   curl -sS -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
                     -d "chat_id=${TELEGRAM_CHAT_ID}" \
-                    --data-urlencode "text=✅ BubuDudu Android APK build finished successfully: ${BUILD_URL}"
+                    --data-urlencode "text=APK build finished successfully: ${BUILD_URL}"
 
             - name: Send Telegram (Build Failed)
-              if: failure()
+              if: ${{ always() && failure() }}
               env:
                   TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
                   TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
               run: |
                   curl -sS -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
                     -d "chat_id=${TELEGRAM_CHAT_ID}" \
-                    --data-urlencode "text=❌ BubuDudu Android APK build FAILED. Check GitHub Actions logs."
+                    --data-urlencode "text=APK build FAILED. Check GitHub Actions logs."

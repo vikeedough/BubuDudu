@@ -1,7 +1,9 @@
 import React, { useState } from "react";
 import {
     Alert,
+    KeyboardAvoidingView,
     Modal,
+    Platform,
     ScrollView,
     StyleSheet,
     TextInput,
@@ -50,7 +52,7 @@ const EditChoicesModal: React.FC<EditChoicesModalProps> = ({
     const updateWheelChoices = useWheelStore((s) => s.updateWheelChoices);
 
     const [currentChoices, setCurrentChoices] = useState<string[]>(
-        wheel.choices || []
+        wheel.choices || [],
     );
     const [newChoice, setNewChoice] = useState("");
 
@@ -93,64 +95,81 @@ const EditChoicesModal: React.FC<EditChoicesModalProps> = ({
             animationType="fade"
         >
             <View style={styles.modalOverlay}>
-                <View style={styles.modalContainer}>
-                    <CustomText weight="bold" style={styles.modalTitle}>
-                        Edit Items
-                    </CustomText>
-                    <CustomText weight="semibold" style={styles.modalSubtitle}>
-                        Name
-                    </CustomText>
-                    <TextInput
-                        style={styles.input}
-                        value={newChoice}
-                        onChangeText={setNewChoice}
-                        onSubmitEditing={handleAddChoice}
-                    />
-                    <ScrollView
-                        style={styles.choicesScrollView}
-                        contentContainerStyle={styles.choicesContainer}
-                    >
-                        <View style={styles.choicesList}>
-                            {currentChoices.length > 0 ? (
-                                currentChoices.map((choice) => (
-                                    <ChoiceItem
-                                        key={choice}
-                                        item={choice}
-                                        onDelete={handleDeleteChoice}
-                                    />
-                                ))
-                            ) : (
-                                <CustomText style={styles.noChoicesText}>
-                                    No choices available for this wheel
+                <KeyboardAvoidingView
+                    style={styles.kav}
+                    behavior={Platform.OS === "ios" ? "padding" : "height"}
+                    keyboardVerticalOffset={0}
+                >
+                    <View style={styles.modalContainer}>
+                        <ScrollView
+                            contentContainerStyle={styles.modalContent}
+                            keyboardShouldPersistTaps="handled"
+                            showsVerticalScrollIndicator={false}
+                        >
+                            <CustomText weight="bold" style={styles.modalTitle}>
+                                Edit Items
+                            </CustomText>
+                            <CustomText
+                                weight="semibold"
+                                style={styles.modalSubtitle}
+                            >
+                                Name
+                            </CustomText>
+                            <TextInput
+                                style={styles.input}
+                                value={newChoice}
+                                onChangeText={setNewChoice}
+                                onSubmitEditing={handleAddChoice}
+                            />
+                            <ScrollView
+                                style={styles.choicesScrollView}
+                                contentContainerStyle={styles.choicesContainer}
+                            >
+                                <View style={styles.choicesList}>
+                                    {currentChoices.length > 0 ? (
+                                        currentChoices.map((choice) => (
+                                            <ChoiceItem
+                                                key={choice}
+                                                item={choice}
+                                                onDelete={handleDeleteChoice}
+                                            />
+                                        ))
+                                    ) : (
+                                        <CustomText
+                                            style={styles.noChoicesText}
+                                        >
+                                            No choices available for this wheel
+                                        </CustomText>
+                                    )}
+                                </View>
+                            </ScrollView>
+                        </ScrollView>
+                        <View style={styles.modalButtons}>
+                            <TouchableOpacity
+                                style={styles.yesButton}
+                                onPress={handleSaveChoicesAndClose}
+                            >
+                                <CustomText
+                                    weight="semibold"
+                                    style={styles.modalButtonText}
+                                >
+                                    Save
                                 </CustomText>
-                            )}
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={styles.noButton}
+                                onPress={onClose}
+                            >
+                                <CustomText
+                                    weight="semibold"
+                                    style={styles.modalButtonText}
+                                >
+                                    Cancel
+                                </CustomText>
+                            </TouchableOpacity>
                         </View>
-                    </ScrollView>
-                    <View style={styles.modalButtons}>
-                        <TouchableOpacity
-                            style={styles.yesButton}
-                            onPress={handleSaveChoicesAndClose}
-                        >
-                            <CustomText
-                                weight="semibold"
-                                style={styles.modalButtonText}
-                            >
-                                Save
-                            </CustomText>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={styles.noButton}
-                            onPress={onClose}
-                        >
-                            <CustomText
-                                weight="semibold"
-                                style={styles.modalButtonText}
-                            >
-                                Cancel
-                            </CustomText>
-                        </TouchableOpacity>
                     </View>
-                </View>
+                </KeyboardAvoidingView>
             </View>
         </Modal>
     );
@@ -160,8 +179,11 @@ export default EditChoicesModal;
 
 const styles = StyleSheet.create({
     modalOverlay: {
-        flex: 1,
+        ...StyleSheet.absoluteFillObject,
         backgroundColor: "rgba(0, 0, 0, 0.5)",
+    },
+    kav: {
+        flex: 1,
         justifyContent: "center",
         alignItems: "center",
     },
@@ -179,13 +201,17 @@ const styles = StyleSheet.create({
         shadowRadius: 4,
         elevation: 5,
         width: "90%",
-        height: "50%",
+        maxHeight: "80%",
+    },
+    modalContent: {
+        flexGrow: 1,
     },
     modalTitle: {
         fontSize: 16,
         marginBottom: 10,
     },
     modalButtons: {
+        paddingTop: 12,
         flexDirection: "row",
         gap: 25,
         justifyContent: "center",

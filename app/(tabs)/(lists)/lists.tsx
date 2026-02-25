@@ -180,88 +180,88 @@ const Lists = () => {
     return (
         <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
             <SafeAreaView style={styles.container}>
-                <DeleteListModal
-                    isOpen={isDeleteListModalOpen}
-                    onClose={() => setIsDeleteListModalOpen(false)}
-                    selectedList={selectedList as List}
-                />
-                <View style={styles.header}>
-                    <CustomText weight="extrabold" style={styles.headerTitle}>
-                        Notes
-                    </CustomText>
-                    <CustomText weight="medium" style={styles.headerDate}>
-                        {date}
-                    </CustomText>
-                </View>
-                <View style={styles.contentContainer}>
-                    <DebonHeart
-                        style={styles.debonHeart}
-                        width={130}
-                        height={130}
+                <KeyboardAvoidingView
+                    style={{ flex: 1 }}
+                    behavior={Platform.OS === "ios" ? "padding" : undefined}
+                    keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
+                >
+                    <DeleteListModal
+                        isOpen={isDeleteListModalOpen}
+                        onClose={() => setIsDeleteListModalOpen(false)}
+                        selectedList={selectedList as List}
                     />
-                    <View style={styles.labelsContainer}>
-                        <FlatList
-                            data={lists}
-                            style={{ marginBottom: 5 }}
-                            renderItem={({
-                                item,
-                                index,
-                            }: {
-                                item: List;
-                                index: number;
-                            }) => labelItem(item, index)}
-                            ItemSeparatorComponent={() => (
-                                <View style={{ height: 5 }} />
-                            )}
-                            refreshing={refreshing}
-                            onRefresh={onRefresh}
-                        />
-                        <TouchableOpacity
-                            style={styles.addListLabel}
-                            onPress={handleAddEmptyList}
+                    <View style={styles.header}>
+                        <CustomText
+                            weight="extrabold"
+                            style={styles.headerTitle}
                         >
-                            <CustomText
-                                weight="medium"
-                                style={styles.addListLabelText}
-                            >
-                                +
-                            </CustomText>
-                        </TouchableOpacity>
+                            Notes
+                        </CustomText>
+                        <CustomText weight="medium" style={styles.headerDate}>
+                            {date}
+                        </CustomText>
                     </View>
-                    <View style={styles.noteContainer}>
-                        <View style={{ flex: 1 }}>
-                            {selectedList?.id &&
-                                selectedList.id !== "__DRAFT__" && (
-                                    <TouchableOpacity
-                                        style={styles.trashIcon}
-                                        onPress={() =>
-                                            setIsDeleteListModalOpen(true)
-                                        }
-                                    >
-                                        <TrashIcon />
-                                    </TouchableOpacity>
+                    <View style={styles.contentContainer}>
+                        <DebonHeart
+                            style={styles.debonHeart}
+                            width={130}
+                            height={130}
+                        />
+                        <View style={styles.labelsContainer}>
+                            <FlatList
+                                data={lists}
+                                style={{ marginBottom: 5 }}
+                                renderItem={({
+                                    item,
+                                    index,
+                                }: {
+                                    item: List;
+                                    index: number;
+                                }) => labelItem(item, index)}
+                                ItemSeparatorComponent={() => (
+                                    <View style={{ height: 5 }} />
                                 )}
-                            <TextInput
-                                style={styles.noteTitle}
-                                placeholder="Title"
-                                placeholderTextColor={Colors.darkGreenText}
-                                value={noteTitle}
-                                onChangeText={(t) => {
-                                    setNoteTitle(t);
-                                    if (selectedList?.id === "__DRAFT__")
-                                        updateDraft({ type: t });
-                                }}
+                                refreshing={refreshing}
+                                onRefresh={onRefresh}
+                                keyboardShouldPersistTaps="handled"
                             />
-                            <KeyboardAvoidingView
-                                behavior={
-                                    Platform.OS === "ios" ? "padding" : "height"
-                                }
-                                style={styles.keyboardAvoidingView}
-                                keyboardVerticalOffset={
-                                    Platform.OS === "ios" ? 150 : 50
-                                }
+                            <TouchableOpacity
+                                style={styles.addListLabel}
+                                onPress={handleAddEmptyList}
                             >
-                                <ScrollView>
+                                <CustomText
+                                    weight="medium"
+                                    style={styles.addListLabelText}
+                                >
+                                    +
+                                </CustomText>
+                            </TouchableOpacity>
+                        </View>
+                        <View style={styles.noteContainer}>
+                            <View style={{ flex: 1 }}>
+                                {selectedList?.id &&
+                                    selectedList.id !== "__DRAFT__" && (
+                                        <TouchableOpacity
+                                            style={styles.trashIcon}
+                                            onPress={() =>
+                                                setIsDeleteListModalOpen(true)
+                                            }
+                                        >
+                                            <TrashIcon />
+                                        </TouchableOpacity>
+                                    )}
+                                <TextInput
+                                    style={styles.noteTitle}
+                                    placeholder="Title"
+                                    placeholderTextColor={Colors.darkGreenText}
+                                    value={noteTitle}
+                                    onChangeText={(t) => {
+                                        setNoteTitle(t);
+                                        if (selectedList?.id === "__DRAFT__")
+                                            updateDraft({ type: t });
+                                    }}
+                                />
+                                <ScrollView keyboardShouldPersistTaps="handled">
                                     <TextInput
                                         style={styles.noteContent}
                                         placeholder="Type something here..."
@@ -280,30 +280,33 @@ const Lists = () => {
                                         textAlignVertical="top"
                                     />
                                 </ScrollView>
-                            </KeyboardAvoidingView>
-                        </View>
-                        {isLoading ? (
-                            <ActivityIndicator size="small" color="#FFCC7D" />
-                        ) : (
-                            <TouchableOpacity
-                                style={styles.saveButton}
-                                onPress={() =>
-                                    handleSaveList(
-                                        selectedList as List,
-                                        selectedIndex
-                                    )
-                                }
-                            >
-                                <CustomText
-                                    weight="semibold"
-                                    style={styles.saveButtonText}
+                            </View>
+                            {isLoading ? (
+                                <ActivityIndicator
+                                    size="small"
+                                    color="#FFCC7D"
+                                />
+                            ) : (
+                                <TouchableOpacity
+                                    style={styles.saveButton}
+                                    onPress={() =>
+                                        handleSaveList(
+                                            selectedList as List,
+                                            selectedIndex,
+                                        )
+                                    }
                                 >
-                                    Save
-                                </CustomText>
-                            </TouchableOpacity>
-                        )}
+                                    <CustomText
+                                        weight="semibold"
+                                        style={styles.saveButtonText}
+                                    >
+                                        Save
+                                    </CustomText>
+                                </TouchableOpacity>
+                            )}
+                        </View>
                     </View>
-                </View>
+                </KeyboardAvoidingView>
             </SafeAreaView>
         </TouchableWithoutFeedback>
     );

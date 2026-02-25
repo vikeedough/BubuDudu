@@ -1,7 +1,9 @@
 import { useState } from "react";
 import {
     Alert,
+    KeyboardAvoidingView,
     Modal,
+    Platform,
     StyleSheet,
     TextInput,
     TouchableOpacity,
@@ -42,7 +44,7 @@ const NoteModal: React.FC<NoteModalProps> = ({
         } else {
             Alert.alert(
                 "Error",
-                "An unexpected error occurred. Please try again."
+                "An unexpected error occurred. Please try again.",
             );
         }
     };
@@ -55,36 +57,48 @@ const NoteModal: React.FC<NoteModalProps> = ({
             animationType="fade"
         >
             <View style={styles.modalOverlay}>
-                <View style={styles.modalContainer}>
-                    <CustomText weight="bold" style={styles.modalTitle}>
-                        Edit Status
-                    </CustomText>
-                    <TextInput
-                        value={note}
-                        onChangeText={setNote}
-                        placeholder="Enter your note!"
-                        multiline
-                        style={styles.noteInput}
-                    />
-                    <View style={styles.buttonContainer}>
-                        <TouchableOpacity
-                            style={styles.saveButton}
-                            onPress={handleSave}
-                        >
-                            <CustomText weight="bold" style={styles.buttonText}>
-                                Save
-                            </CustomText>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={styles.cancelButton}
-                            onPress={onClose}
-                        >
-                            <CustomText weight="bold" style={styles.buttonText}>
-                                Cancel
-                            </CustomText>
-                        </TouchableOpacity>
+                <KeyboardAvoidingView
+                    style={styles.kav}
+                    behavior={Platform.OS === "ios" ? "padding" : "height"}
+                    keyboardVerticalOffset={0}
+                >
+                    <View style={styles.modalContainer}>
+                        <CustomText weight="bold" style={styles.modalTitle}>
+                            Edit Status
+                        </CustomText>
+                        <TextInput
+                            value={note}
+                            onChangeText={setNote}
+                            placeholder="Enter your note!"
+                            multiline
+                            style={styles.noteInput}
+                        />
+                        <View style={styles.buttonContainer}>
+                            <TouchableOpacity
+                                style={styles.saveButton}
+                                onPress={handleSave}
+                            >
+                                <CustomText
+                                    weight="bold"
+                                    style={styles.buttonText}
+                                >
+                                    Save
+                                </CustomText>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={styles.cancelButton}
+                                onPress={onClose}
+                            >
+                                <CustomText
+                                    weight="bold"
+                                    style={styles.buttonText}
+                                >
+                                    Cancel
+                                </CustomText>
+                            </TouchableOpacity>
+                        </View>
                     </View>
-                </View>
+                </KeyboardAvoidingView>
             </View>
         </Modal>
     );
@@ -94,8 +108,11 @@ export default NoteModal;
 
 const styles = StyleSheet.create({
     modalOverlay: {
-        flex: 1,
+        ...StyleSheet.absoluteFillObject,
         backgroundColor: "rgba(0, 0, 0, 0.5)",
+    },
+    kav: {
+        flex: 1,
         justifyContent: "center",
         alignItems: "center",
     },
