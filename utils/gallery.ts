@@ -34,13 +34,6 @@ export const downloadAndSaveImage = async (image_id: string, url: string) => {
     const { status, canAskAgain } =
         await MediaLibrary.requestPermissionsAsync(true);
 
-    console.log(
-        "Media Library Permission Status:",
-        status,
-        "Can Ask Again:",
-        canAskAgain,
-    );
-
     if (status !== "granted") {
         Alert.alert(
             "Permission Required",

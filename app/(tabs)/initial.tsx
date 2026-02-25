@@ -25,7 +25,6 @@ import { useMilestoneStore } from "@/stores/MilestoneStore";
 import { toast } from "@/toast/api";
 import { getToday, pickAndUploadAvatar } from "@/utils/home";
 import { getSpaceId } from "@/utils/secure-store";
-import Animated, { useSharedValue, withTiming } from "react-native-reanimated";
 
 const Home = () => {
     const { profile, session, isLoggedIn, refreshProfile, updateProfile } =
@@ -37,12 +36,6 @@ const Home = () => {
 
     const milestone = useMilestoneStore((s) => s.milestone);
     const fetchMilestone = useMilestoneStore((s) => s.fetchMilestone);
-
-    const x = useSharedValue(0);
-
-    useEffect(() => {
-        x.value = withTiming(100);
-    }, []);
 
     useEffect(() => {
         fetchMilestone();
@@ -166,14 +159,6 @@ const Home = () => {
                 </TouchableOpacity>
                 <QuoteContainer quotes={quotes} />
             </View>
-            <Animated.View
-                style={{
-                    width: 50,
-                    height: 50,
-                    backgroundColor: Colors.hotPink,
-                    transform: [{ translateX: x }],
-                }}
-            />
             <View style={styles.milestonesContainer}>
                 <View style={{ flexDirection: "row", gap: 20 }}>
                     <MilestoneTracker

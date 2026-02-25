@@ -14,6 +14,7 @@ import { Gallery, fitContainer } from "react-native-zoom-toolkit";
 import Back from "@/assets/svgs/back.svg";
 import { Colors } from "@/constants/colors";
 import type { GalleryImage } from "@/stores/GalleryStore";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 interface GalleryImageViewerModalProps {
     isOpen: boolean;
@@ -154,102 +155,110 @@ const GalleryImageViewerModal: React.FC<GalleryImageViewerModalProps> = ({
             transparent
             animationType="fade"
         >
-            <View style={styles.modalOverlay}>
-                <SafeAreaView style={styles.safeArea}>
-                    <View style={styles.topBar}>
-                        <TouchableOpacity
-                            style={styles.closeButton}
-                            onPress={onClose}
-                            accessibilityRole="button"
-                            accessibilityLabel="Close image viewer"
-                        >
-                            <Back />
-                        </TouchableOpacity>
-                    </View>
+            <GestureHandlerRootView style={{ flex: 1 }}>
+                <View style={styles.modalOverlay}>
+                    <SafeAreaView style={styles.safeArea}>
+                        <View style={styles.topBar}>
+                            <TouchableOpacity
+                                style={styles.closeButton}
+                                onPress={onClose}
+                                accessibilityRole="button"
+                                accessibilityLabel="Close image viewer"
+                            >
+                                <Back />
+                            </TouchableOpacity>
+                        </View>
 
-                    <View
-                        style={styles.galleryContainer}
-                        onLayout={(e) => {
-                            const { width, height } = e.nativeEvent.layout;
-                            if (!width || !height) return;
-                            setContainerSize((prev) => {
-                                if (
-                                    prev.width === width &&
-                                    prev.height === height
-                                ) {
-                                    return prev;
-                                }
-                                return { width, height };
-                            });
-                        }}
-                    >
-                        {!shouldMountGallery && (
-                            <View style={styles.loadingContainer}>
-                                <ActivityIndicator
-                                    size="large"
-                                    color={Colors.white}
-                                />
-                            </View>
-                        )}
-
-                        {shouldMountGallery && (
-                            <Gallery<GalleryImage>
-                                data={images}
-                                initialIndex={safeInitialIndex}
-                                gap={16}
-                                windowSize={3}
-                                keyExtractor={(item) => item.id}
-                                onIndexChange={(index) => {
+                        <View
+                            style={styles.galleryContainer}
+                            onLayout={(e) => {
+                                const { width, height } = e.nativeEvent.layout;
+                                if (!width || !height) return;
+                                setContainerSize((prev) => {
                                     if (
-                                        index >= images.length - 3 &&
-                                        hasMore &&
-                                        !isLoadingMore
+                                        prev.width === width &&
+                                        prev.height === height
                                     ) {
-                                        if (
-                                            lastLoadMoreLengthRef.current !==
-                                            images.length
-                                        ) {
-                                            lastLoadMoreLengthRef.current =
-                                                images.length;
-                                            onLoadMore();
-                                        }
+                                        return prev;
                                     }
-                                }}
-                                renderItem={(item, _index) => {
-                                    const img = item as unknown as
-                                        | GalleryImage
-                                        | null
-                                        | undefined;
-                                    if (!img) {
+                                    return { width, height };
+                                });
+                            }}
+                        >
+                            {!shouldMountGallery && (
+                                <View style={styles.loadingContainer}>
+                                    <ActivityIndicator
+                                        size="large"
+                                        color={Colors.white}
+                                    />
+                                </View>
+                            )}
+
+                            {shouldMountGallery && (
+                                <Gallery<GalleryImage>
+                                    data={images}
+                                    initialIndex={safeInitialIndex}
+                                    gap={16}
+                                    windowSize={3}
+                                    keyExtractor={(item) => item.id}
+                                    onIndexChange={(index) => {
+                                        if (
+                                            index >= images.length - 3 &&
+                                            hasMore &&
+                                            !isLoadingMore
+                                        ) {
+                                            if (
+                                                lastLoadMoreLengthRef.current !==
+                                                images.length
+                                            ) {
+                                                lastLoadMoreLengthRef.current =
+                                                    images.length;
+                                                onLoadMore();
+                                            }
+                                        }
+                                    }}
+                                    renderItem={(item, _index) => {
+                                        const img = item as unknown as
+                                            | GalleryImage
+                                            | null
+                                            | undefined;
+                                        if (!img) {
+                                            return (
+                                                <View
+                                                    style={{
+                                                        width: containerWidth,
+                                                        height: containerHeight,
+                                                    }}
+                                                />
+                                            );
+                                        }
+
                                         return (
-                                            <View
-                                                style={{
-                                                    width: containerWidth,
-                                                    height: containerHeight,
-                                                }}
+                                            <GalleryViewerItem
+                                                img={img}
+                                                containerWidth={containerWidth}
+                                                containerHeight={
+                                                    containerHeight
+                                                }
                                             />
                                         );
+                                    }}
+                                    onPanStart={() => console.log("onPanStart")}
+                                    onPanEnd={() => console.log("onPanEnd")}
+                                    onPinchStart={() =>
+                                        console.log("onPinchStart")
                                     }
-
-                                    return (
-                                        <GalleryViewerItem
-                                            img={img}
-                                            containerWidth={containerWidth}
-                                            containerHeight={containerHeight}
-                                        />
-                                    );
-                                }}
-                                onPanStart={() => console.log("onPanStart")}
-                                onPanEnd={() => console.log("onPanEnd")}
-                                onPinchStart={() => console.log("onPinchStart")}
-                                onPinchEnd={() => console.log("onPinchEnd")}
-                                onTap={() => console.log("onTap")}
-                                onSwipe={(dir) => console.log("onSwipe", dir)}
-                            />
-                        )}
-                    </View>
-                </SafeAreaView>
-            </View>
+                                    onPinchEnd={() => console.log("onPinchEnd")}
+                                    onTap={() => console.log("onTap")}
+                                    onSwipe={(dir) =>
+                                        console.log("onSwipe", dir)
+                                    }
+                                />
+                            )}
+                        </View>
+                    </SafeAreaView>
+                </View>
+            </GestureHandlerRootView>
         </Modal>
     );
 };
