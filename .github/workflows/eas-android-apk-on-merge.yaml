@@ -1,0 +1,80 @@
+name: EAS Android APK (merge to main) + Telegram
+
+on:
+    pull_request:
+        branches: [main]
+        types: [closed]
+
+jobs:
+    build-android-apk:
+        if: ${{ github.event.pull_request.merged == true }}
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Setup Node
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 20
+                  cache: npm
+
+            - name: Install dependencies
+              run: npm ci
+
+            - name: Setup EAS
+              uses: expo/expo-github-action@v8
+              with:
+                  eas-version: latest
+                  token: ${{ secrets.EXPO_TOKEN }}
+
+            - name: Trigger EAS build (Android APK) and wait
+              run: |
+                  eas build -p android --profile preview --non-interactive --wait --json > eas-build.json
+
+            - name: Resolve artifact URL via eas build:view
+              id: resolve
+              run: |
+                  node - <<'NODE'
+                  const fs = require('fs');
+                  const { execSync } = require('child_process');
+
+                  const raw = fs.readFileSync('eas-build.json', 'utf8').trim();
+                  const data = JSON.parse(raw);
+                  const build = Array.isArray(data) ? data[0] : (data?.build ?? data);
+                  const buildId = build?.id;
+
+                  if (!buildId) {
+                    console.error('No build id found in eas build JSON output.');
+                    console.error(JSON.stringify(data, null, 2));
+                    process.exit(1);
+                  }
+
+                  const viewRaw = execSync(`eas build:view ${buildId} --json`, { stdio: ['ignore','pipe','pipe'] }).toString();
+                  const view = JSON.parse(viewRaw);
+
+                  const url =
+                    view?.artifacts?.buildUrl ||
+                    view?.artifacts?.applicationArchiveUrl ||
+                    view?.buildUrl ||
+                    view?.url;
+
+                  if (!url) {
+                    console.error('No artifact/build URL found in eas build:view JSON.');
+                    console.error(JSON.stringify(view, null, 2));
+                    process.exit(1);
+                  }
+
+                  fs.appendFileSync(process.env.GITHUB_OUTPUT, `url=${url}\n`);
+                  NODE
+
+            - name: Send Telegram message
+              env:
+                  TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+                  TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+                  BUILD_URL: ${{ steps.resolve.outputs.url }}
+              run: |
+                  curl -sS -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+                    -d "chat_id=${TELEGRAM_CHAT_ID}" \
+                    --data-urlencode "text=BubuDudu Android APK build finished: ${BUILD_URL}"
