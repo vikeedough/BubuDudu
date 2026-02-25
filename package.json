@@ -6,8 +6,8 @@
         "start": "expo start",
         "reset-project": "node ./scripts/reset-project.js",
         "android": "expo run:android --device",
-        "android:dev": "APP_VARIANT=dev expo run:android --device",
-        "android:prod": "APP_VARIANT=prod expo run:android --device",
+        "android:dev": "cross-env APP_VARIANT=dev expo run:android --device",
+        "android:prod": "cross-env APP_VARIANT=prod expo run:android --device",
         "ios": "expo run:ios",
         "web": "expo start --web",
         "lint": "expo lint"
@@ -66,6 +66,7 @@
         "@babel/core": "^7.25.2",
         "@react-native/metro-config": "^0.80.1",
         "@types/react": "~19.1.10",
+        "cross-env": "^10.1.0",
         "eslint": "^9.25.0",
         "eslint-config-expo": "~10.0.0",
         "eslint-import-resolver-typescript": "^4.4.4",

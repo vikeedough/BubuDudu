@@ -87,9 +87,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace 'com.vikeedough.bubududu'
+    namespace 'com.vikeedough.bubududu.dev'
     defaultConfig {
-        applicationId 'com.vikeedough.bubududu'
+        applicationId 'com.vikeedough.bubududu.dev'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
