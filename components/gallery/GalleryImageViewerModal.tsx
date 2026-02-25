@@ -243,16 +243,6 @@ const GalleryImageViewerModal: React.FC<GalleryImageViewerModalProps> = ({
                                             />
                                         );
                                     }}
-                                    onPanStart={() => console.log("onPanStart")}
-                                    onPanEnd={() => console.log("onPanEnd")}
-                                    onPinchStart={() =>
-                                        console.log("onPinchStart")
-                                    }
-                                    onPinchEnd={() => console.log("onPinchEnd")}
-                                    onTap={() => console.log("onTap")}
-                                    onSwipe={(dir) =>
-                                        console.log("onSwipe", dir)
-                                    }
                                 />
                             )}
                         </View>
