@@ -148,12 +148,12 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
                 onPress={Keyboard.dismiss}
                 accessible={false}
             >
-                <KeyboardAvoidingView
-                    behavior={Platform.OS === "ios" ? "padding" : "height"}
-                    keyboardVerticalOffset={Platform.OS === "ios" ? 60 : 0}
-                    style={{ flex: 1 }}
-                >
-                    <View style={styles.modalOverlay}>
+                <View style={styles.modalOverlay}>
+                    <KeyboardAvoidingView
+                        style={styles.kav}
+                        behavior={Platform.OS === "ios" ? "padding" : "height"}
+                        keyboardVerticalOffset={0}
+                    >
                         <View style={styles.imagesContainer}>
                             <TouchableOpacity
                                 style={
@@ -314,8 +314,8 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
                                 </TouchableOpacity>
                             </View>
                         </View>
-                    </View>
-                </KeyboardAvoidingView>
+                    </KeyboardAvoidingView>
+                </View>
             </TouchableWithoutFeedback>
         </Modal>
     );
@@ -326,8 +326,11 @@ export default AddNewGalleryModal;
 // styles unchanged ↓
 const styles = StyleSheet.create({
     modalOverlay: {
-        flex: 1,
+        ...StyleSheet.absoluteFillObject,
         backgroundColor: "rgba(0, 0, 0, 0.5)",
+    },
+    kav: {
+        flex: 1,
         justifyContent: "center",
         alignItems: "center",
     },
