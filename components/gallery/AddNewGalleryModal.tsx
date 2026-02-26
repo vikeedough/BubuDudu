@@ -9,7 +9,7 @@ import {
     Keyboard,
     KeyboardAvoidingView,
     Modal,
-    Platform,
+    ScrollView,
     StyleSheet,
     TextInput,
     TouchableOpacity,
@@ -134,6 +134,9 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
                 )}
                 numColumns={3}
             />
+            <CustomText weight="regular" style={styles.instructionText}>
+                Tap on photos to remove
+            </CustomText>
         </View>
     );
 
@@ -151,168 +154,180 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
                 <View style={styles.modalOverlay}>
                     <KeyboardAvoidingView
                         style={styles.kav}
-                        behavior={Platform.OS === "ios" ? "padding" : "height"}
+                        behavior={"padding"}
                         keyboardVerticalOffset={0}
                     >
-                        <View style={styles.imagesContainer}>
-                            <TouchableOpacity
-                                style={
-                                    images.length > 0
-                                        ? styles.galleryContainerWithImages
-                                        : styles.galleryContainer
-                                }
-                                onPress={() => {
-                                    setIsAddingImages(true);
-                                    pickMultipleImages().then((imagesToAdd) => {
-                                        if (imagesToAdd?.length) {
-                                            setImages((prev) => [
-                                                ...prev,
-                                                ...imagesToAdd,
-                                            ]);
-                                        }
-                                        setIsAddingImages(false);
-                                    });
-                                }}
-                                disabled={isUploadingImages}
-                            >
-                                {images.length > 0 ? (
-                                    isAddingImages ? (
-                                        <ActivityIndicator
-                                            size="small"
-                                            color="#FFCC7D"
-                                        />
-                                    ) : (
-                                        imagesShown()
-                                    )
-                                ) : (
-                                    <CustomText
-                                        weight="regular"
-                                        style={styles.galleryTitle}
-                                    >
-                                        +
-                                    </CustomText>
-                                )}
-                            </TouchableOpacity>
-                        </View>
-
                         <View style={styles.modalContainer}>
-                            <View style={styles.form}>
-                                <CustomText
-                                    weight="semibold"
-                                    style={styles.formTitle}
-                                >
-                                    Name
-                                </CustomText>
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder="Enter date name"
-                                    placeholderTextColor={Colors.gray}
-                                    value={dateName}
-                                    onChangeText={setDateName}
-                                />
+                            <ScrollView
+                                style={styles.scroll}
+                                contentContainerStyle={styles.scrollContent}
+                                keyboardShouldPersistTaps="handled"
+                                showsVerticalScrollIndicator={false}
+                            >
+                                <View style={styles.imagesContainer}>
+                                    <TouchableOpacity
+                                        style={
+                                            images.length > 0
+                                                ? styles.galleryContainerWithImages
+                                                : styles.galleryContainer
+                                        }
+                                        onPress={() => {
+                                            setIsAddingImages(true);
+                                            pickMultipleImages().then(
+                                                (imagesToAdd) => {
+                                                    if (imagesToAdd?.length) {
+                                                        setImages((prev) => [
+                                                            ...prev,
+                                                            ...imagesToAdd,
+                                                        ]);
+                                                    }
+                                                    setIsAddingImages(false);
+                                                },
+                                            );
+                                        }}
+                                        disabled={isUploadingImages}
+                                    >
+                                        {images.length > 0 ? (
+                                            isAddingImages ? (
+                                                <ActivityIndicator
+                                                    size="small"
+                                                    color="#FFCC7D"
+                                                />
+                                            ) : (
+                                                imagesShown()
+                                            )
+                                        ) : (
+                                            <CustomText
+                                                weight="regular"
+                                                style={styles.galleryTitle}
+                                            >
+                                                Tap to upload photos
+                                            </CustomText>
+                                        )}
+                                    </TouchableOpacity>
+                                </View>
 
-                                <CustomText
-                                    weight="semibold"
-                                    style={styles.formTitle}
-                                >
-                                    Location
-                                </CustomText>
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder="Enter location"
-                                    placeholderTextColor={Colors.gray}
-                                    value={location}
-                                    onChangeText={setLocation}
-                                />
-
-                                <CustomText
-                                    weight="semibold"
-                                    style={styles.formTitle}
-                                >
-                                    Date
-                                </CustomText>
-                                <TouchableOpacity
-                                    onPress={() => setShowDatePicker(true)}
-                                    style={styles.datePicker}
-                                    disabled={isUploadingImages}
-                                >
+                                <View style={styles.form}>
                                     <CustomText
                                         weight="semibold"
-                                        style={styles.datePickerText}
+                                        style={styles.formTitle}
                                     >
-                                        {date.toLocaleDateString()}
+                                        Name
                                     </CustomText>
-                                </TouchableOpacity>
-
-                                {showDatePicker && (
-                                    <DateTimePicker
-                                        value={date}
-                                        mode="date"
-                                        display="default"
-                                        onChange={(_event, picked) => {
-                                            if (picked) setDate(picked);
-                                            setShowDatePicker(false);
-                                        }}
+                                    <TextInput
+                                        style={styles.input}
+                                        placeholder="Enter date name"
+                                        placeholderTextColor={Colors.gray}
+                                        value={dateName}
+                                        onChangeText={setDateName}
                                     />
-                                )}
 
-                                <CustomText
-                                    weight="semibold"
-                                    style={styles.formTitle}
-                                >
-                                    Colour
-                                </CustomText>
-                                <View style={styles.colorContainer}>
-                                    {listColorsArray.map((color, index) => (
-                                        <TouchableOpacity
-                                            style={[
-                                                styles.colorBox,
-                                                { backgroundColor: color },
-                                                index === selectedColorIndex &&
-                                                    styles.selectedColorBox,
-                                            ]}
-                                            key={color}
-                                            onPress={() => {
-                                                setSelectedColor(color);
-                                                setSelectedColorIndex(index);
+                                    <CustomText
+                                        weight="semibold"
+                                        style={styles.formTitle}
+                                    >
+                                        Location
+                                    </CustomText>
+                                    <TextInput
+                                        style={styles.input}
+                                        placeholder="Enter location"
+                                        placeholderTextColor={Colors.gray}
+                                        value={location}
+                                        onChangeText={setLocation}
+                                    />
+
+                                    <CustomText
+                                        weight="semibold"
+                                        style={styles.formTitle}
+                                    >
+                                        Date
+                                    </CustomText>
+                                    <TouchableOpacity
+                                        onPress={() => setShowDatePicker(true)}
+                                        style={styles.datePicker}
+                                        disabled={isUploadingImages}
+                                    >
+                                        <CustomText
+                                            weight="semibold"
+                                            style={styles.datePickerText}
+                                        >
+                                            {date.toLocaleDateString()}
+                                        </CustomText>
+                                    </TouchableOpacity>
+
+                                    {showDatePicker && (
+                                        <DateTimePicker
+                                            value={date}
+                                            mode="date"
+                                            display="default"
+                                            onChange={(_event, picked) => {
+                                                if (picked) setDate(picked);
+                                                setShowDatePicker(false);
                                             }}
-                                            disabled={isUploadingImages}
                                         />
-                                    ))}
-                                </View>
-                            </View>
+                                    )}
 
-                            <View style={styles.header}>
-                                <TouchableOpacity
-                                    style={styles.confirmButton}
-                                    onPress={handleAddGallery}
-                                    disabled={isUploadingImages}
-                                >
-                                    {isUploadingImages ? (
-                                        <ActivityIndicator />
-                                    ) : (
+                                    <CustomText
+                                        weight="semibold"
+                                        style={styles.formTitle}
+                                    >
+                                        Colour
+                                    </CustomText>
+                                    <View style={styles.colorContainer}>
+                                        {listColorsArray.map((color, index) => (
+                                            <TouchableOpacity
+                                                style={[
+                                                    styles.colorBox,
+                                                    { backgroundColor: color },
+                                                    index ===
+                                                        selectedColorIndex &&
+                                                        styles.selectedColorBox,
+                                                ]}
+                                                key={color}
+                                                onPress={() => {
+                                                    setSelectedColor(color);
+                                                    setSelectedColorIndex(
+                                                        index,
+                                                    );
+                                                }}
+                                                disabled={isUploadingImages}
+                                            />
+                                        ))}
+                                    </View>
+                                </View>
+
+                                <View style={styles.footer}>
+                                    <TouchableOpacity
+                                        style={styles.confirmButton}
+                                        onPress={handleAddGallery}
+                                        disabled={isUploadingImages}
+                                    >
+                                        {isUploadingImages ? (
+                                            <ActivityIndicator />
+                                        ) : (
+                                            <CustomText
+                                                weight="semibold"
+                                                style={styles.headerTitle}
+                                            >
+                                                Save
+                                            </CustomText>
+                                        )}
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity
+                                        style={styles.headerButton}
+                                        onPress={handleCancel}
+                                        disabled={isUploadingImages}
+                                    >
                                         <CustomText
                                             weight="semibold"
                                             style={styles.headerTitle}
                                         >
-                                            Save
+                                            Cancel
                                         </CustomText>
-                                    )}
-                                </TouchableOpacity>
-
-                                <TouchableOpacity
-                                    style={styles.headerButton}
-                                    onPress={handleCancel}
-                                    disabled={isUploadingImages}
-                                >
-                                    <CustomText
-                                        weight="semibold"
-                                        style={styles.headerTitle}
-                                    >
-                                        Cancel
-                                    </CustomText>
-                                </TouchableOpacity>
-                            </View>
+                                    </TouchableOpacity>
+                                </View>
+                            </ScrollView>
                         </View>
                     </KeyboardAvoidingView>
                 </View>
@@ -328,6 +343,8 @@ const styles = StyleSheet.create({
     modalOverlay: {
         ...StyleSheet.absoluteFillObject,
         backgroundColor: "rgba(0, 0, 0, 0.5)",
+        justifyContent: "center",
+        alignItems: "center",
     },
     kav: {
         flex: 1,
@@ -336,19 +353,25 @@ const styles = StyleSheet.create({
     },
     modalContainer: {
         backgroundColor: Colors.white,
-        borderRadius: 15,
-        padding: 25,
-        margin: 20,
+        borderRadius: 10,
+        padding: 30,
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.25,
         shadowRadius: 4,
         elevation: 5,
-        maxWidth: "90%",
-        maxHeight: "80%",
+        width: "100%",
+        maxHeight: "100%",
+        flexShrink: 1,
+        alignItems: "center",
+    },
+    scroll: {
         width: "100%",
     },
-    header: {
+    scrollContent: {
+        alignItems: "center",
+    },
+    footer: {
         flexDirection: "row",
         justifyContent: "center",
         gap: 20,
@@ -357,7 +380,7 @@ const styles = StyleSheet.create({
     confirmButton: {
         backgroundColor: "#FFCC7D",
         padding: 10,
-        borderRadius: 15,
+        borderRadius: 10,
         width: 120,
         justifyContent: "center",
         alignItems: "center",
@@ -365,7 +388,7 @@ const styles = StyleSheet.create({
     headerButton: {
         backgroundColor: "#AFAFAF",
         padding: 10,
-        borderRadius: 15,
+        borderRadius: 10,
         width: 120,
         justifyContent: "center",
         alignItems: "center",
@@ -376,6 +399,7 @@ const styles = StyleSheet.create({
     },
     form: {
         marginBottom: 20,
+        width: "100%",
     },
     formTitle: {
         fontSize: 12,
@@ -385,7 +409,7 @@ const styles = StyleSheet.create({
     input: {
         backgroundColor: Colors.white,
         padding: 10,
-        borderRadius: 15,
+        borderRadius: 10,
         fontSize: 12,
         marginBottom: 10,
         fontFamily: "Raleway-Regular",
@@ -396,7 +420,7 @@ const styles = StyleSheet.create({
     datePicker: {
         backgroundColor: Colors.white,
         padding: 10,
-        borderRadius: 15,
+        borderRadius: 10,
         marginBottom: 10,
         borderWidth: 1,
         borderColor: "#EBEAEC",
@@ -408,13 +432,12 @@ const styles = StyleSheet.create({
     galleryContainer: {
         borderStyle: "dashed",
         borderWidth: 1,
-        borderColor: Colors.black,
-        borderRadius: 15,
+        borderColor: Colors.gray,
+        borderRadius: 10,
         justifyContent: "center",
         alignItems: "center",
         flex: 1,
-        width: 270,
-        height: 270,
+        width: "100%",
     },
     galleryContainerWithImages: {
         flex: 1,
@@ -423,8 +446,8 @@ const styles = StyleSheet.create({
         minHeight: 200,
     },
     galleryTitle: {
-        fontSize: 80,
-        color: Colors.black,
+        fontSize: 16,
+        color: Colors.gray,
         textAlign: "center",
     },
     image: {
@@ -433,18 +456,15 @@ const styles = StyleSheet.create({
         marginBottom: 10,
     },
     imagesContainer: {
+        backgroundColor: Colors.white,
         justifyContent: "center",
         alignItems: "center",
-        height: 310,
-        width: 310,
-        backgroundColor: Colors.white,
-        padding: 20,
-        borderRadius: 15,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.25,
-        shadowRadius: 4,
-        elevation: 5,
+        width: "100%",
+        aspectRatio: 1,
+        maxHeight: 260,
+        flexShrink: 1,
+        marginBottom: 12,
+        borderRadius: 10,
     },
     colorContainer: {
         flexDirection: "row",
@@ -454,14 +474,22 @@ const styles = StyleSheet.create({
         width: 20,
         height: 20,
         borderRadius: 999,
+        opacity: 0.5,
     },
     selectedColorBox: {
         borderWidth: 1,
         borderColor: Colors.brownText,
+        opacity: 1,
     },
     flashListContainer: {
         height: Dimensions.get("window").width - 130,
         width: Dimensions.get("window").width - 130,
         flex: 1,
+    },
+    instructionText: {
+        fontSize: 10,
+        color: Colors.gray,
+        marginTop: 5,
+        textAlign: "center",
     },
 });
