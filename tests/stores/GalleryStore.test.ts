@@ -264,6 +264,37 @@ describe("stores/GalleryStore", () => {
     expect(toastMock.dismiss).toHaveBeenCalledWith("toast-id");
   });
 
+  it("fetchGalleryImages sets error and returns [] on query failure", async () => {
+    queueFrom("date_images", "select", {
+      data: null,
+      error: { message: "query failed" },
+    });
+
+    const rows = await useGalleryStore.getState().fetchGalleryImages("g1");
+
+    expect(rows).toEqual([]);
+    expect(useGalleryStore.getState().error).toBe("query failed");
+    expect(useGalleryStore.getState().isLoadingImagesByGalleryId.g1).toBe(false);
+  });
+
+  it("fetchGalleryImages returns signed rows when signing succeeds", async () => {
+    queueFrom("date_images", "select", {
+      data: [BASE_IMAGE],
+      error: null,
+    });
+    queueFunction("sign-gallery-urls", {
+      data: {
+        i1: { url_thumb: "t1", url_grid: "g1", url_orig: "o1" },
+      },
+      error: null,
+    });
+
+    const rows = await useGalleryStore.getState().fetchGalleryImages("g1");
+
+    expect(rows[0].url_orig).toBe("o1");
+    expect(useGalleryStore.getState().imagesByGalleryId.g1[0].url_orig).toBe("o1");
+  });
+
   it("deleteOneGalleryImage replaces cover when deleting current cover", async () => {
     useGalleryStore.setState({
       galleries: [
@@ -332,6 +363,62 @@ describe("stores/GalleryStore", () => {
     expect(gallery.cover_thumb_url).toBe("https://signed/new-thumb.jpg");
   });
 
+  it("deleteOneGalleryImage clears cover when deleting last cover image", async () => {
+    useGalleryStore.setState({
+      galleries: [
+        {
+          ...BASE_GALLERY,
+          cover_image_path: "old/grid.jpg",
+          cover_image_thumb_path: "old/thumb.jpg",
+          cover_image_blur_hash: "old-blur",
+        },
+      ],
+      imagesByGalleryId: {
+        g1: [
+          {
+            ...BASE_IMAGE,
+            storage_path_thumb: "old/thumb.jpg",
+            storage_path_grid: "old/grid.jpg",
+            storage_path_orig: "old/orig.jpg",
+          },
+        ],
+      },
+    });
+
+    queueFromSingle("galleries", "select", {
+      data: {
+        cover_image_path: "old/grid.jpg",
+        cover_image_thumb_path: "old/thumb.jpg",
+      },
+      error: null,
+    });
+    queueFromSingle("date_images", "select", {
+      data: {
+        storage_path_thumb: "old/thumb.jpg",
+        storage_path_grid: "old/grid.jpg",
+        storage_path_orig: "old/orig.jpg",
+      },
+      error: null,
+    });
+    queueFrom("date_images", "select", {
+      data: [],
+      error: null,
+    });
+    queueFrom("galleries", "update", { data: null, error: null });
+    queueStorage("gallery-private", "remove", {
+      data: [],
+      error: null,
+    });
+    queueFrom("date_images", "delete", { data: null, error: null });
+
+    const ok = await useGalleryStore.getState().deleteOneGalleryImage("g1", "i1");
+
+    expect(ok).toBe(true);
+    expect(useGalleryStore.getState().imagesByGalleryId.g1).toEqual([]);
+    expect(useGalleryStore.getState().galleries[0].cover_image_path).toBeNull();
+    expect(useGalleryStore.getState().galleries[0].cover_image_thumb_path).toBeNull();
+  });
+
   it("deleteGallery clears cache and shows success toast", async () => {
     useGalleryStore.setState({
       imagesByGalleryId: { g1: [] },
@@ -356,5 +443,20 @@ describe("stores/GalleryStore", () => {
         title: "Success!",
       }),
     );
+  });
+
+  it("deleteGallery sets error and returns false when gallery row delete fails", async () => {
+    useGalleryStore.setState({
+      imagesByGalleryId: { g1: [] },
+    });
+    queueFrom("galleries", "delete", {
+      data: null,
+      error: { message: "delete fail" },
+    });
+
+    const ok = await useGalleryStore.getState().deleteGallery("g1");
+
+    expect(ok).toBe(false);
+    expect(useGalleryStore.getState().error).toBe("delete fail");
   });
 });
