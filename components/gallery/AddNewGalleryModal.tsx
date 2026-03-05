@@ -1,7 +1,6 @@
-import DateTimePicker from "@react-native-community/datetimepicker";
 import { FlashList } from "@shopify/flash-list";
 import { Image } from "expo-image";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
@@ -9,18 +8,20 @@ import {
     Keyboard,
     KeyboardAvoidingView,
     Modal,
-    Platform,
+    Pressable,
     StyleSheet,
     TextInput,
     TouchableOpacity,
-    TouchableWithoutFeedback,
     View,
 } from "react-native";
+import { ScrollView } from "react-native-gesture-handler";
 
 import CustomText from "@/components/CustomText";
 import { Colors, listColorsArray } from "@/constants/colors";
 import { useGalleryStore } from "@/stores/GalleryStore";
 import { pickMultipleImages } from "@/utils/gallery";
+
+import InlineWheelDatePicker from "../InlineWheelDatePicker";
 
 interface AddNewGalleryModalProps {
     isOpen: boolean;
@@ -38,7 +39,6 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
     const uploadGalleryImages = useGalleryStore((s) => s.uploadGalleryImages);
     const refreshGalleries = useGalleryStore((s) => s.refreshGalleries);
 
-    const [showDatePicker, setShowDatePicker] = useState(false);
     const [dateName, setDateName] = useState("");
     const [location, setLocation] = useState("");
     const [date, setDate] = useState(new Date());
@@ -49,13 +49,14 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
     const [selectedColorIndex, setSelectedColorIndex] = useState<number>(0);
     const [isAddingImages, setIsAddingImages] = useState(false);
     const [isUploadingImages, setIsUploadingImages] = useState(false);
+    const [formScrollEnabled, setFormScrollEnabled] = useState(true);
+    const formScrollRef = useRef<React.ElementRef<typeof ScrollView>>(null);
 
     const resetForm = () => {
         setDateName("");
         setLocation("");
         setDate(new Date());
         setImages([]);
-        setShowDatePicker(false);
         setSelectedColor(listColorsArray[0]);
         setSelectedColorIndex(0);
         setIsAddingImages(false);
@@ -71,7 +72,6 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
         if (
             dateName.trim() === "" ||
             location.trim() === "" ||
-            !date ||
             images.length === 0 ||
             selectedColor === ""
         ) {
@@ -134,6 +134,9 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
                 )}
                 numColumns={3}
             />
+            <CustomText weight="regular" style={styles.instructionText}>
+                Tap on photos to remove
+            </CustomText>
         </View>
     );
 
@@ -144,58 +147,68 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
             transparent
             animationType="fade"
         >
-            <TouchableWithoutFeedback
-                onPress={Keyboard.dismiss}
-                accessible={false}
-            >
-                <View style={styles.modalOverlay}>
-                    <KeyboardAvoidingView
-                        style={styles.kav}
-                        behavior={Platform.OS === "ios" ? "padding" : "height"}
-                        keyboardVerticalOffset={0}
-                    >
-                        <View style={styles.imagesContainer}>
-                            <TouchableOpacity
-                                style={
-                                    images.length > 0
-                                        ? styles.galleryContainerWithImages
-                                        : styles.galleryContainer
-                                }
-                                onPress={() => {
-                                    setIsAddingImages(true);
-                                    pickMultipleImages().then((imagesToAdd) => {
-                                        if (imagesToAdd?.length) {
-                                            setImages((prev) => [
-                                                ...prev,
-                                                ...imagesToAdd,
-                                            ]);
-                                        }
-                                        setIsAddingImages(false);
-                                    });
-                                }}
-                                disabled={isUploadingImages}
-                            >
-                                {images.length > 0 ? (
-                                    isAddingImages ? (
-                                        <ActivityIndicator
-                                            size="small"
-                                            color="#FFCC7D"
-                                        />
+            <View style={styles.modalOverlay}>
+                <Pressable
+                    style={StyleSheet.absoluteFill}
+                    onPress={Keyboard.dismiss}
+                />
+                <KeyboardAvoidingView
+                    style={styles.kav}
+                    behavior={"padding"}
+                    keyboardVerticalOffset={0}
+                >
+                    <View style={styles.modalContainer}>
+                        <ScrollView
+                            ref={formScrollRef}
+                            style={styles.scroll}
+                            contentContainerStyle={styles.scrollContent}
+                            keyboardShouldPersistTaps="handled"
+                            showsVerticalScrollIndicator={false}
+                            scrollEnabled={formScrollEnabled}
+                        >
+                            <View style={styles.imagesContainer}>
+                                <TouchableOpacity
+                                    style={
+                                        images.length > 0
+                                            ? styles.galleryContainerWithImages
+                                            : styles.galleryContainer
+                                    }
+                                    onPress={() => {
+                                        setIsAddingImages(true);
+                                        pickMultipleImages().then(
+                                            (imagesToAdd) => {
+                                                if (imagesToAdd?.length) {
+                                                    setImages((prev) => [
+                                                        ...prev,
+                                                        ...imagesToAdd,
+                                                    ]);
+                                                }
+                                                setIsAddingImages(false);
+                                            },
+                                        );
+                                    }}
+                                    disabled={isUploadingImages}
+                                >
+                                    {images.length > 0 ? (
+                                        isAddingImages ? (
+                                            <ActivityIndicator
+                                                size="small"
+                                                color="#FFCC7D"
+                                            />
+                                        ) : (
+                                            imagesShown()
+                                        )
                                     ) : (
-                                        imagesShown()
-                                    )
-                                ) : (
-                                    <CustomText
-                                        weight="regular"
-                                        style={styles.galleryTitle}
-                                    >
-                                        +
-                                    </CustomText>
-                                )}
-                            </TouchableOpacity>
-                        </View>
+                                        <CustomText
+                                            weight="regular"
+                                            style={styles.galleryTitle}
+                                        >
+                                            Tap to upload photos
+                                        </CustomText>
+                                    )}
+                                </TouchableOpacity>
+                            </View>
 
-                        <View style={styles.modalContainer}>
                             <View style={styles.form}>
                                 <CustomText
                                     weight="semibold"
@@ -231,34 +244,26 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
                                 >
                                     Date
                                 </CustomText>
-                                <TouchableOpacity
-                                    onPress={() => setShowDatePicker(true)}
-                                    style={styles.datePicker}
-                                    disabled={isUploadingImages}
-                                >
-                                    <CustomText
-                                        weight="semibold"
-                                        style={styles.datePickerText}
-                                    >
-                                        {date.toLocaleDateString()}
-                                    </CustomText>
-                                </TouchableOpacity>
-
-                                {showDatePicker && (
-                                    <DateTimePicker
-                                        value={date}
-                                        mode="date"
-                                        display="default"
-                                        onChange={(_event, picked) => {
-                                            if (picked) setDate(picked);
-                                            setShowDatePicker(false);
-                                        }}
-                                    />
-                                )}
+                                <InlineWheelDatePicker
+                                    value={date}
+                                    onChange={setDate}
+                                    minYear={1900}
+                                    maxYear={new Date().getFullYear() + 20}
+                                    nestedScrollEnabled
+                                    parentScrollRef={formScrollRef}
+                                    onInteractionStart={() => {
+                                        if (formScrollEnabled)
+                                            setFormScrollEnabled(false);
+                                    }}
+                                    onInteractionEnd={() => {
+                                        if (!formScrollEnabled)
+                                            setFormScrollEnabled(true);
+                                    }}
+                                />
 
                                 <CustomText
                                     weight="semibold"
-                                    style={styles.formTitle}
+                                    style={[styles.formTitle, { marginTop: 5 }]}
                                 >
                                     Colour
                                 </CustomText>
@@ -282,7 +287,7 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
                                 </View>
                             </View>
 
-                            <View style={styles.header}>
+                            <View style={styles.footer}>
                                 <TouchableOpacity
                                     style={styles.confirmButton}
                                     onPress={handleAddGallery}
@@ -313,21 +318,22 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
                                     </CustomText>
                                 </TouchableOpacity>
                             </View>
-                        </View>
-                    </KeyboardAvoidingView>
-                </View>
-            </TouchableWithoutFeedback>
+                        </ScrollView>
+                    </View>
+                </KeyboardAvoidingView>
+            </View>
         </Modal>
     );
 };
 
 export default AddNewGalleryModal;
 
-// styles unchanged ↓
 const styles = StyleSheet.create({
     modalOverlay: {
         ...StyleSheet.absoluteFillObject,
         backgroundColor: "rgba(0, 0, 0, 0.5)",
+        justifyContent: "center",
+        alignItems: "center",
     },
     kav: {
         flex: 1,
@@ -336,19 +342,25 @@ const styles = StyleSheet.create({
     },
     modalContainer: {
         backgroundColor: Colors.white,
-        borderRadius: 15,
-        padding: 25,
-        margin: 20,
+        borderRadius: 10,
+        padding: 30,
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.25,
         shadowRadius: 4,
         elevation: 5,
-        maxWidth: "90%",
-        maxHeight: "80%",
+        width: "100%",
+        maxHeight: "100%",
+        flexShrink: 1,
+        alignItems: "center",
+    },
+    scroll: {
         width: "100%",
     },
-    header: {
+    scrollContent: {
+        alignItems: "center",
+    },
+    footer: {
         flexDirection: "row",
         justifyContent: "center",
         gap: 20,
@@ -357,7 +369,7 @@ const styles = StyleSheet.create({
     confirmButton: {
         backgroundColor: "#FFCC7D",
         padding: 10,
-        borderRadius: 15,
+        borderRadius: 10,
         width: 120,
         justifyContent: "center",
         alignItems: "center",
@@ -365,7 +377,7 @@ const styles = StyleSheet.create({
     headerButton: {
         backgroundColor: "#AFAFAF",
         padding: 10,
-        borderRadius: 15,
+        borderRadius: 10,
         width: 120,
         justifyContent: "center",
         alignItems: "center",
@@ -376,6 +388,7 @@ const styles = StyleSheet.create({
     },
     form: {
         marginBottom: 20,
+        width: "100%",
     },
     formTitle: {
         fontSize: 12,
@@ -385,7 +398,7 @@ const styles = StyleSheet.create({
     input: {
         backgroundColor: Colors.white,
         padding: 10,
-        borderRadius: 15,
+        borderRadius: 10,
         fontSize: 12,
         marginBottom: 10,
         fontFamily: "Raleway-Regular",
@@ -393,28 +406,15 @@ const styles = StyleSheet.create({
         borderColor: "#EBEAEC",
         color: Colors.black,
     },
-    datePicker: {
-        backgroundColor: Colors.white,
-        padding: 10,
-        borderRadius: 15,
-        marginBottom: 10,
-        borderWidth: 1,
-        borderColor: "#EBEAEC",
-    },
-    datePickerText: {
-        fontSize: 12,
-        color: Colors.black,
-    },
     galleryContainer: {
         borderStyle: "dashed",
         borderWidth: 1,
-        borderColor: Colors.black,
-        borderRadius: 15,
+        borderColor: Colors.gray,
+        borderRadius: 10,
         justifyContent: "center",
         alignItems: "center",
         flex: 1,
-        width: 270,
-        height: 270,
+        width: "100%",
     },
     galleryContainerWithImages: {
         flex: 1,
@@ -423,8 +423,8 @@ const styles = StyleSheet.create({
         minHeight: 200,
     },
     galleryTitle: {
-        fontSize: 80,
-        color: Colors.black,
+        fontSize: 16,
+        color: Colors.gray,
         textAlign: "center",
     },
     image: {
@@ -433,18 +433,15 @@ const styles = StyleSheet.create({
         marginBottom: 10,
     },
     imagesContainer: {
+        backgroundColor: Colors.white,
         justifyContent: "center",
         alignItems: "center",
-        height: 310,
-        width: 310,
-        backgroundColor: Colors.white,
-        padding: 20,
-        borderRadius: 15,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.25,
-        shadowRadius: 4,
-        elevation: 5,
+        width: "100%",
+        aspectRatio: 1,
+        maxHeight: 260,
+        flexShrink: 1,
+        marginBottom: 12,
+        borderRadius: 10,
     },
     colorContainer: {
         flexDirection: "row",
@@ -454,14 +451,22 @@ const styles = StyleSheet.create({
         width: 20,
         height: 20,
         borderRadius: 999,
+        opacity: 0.5,
     },
     selectedColorBox: {
         borderWidth: 1,
         borderColor: Colors.brownText,
+        opacity: 1,
     },
     flashListContainer: {
         height: Dimensions.get("window").width - 130,
         width: Dimensions.get("window").width - 130,
         flex: 1,
+    },
+    instructionText: {
+        fontSize: 10,
+        color: Colors.gray,
+        marginTop: 5,
+        textAlign: "center",
     },
 });
