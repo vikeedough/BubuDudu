@@ -39,6 +39,19 @@ describe("api/endpoints/auth", () => {
     expect(secureStoreUtilsMock.deleteSpaceId).not.toHaveBeenCalled();
   });
 
+  it("returns null when login response has no user", async () => {
+    const alertSpy = jest.spyOn(Alert, "alert").mockImplementation(jest.fn());
+    supabaseMock.auth.signInWithPassword.mockResolvedValueOnce({
+      data: { user: null },
+      error: null,
+    });
+
+    const result = await signInWithEmail("x@test.com", "good");
+
+    expect(result).toBeNull();
+    expect(alertSpy).toHaveBeenCalled();
+  });
+
   it("clears stored space id when member has no space", async () => {
     const data = { user: { id: "user-1" } };
     supabaseMock.auth.signInWithPassword.mockResolvedValueOnce({
@@ -54,6 +67,25 @@ describe("api/endpoints/auth", () => {
 
     expect(secureStoreUtilsMock.deleteSpaceId).toHaveBeenCalled();
     expect(secureStoreUtilsMock.setSpaceId).not.toHaveBeenCalled();
+  });
+
+  it("returns auth data when membership lookup fails", async () => {
+    const alertSpy = jest.spyOn(Alert, "alert").mockImplementation(jest.fn());
+    const data = { user: { id: "user-1" } };
+
+    supabaseMock.auth.signInWithPassword.mockResolvedValueOnce({
+      data,
+      error: null,
+    });
+    queueFromMaybeSingle("space_members", "select", {
+      data: null,
+      error: { message: "membership failed" },
+    });
+
+    const result = await signInWithEmail("x@test.com", "good");
+
+    expect(result).toEqual(data);
+    expect(alertSpy).toHaveBeenCalled();
   });
 
   it("returns null on signup error", async () => {
@@ -103,6 +135,25 @@ describe("api/endpoints/auth", () => {
     expect(alertSpy).toHaveBeenCalled();
   });
 
+  it("returns null when signup data has no user", async () => {
+    const alertSpy = jest.spyOn(Alert, "alert").mockImplementation(jest.fn());
+
+    supabaseMock.auth.signUp.mockResolvedValueOnce({
+      data: { user: null, session: null },
+      error: null,
+    });
+
+    const result = await signUpWithEmail(
+      "Name",
+      "2000-01-01",
+      "x@test.com",
+      "pass",
+    );
+
+    expect(result).toBeNull();
+    expect(alertSpy).toHaveBeenCalled();
+  });
+
   it("returns signup data on success", async () => {
     const signUpData = {
       user: { id: "user-1" },
@@ -127,5 +178,31 @@ describe("api/endpoints/auth", () => {
 
     expect(result).toEqual(signUpData);
     expect(supabaseMock.auth.setSession).toHaveBeenCalled();
+  });
+
+  it("returns signup data without calling setSession when signup has no session", async () => {
+    const signUpData = {
+      user: { id: "user-1" },
+      session: null,
+    };
+
+    supabaseMock.auth.signUp.mockResolvedValueOnce({
+      data: signUpData,
+      error: null,
+    });
+    supabaseMock.auth.getSession.mockResolvedValueOnce({
+      data: { session: { user: { id: "user-1" } } },
+      error: null,
+    });
+
+    const result = await signUpWithEmail(
+      "Name",
+      "2000-01-01",
+      "x@test.com",
+      "pass",
+    );
+
+    expect(result).toEqual(signUpData);
+    expect(supabaseMock.auth.setSession).not.toHaveBeenCalled();
   });
 });
