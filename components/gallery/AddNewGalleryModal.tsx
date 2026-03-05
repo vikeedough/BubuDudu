@@ -1,7 +1,6 @@
-import DateTimePicker from "@react-native-community/datetimepicker";
 import { FlashList } from "@shopify/flash-list";
 import { Image } from "expo-image";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
@@ -9,18 +8,20 @@ import {
     Keyboard,
     KeyboardAvoidingView,
     Modal,
-    ScrollView,
+    Pressable,
     StyleSheet,
     TextInput,
     TouchableOpacity,
-    TouchableWithoutFeedback,
     View,
 } from "react-native";
+import { ScrollView } from "react-native-gesture-handler";
 
 import CustomText from "@/components/CustomText";
 import { Colors, listColorsArray } from "@/constants/colors";
 import { useGalleryStore } from "@/stores/GalleryStore";
 import { pickMultipleImages } from "@/utils/gallery";
+
+import InlineWheelDatePicker from "../InlineWheelDatePicker";
 
 interface AddNewGalleryModalProps {
     isOpen: boolean;
@@ -38,7 +39,6 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
     const uploadGalleryImages = useGalleryStore((s) => s.uploadGalleryImages);
     const refreshGalleries = useGalleryStore((s) => s.refreshGalleries);
 
-    const [showDatePicker, setShowDatePicker] = useState(false);
     const [dateName, setDateName] = useState("");
     const [location, setLocation] = useState("");
     const [date, setDate] = useState(new Date());
@@ -49,13 +49,14 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
     const [selectedColorIndex, setSelectedColorIndex] = useState<number>(0);
     const [isAddingImages, setIsAddingImages] = useState(false);
     const [isUploadingImages, setIsUploadingImages] = useState(false);
+    const [formScrollEnabled, setFormScrollEnabled] = useState(true);
+    const formScrollRef = useRef<React.ElementRef<typeof ScrollView>>(null);
 
     const resetForm = () => {
         setDateName("");
         setLocation("");
         setDate(new Date());
         setImages([]);
-        setShowDatePicker(false);
         setSelectedColor(listColorsArray[0]);
         setSelectedColorIndex(0);
         setIsAddingImages(false);
@@ -71,7 +72,6 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
         if (
             dateName.trim() === "" ||
             location.trim() === "" ||
-            !date ||
             images.length === 0 ||
             selectedColor === ""
         ) {
@@ -147,198 +147,187 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
             transparent
             animationType="fade"
         >
-            <TouchableWithoutFeedback
-                onPress={Keyboard.dismiss}
-                accessible={false}
-            >
-                <View style={styles.modalOverlay}>
-                    <KeyboardAvoidingView
-                        style={styles.kav}
-                        behavior={"padding"}
-                        keyboardVerticalOffset={0}
-                    >
-                        <View style={styles.modalContainer}>
-                            <ScrollView
-                                style={styles.scroll}
-                                contentContainerStyle={styles.scrollContent}
-                                keyboardShouldPersistTaps="handled"
-                                showsVerticalScrollIndicator={false}
-                            >
-                                <View style={styles.imagesContainer}>
-                                    <TouchableOpacity
-                                        style={
-                                            images.length > 0
-                                                ? styles.galleryContainerWithImages
-                                                : styles.galleryContainer
-                                        }
-                                        onPress={() => {
-                                            setIsAddingImages(true);
-                                            pickMultipleImages().then(
-                                                (imagesToAdd) => {
-                                                    if (imagesToAdd?.length) {
-                                                        setImages((prev) => [
-                                                            ...prev,
-                                                            ...imagesToAdd,
-                                                        ]);
-                                                    }
-                                                    setIsAddingImages(false);
-                                                },
-                                            );
-                                        }}
-                                        disabled={isUploadingImages}
-                                    >
-                                        {images.length > 0 ? (
-                                            isAddingImages ? (
-                                                <ActivityIndicator
-                                                    size="small"
-                                                    color="#FFCC7D"
-                                                />
-                                            ) : (
-                                                imagesShown()
-                                            )
-                                        ) : (
-                                            <CustomText
-                                                weight="regular"
-                                                style={styles.galleryTitle}
-                                            >
-                                                Tap to upload photos
-                                            </CustomText>
-                                        )}
-                                    </TouchableOpacity>
-                                </View>
-
-                                <View style={styles.form}>
-                                    <CustomText
-                                        weight="semibold"
-                                        style={styles.formTitle}
-                                    >
-                                        Name
-                                    </CustomText>
-                                    <TextInput
-                                        style={styles.input}
-                                        placeholder="Enter date name"
-                                        placeholderTextColor={Colors.gray}
-                                        value={dateName}
-                                        onChangeText={setDateName}
-                                    />
-
-                                    <CustomText
-                                        weight="semibold"
-                                        style={styles.formTitle}
-                                    >
-                                        Location
-                                    </CustomText>
-                                    <TextInput
-                                        style={styles.input}
-                                        placeholder="Enter location"
-                                        placeholderTextColor={Colors.gray}
-                                        value={location}
-                                        onChangeText={setLocation}
-                                    />
-
-                                    <CustomText
-                                        weight="semibold"
-                                        style={styles.formTitle}
-                                    >
-                                        Date
-                                    </CustomText>
-                                    <TouchableOpacity
-                                        onPress={() => setShowDatePicker(true)}
-                                        style={styles.datePicker}
-                                        disabled={isUploadingImages}
-                                    >
-                                        <CustomText
-                                            weight="semibold"
-                                            style={styles.datePickerText}
-                                        >
-                                            {date.toLocaleDateString()}
-                                        </CustomText>
-                                    </TouchableOpacity>
-
-                                    {showDatePicker && (
-                                        <DateTimePicker
-                                            value={date}
-                                            mode="date"
-                                            display="default"
-                                            onChange={(_event, picked) => {
-                                                if (picked) setDate(picked);
-                                                setShowDatePicker(false);
-                                            }}
-                                        />
-                                    )}
-
-                                    <CustomText
-                                        weight="semibold"
-                                        style={styles.formTitle}
-                                    >
-                                        Colour
-                                    </CustomText>
-                                    <View style={styles.colorContainer}>
-                                        {listColorsArray.map((color, index) => (
-                                            <TouchableOpacity
-                                                style={[
-                                                    styles.colorBox,
-                                                    { backgroundColor: color },
-                                                    index ===
-                                                        selectedColorIndex &&
-                                                        styles.selectedColorBox,
-                                                ]}
-                                                key={color}
-                                                onPress={() => {
-                                                    setSelectedColor(color);
-                                                    setSelectedColorIndex(
-                                                        index,
-                                                    );
-                                                }}
-                                                disabled={isUploadingImages}
+            <View style={styles.modalOverlay}>
+                <Pressable
+                    style={StyleSheet.absoluteFill}
+                    onPress={Keyboard.dismiss}
+                />
+                <KeyboardAvoidingView
+                    style={styles.kav}
+                    behavior={"padding"}
+                    keyboardVerticalOffset={0}
+                >
+                    <View style={styles.modalContainer}>
+                        <ScrollView
+                            ref={formScrollRef}
+                            style={styles.scroll}
+                            contentContainerStyle={styles.scrollContent}
+                            keyboardShouldPersistTaps="handled"
+                            showsVerticalScrollIndicator={false}
+                            scrollEnabled={formScrollEnabled}
+                        >
+                            <View style={styles.imagesContainer}>
+                                <TouchableOpacity
+                                    style={
+                                        images.length > 0
+                                            ? styles.galleryContainerWithImages
+                                            : styles.galleryContainer
+                                    }
+                                    onPress={() => {
+                                        setIsAddingImages(true);
+                                        pickMultipleImages().then(
+                                            (imagesToAdd) => {
+                                                if (imagesToAdd?.length) {
+                                                    setImages((prev) => [
+                                                        ...prev,
+                                                        ...imagesToAdd,
+                                                    ]);
+                                                }
+                                                setIsAddingImages(false);
+                                            },
+                                        );
+                                    }}
+                                    disabled={isUploadingImages}
+                                >
+                                    {images.length > 0 ? (
+                                        isAddingImages ? (
+                                            <ActivityIndicator
+                                                size="small"
+                                                color="#FFCC7D"
                                             />
-                                        ))}
-                                    </View>
-                                </View>
-
-                                <View style={styles.footer}>
-                                    <TouchableOpacity
-                                        style={styles.confirmButton}
-                                        onPress={handleAddGallery}
-                                        disabled={isUploadingImages}
-                                    >
-                                        {isUploadingImages ? (
-                                            <ActivityIndicator />
                                         ) : (
-                                            <CustomText
-                                                weight="semibold"
-                                                style={styles.headerTitle}
-                                            >
-                                                Save
-                                            </CustomText>
-                                        )}
-                                    </TouchableOpacity>
+                                            imagesShown()
+                                        )
+                                    ) : (
+                                        <CustomText
+                                            weight="regular"
+                                            style={styles.galleryTitle}
+                                        >
+                                            Tap to upload photos
+                                        </CustomText>
+                                    )}
+                                </TouchableOpacity>
+                            </View>
 
-                                    <TouchableOpacity
-                                        style={styles.headerButton}
-                                        onPress={handleCancel}
-                                        disabled={isUploadingImages}
-                                    >
+                            <View style={styles.form}>
+                                <CustomText
+                                    weight="semibold"
+                                    style={styles.formTitle}
+                                >
+                                    Name
+                                </CustomText>
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="Enter date name"
+                                    placeholderTextColor={Colors.gray}
+                                    value={dateName}
+                                    onChangeText={setDateName}
+                                />
+
+                                <CustomText
+                                    weight="semibold"
+                                    style={styles.formTitle}
+                                >
+                                    Location
+                                </CustomText>
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="Enter location"
+                                    placeholderTextColor={Colors.gray}
+                                    value={location}
+                                    onChangeText={setLocation}
+                                />
+
+                                <CustomText
+                                    weight="semibold"
+                                    style={styles.formTitle}
+                                >
+                                    Date
+                                </CustomText>
+                                <InlineWheelDatePicker
+                                    value={date}
+                                    onChange={setDate}
+                                    minYear={1900}
+                                    maxYear={new Date().getFullYear() + 20}
+                                    nestedScrollEnabled
+                                    parentScrollRef={formScrollRef}
+                                    onInteractionStart={() => {
+                                        if (formScrollEnabled)
+                                            setFormScrollEnabled(false);
+                                    }}
+                                    onInteractionEnd={() => {
+                                        if (!formScrollEnabled)
+                                            setFormScrollEnabled(true);
+                                    }}
+                                />
+
+                                <CustomText
+                                    weight="semibold"
+                                    style={[styles.formTitle, { marginTop: 5 }]}
+                                >
+                                    Colour
+                                </CustomText>
+                                <View style={styles.colorContainer}>
+                                    {listColorsArray.map((color, index) => (
+                                        <TouchableOpacity
+                                            style={[
+                                                styles.colorBox,
+                                                { backgroundColor: color },
+                                                index === selectedColorIndex &&
+                                                    styles.selectedColorBox,
+                                            ]}
+                                            key={color}
+                                            onPress={() => {
+                                                setSelectedColor(color);
+                                                setSelectedColorIndex(index);
+                                            }}
+                                            disabled={isUploadingImages}
+                                        />
+                                    ))}
+                                </View>
+                            </View>
+
+                            <View style={styles.footer}>
+                                <TouchableOpacity
+                                    style={styles.confirmButton}
+                                    onPress={handleAddGallery}
+                                    disabled={isUploadingImages}
+                                >
+                                    {isUploadingImages ? (
+                                        <ActivityIndicator />
+                                    ) : (
                                         <CustomText
                                             weight="semibold"
                                             style={styles.headerTitle}
                                         >
-                                            Cancel
+                                            Save
                                         </CustomText>
-                                    </TouchableOpacity>
-                                </View>
-                            </ScrollView>
-                        </View>
-                    </KeyboardAvoidingView>
-                </View>
-            </TouchableWithoutFeedback>
+                                    )}
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
+                                    style={styles.headerButton}
+                                    onPress={handleCancel}
+                                    disabled={isUploadingImages}
+                                >
+                                    <CustomText
+                                        weight="semibold"
+                                        style={styles.headerTitle}
+                                    >
+                                        Cancel
+                                    </CustomText>
+                                </TouchableOpacity>
+                            </View>
+                        </ScrollView>
+                    </View>
+                </KeyboardAvoidingView>
+            </View>
         </Modal>
     );
 };
 
 export default AddNewGalleryModal;
 
-// styles unchanged ↓
 const styles = StyleSheet.create({
     modalOverlay: {
         ...StyleSheet.absoluteFillObject,
@@ -415,18 +404,6 @@ const styles = StyleSheet.create({
         fontFamily: "Raleway-Regular",
         borderWidth: 1,
         borderColor: "#EBEAEC",
-        color: Colors.black,
-    },
-    datePicker: {
-        backgroundColor: Colors.white,
-        padding: 10,
-        borderRadius: 10,
-        marginBottom: 10,
-        borderWidth: 1,
-        borderColor: "#EBEAEC",
-    },
-    datePickerText: {
-        fontSize: 12,
         color: Colors.black,
     },
     galleryContainer: {
