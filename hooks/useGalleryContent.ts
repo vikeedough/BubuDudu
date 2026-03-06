@@ -177,10 +177,7 @@ export const useGalleryContent = ({ galleryId }: { galleryId: string }) => {
         setSelectedImageIds(new Set());
         setEditMode(false);
     }, []);
-    const setSelectedImages = useCallback((images: GalleryImage[]) => {
-        setSelectedImageIds(new Set(images.map((image) => image.id)));
-    }, []);
-    const setSelectedImageIdsFromList = useCallback((imageIds: string[]) => {
+    const applySelectedImageIds = useCallback((imageIds: string[]) => {
         setSelectedImageIds(new Set(imageIds));
     }, []);
 
@@ -224,8 +221,6 @@ export const useGalleryContent = ({ galleryId }: { galleryId: string }) => {
         setViewerInitialImageId,
         setIsDeleteImagesModalOpen,
         setIsDeleteGalleryModalOpen,
-        setSelectedImages,
-        setSelectedImageIds: setSelectedImageIdsFromList,
-        setEditMode,
+        applySelectedImageIds,
     };
 };

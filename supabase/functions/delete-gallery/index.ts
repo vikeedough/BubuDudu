@@ -7,6 +7,21 @@ type Body = {
 const BUCKET = "gallery-private";
 const STORAGE_REMOVE_CHUNK_SIZE = 100;
 
+type DeleteGalleryResult =
+    | {
+          ok: true;
+          alreadyDeleted: boolean;
+          removedImages: number;
+          removedStoragePaths: number;
+          storageWarnings: string[];
+      }
+    | {
+          ok: false;
+          stage: string;
+          error: string;
+          canFallback: boolean;
+      };
+
 function chunk<T>(items: T[], size: number): T[][] {
     if (items.length === 0) return [];
     const out: T[][] = [];
@@ -32,7 +47,13 @@ Deno.serve(async (req) => {
         return new Response("Missing Supabase env", { status: 500 });
     }
 
-    const body = (await req.json()) as Body;
+    let body: Body;
+    try {
+        body = (await req.json()) as Body;
+    } catch {
+        return new Response("Invalid JSON body", { status: 400 });
+    }
+
     if (!body?.galleryId) {
         return new Response("Invalid body", { status: 400 });
     }
@@ -41,13 +62,52 @@ Deno.serve(async (req) => {
         global: { headers: { Authorization: authHeader } },
     });
 
+    const { data: galleryRow, error: galleryErr } = await userClient
+        .from("galleries")
+        .select("id")
+        .eq("id", body.galleryId)
+        .maybeSingle();
+
+    if (galleryErr) {
+        const result: DeleteGalleryResult = {
+            ok: false,
+            stage: "fetch_gallery",
+            error: galleryErr.message,
+            canFallback: false,
+        };
+        return new Response(JSON.stringify(result), {
+            headers: { "Content-Type": "application/json" },
+        });
+    }
+
+    if (!galleryRow?.id) {
+        const result: DeleteGalleryResult = {
+            ok: true,
+            alreadyDeleted: true,
+            removedImages: 0,
+            removedStoragePaths: 0,
+            storageWarnings: [],
+        };
+        return new Response(JSON.stringify(result), {
+            headers: { "Content-Type": "application/json" },
+        });
+    }
+
     const { data: imageRows, error: imageRowsErr } = await userClient
         .from("date_images")
         .select("id, storage_path_thumb, storage_path_grid, storage_path_orig")
         .eq("gallery_id", body.galleryId);
 
     if (imageRowsErr) {
-        return new Response(imageRowsErr.message, { status: 403 });
+        const result: DeleteGalleryResult = {
+            ok: false,
+            stage: "fetch_images",
+            error: imageRowsErr.message,
+            canFallback: false,
+        };
+        return new Response(JSON.stringify(result), {
+            headers: { "Content-Type": "application/json" },
+        });
     }
 
     const storagePaths = Array.from(
@@ -65,12 +125,13 @@ Deno.serve(async (req) => {
         ),
     );
 
+    const storageWarnings: string[] = [];
     for (const pathChunk of chunk(storagePaths, STORAGE_REMOVE_CHUNK_SIZE)) {
         const { error: storageErr } = await userClient.storage
             .from(BUCKET)
             .remove(pathChunk);
         if (storageErr) {
-            return new Response(storageErr.message, { status: 500 });
+            storageWarnings.push(storageErr.message);
         }
     }
 
@@ -79,23 +140,45 @@ Deno.serve(async (req) => {
         .delete()
         .eq("gallery_id", body.galleryId);
     if (delImagesErr) {
-        return new Response(delImagesErr.message, { status: 500 });
+        const result: DeleteGalleryResult = {
+            ok: false,
+            stage: "delete_images",
+            error: delImagesErr.message,
+            canFallback: false,
+        };
+        return new Response(JSON.stringify(result), {
+            headers: { "Content-Type": "application/json" },
+        });
     }
 
-    const { error: delGalleryErr } = await userClient
+    const { data: deletedGalleryRows, error: delGalleryErr } = await userClient
         .from("galleries")
         .delete()
-        .eq("id", body.galleryId);
+        .eq("id", body.galleryId)
+        .select("id");
+
     if (delGalleryErr) {
-        return new Response(delGalleryErr.message, { status: 500 });
+        const result: DeleteGalleryResult = {
+            ok: false,
+            stage: "delete_gallery",
+            error: delGalleryErr.message,
+            canFallback: false,
+        };
+        return new Response(JSON.stringify(result), {
+            headers: { "Content-Type": "application/json" },
+        });
     }
 
+    const result: DeleteGalleryResult = {
+        ok: true,
+        alreadyDeleted: (deletedGalleryRows?.length ?? 0) === 0,
+        removedImages: imageRows?.length ?? 0,
+        removedStoragePaths: storagePaths.length,
+        storageWarnings,
+    };
+
     return new Response(
-        JSON.stringify({
-            ok: true,
-            removedImages: imageRows?.length ?? 0,
-            removedStoragePaths: storagePaths.length,
-        }),
+        JSON.stringify(result),
         {
             headers: { "Content-Type": "application/json" },
         },

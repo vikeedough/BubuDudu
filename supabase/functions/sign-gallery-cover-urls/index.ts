@@ -6,6 +6,9 @@ type Body = {
 
 const BUCKET = "gallery-private";
 const TTL_SECONDS = 60 * 60;
+const MAX_PATHS = 200;
+const COVER_PATH_REGEX =
+    /^spaces\/[^/]+\/galleries\/[^/]+\/images\/[^/]+\/thumb\.jpg$/;
 
 Deno.serve(async (req) => {
     if (req.method !== "POST") {
@@ -23,7 +26,13 @@ Deno.serve(async (req) => {
         return new Response("Missing Supabase env", { status: 500 });
     }
 
-    const body = (await req.json()) as Body;
+    let body: Body;
+    try {
+        body = (await req.json()) as Body;
+    } catch {
+        return new Response("Invalid JSON body", { status: 400 });
+    }
+
     if (!body || !Array.isArray(body.paths)) {
         return new Response("Invalid body", { status: 400 });
     }
@@ -36,6 +45,14 @@ Deno.serve(async (req) => {
             ),
         ),
     );
+
+    if (paths.length > MAX_PATHS) {
+        return new Response("Too many paths", { status: 400 });
+    }
+
+    if (!paths.every((path) => COVER_PATH_REGEX.test(path))) {
+        return new Response("Invalid cover path format", { status: 400 });
+    }
 
     if (paths.length === 0) {
         return new Response(JSON.stringify({}), {

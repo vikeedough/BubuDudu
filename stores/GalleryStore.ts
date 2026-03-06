@@ -1236,13 +1236,37 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
                 body: { galleryId },
             });
 
-        if (!functionErr && functionData?.ok === true) {
-            return finalizeDelete();
+        if (!functionErr) {
+            if (functionData?.ok === true) {
+                return finalizeDelete();
+            }
+
+            if (functionData?.ok === false) {
+                const serverMessage =
+                    functionData?.error ??
+                    "Server-side gallery delete failed.";
+                set({ error: serverMessage });
+                return false;
+            }
         }
 
         if (functionErr) {
+            const functionMessage = String(functionErr?.message ?? "");
+            const isFunctionUnavailable =
+                functionMessage.includes("404") ||
+                functionMessage.toLowerCase().includes("not found");
+
+            if (!isFunctionUnavailable) {
+                console.error(
+                    "Server-side gallery delete failed:",
+                    functionErr,
+                );
+                set({ error: functionMessage || "Server-side gallery delete failed." });
+                return false;
+            }
+
             console.warn(
-                "Server-side gallery delete failed, falling back to client-side delete:",
+                "Server-side delete function unavailable, falling back to client-side delete:",
                 functionErr,
             );
         }

@@ -173,6 +173,28 @@ describe("stores/GalleryStore", () => {
     );
   });
 
+  it("loadInitialGalleries falls back to storage signing when batched signer fails", async () => {
+    const gallery = {
+      ...BASE_GALLERY,
+      cover_image_thumb_path: "covers/g1-thumb.jpg",
+    };
+
+    secureStoreUtilsMock.getSpaceId.mockResolvedValueOnce("space-1");
+    queueFrom("galleries", "select", { data: [gallery], error: null });
+    queueFunction("sign-gallery-cover-urls", {
+      data: null,
+      error: { message: "batch signer unavailable" },
+    });
+    queueStorage("gallery-private", "createSignedUrl", {
+      data: { signedUrl: "https://signed/fallback-thumb.jpg" },
+      error: null,
+    });
+
+    const result = await useGalleryStore.getState().loadInitialGalleries();
+
+    expect(result[0].cover_thumb_url).toBe("https://signed/fallback-thumb.jpg");
+  });
+
   it("loadMoreGalleries returns early without cursor", async () => {
     useGalleryStore.setState({
       galleries: [BASE_GALLERY],
@@ -592,6 +614,58 @@ describe("stores/GalleryStore", () => {
     );
     expect(useGalleryStore.getState().imagesByGalleryId.g1).toBeUndefined();
     expect(useGalleryStore.getState().imagesPageByGalleryId.g1).toBeUndefined();
+  });
+
+  it("deleteGallery falls back to client-side delete when server function is unavailable", async () => {
+    queueFunction("delete-gallery", {
+      data: null,
+      error: { message: "404 Function not found" },
+    });
+    queueFrom("date_images", "select", {
+      data: [BASE_IMAGE],
+      error: null,
+    });
+    queueFromSingle("galleries", "select", {
+      data: {
+        cover_image_path: "cover/grid.jpg",
+        cover_image_thumb_path: "cover/thumb.jpg",
+      },
+      error: null,
+    });
+    queueFromSingle("date_images", "select", {
+      data: {
+        storage_path_thumb: "thumb.jpg",
+        storage_path_grid: "grid.jpg",
+        storage_path_orig: "orig.jpg",
+      },
+      error: null,
+    });
+    queueStorage("gallery-private", "remove", { data: [], error: null });
+    queueFrom("date_images", "delete", { data: null, error: null });
+    queueFrom("galleries", "delete", { data: null, error: null });
+
+    const ok = await useGalleryStore.getState().deleteGallery("g1");
+
+    expect(ok).toBe(true);
+    expect(supabaseMock.from).toHaveBeenCalledWith("date_images");
+  });
+
+  it("deleteGallery returns false when server-side delete reports non-fallback failure", async () => {
+    queueFunction("delete-gallery", {
+      data: {
+        ok: false,
+        stage: "delete_images",
+        error: "db delete failed",
+        canFallback: false,
+      },
+      error: null,
+    });
+
+    const ok = await useGalleryStore.getState().deleteGallery("g1");
+
+    expect(ok).toBe(false);
+    expect(useGalleryStore.getState().error).toBe("db delete failed");
+    expect(supabaseMock.from).not.toHaveBeenCalledWith("date_images");
   });
 
   it("deleteGallery sets error and returns false when gallery row delete fails", async () => {
