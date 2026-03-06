@@ -103,4 +103,44 @@ describe("hooks/useGalleryList", () => {
     });
     expect(mockPush.mock.calls[0][0].params.galleryDate).toContain("2026-03-06");
   });
+
+  it("navigates with string date unchanged", () => {
+    const { result } = renderHook(() => useGalleryList());
+    const gallery = {
+      ...mockGalleryStoreState.galleries[0],
+      id: "g2",
+      date: "2026-03-01",
+    };
+
+    act(() => {
+      result.current.navigateToGalleryContent(gallery);
+    });
+
+    expect(mockPush.mock.calls[0][0].params.galleryDate).toBe("2026-03-01");
+  });
+
+  it("opens and closes new gallery modal", () => {
+    const { result } = renderHook(() => useGalleryList());
+
+    expect(result.current.isNewGalleryModalOpen).toBe(false);
+    act(() => {
+      result.current.handleAddNewGallery();
+    });
+    expect(result.current.isNewGalleryModalOpen).toBe(true);
+    act(() => {
+      result.current.handleCloseModal();
+    });
+    expect(result.current.isNewGalleryModalOpen).toBe(false);
+  });
+
+  it("refresh delegates to refreshGalleries", async () => {
+    mockGalleryStoreState.refreshGalleries.mockResolvedValue(undefined);
+    const { result } = renderHook(() => useGalleryList());
+
+    await act(async () => {
+      await result.current.refresh();
+    });
+
+    expect(mockGalleryStoreState.refreshGalleries).toHaveBeenCalledTimes(1);
+  });
 });

@@ -53,16 +53,40 @@ describe("api/endpoints/wheels", () => {
     await expect(updateWheelTitle("w1", "New")).resolves.toBe(false);
   });
 
+  it("updateWheelTitle returns true on success", async () => {
+    queueFrom("wheel", "update", { data: null, error: null });
+
+    await expect(updateWheelTitle("w1", "New")).resolves.toBe(true);
+  });
+
   it("updateWheelChoices returns true on success", async () => {
     queueFrom("wheel", "update", { data: null, error: null });
 
     await expect(updateWheelChoices("w1", ["X"])).resolves.toBe(true);
   });
 
+  it("updateWheelChoices returns false on error", async () => {
+    queueFrom("wheel", "update", {
+      data: null,
+      error: { message: "choices fail" },
+    });
+
+    await expect(updateWheelChoices("w1", ["X"])).resolves.toBe(false);
+  });
+
   it("addNewWheel returns true on success", async () => {
     queueFrom("wheel", "insert", { data: null, error: null });
 
     await expect(addNewWheel("Dinner", ["A"])).resolves.toBe(true);
+  });
+
+  it("addNewWheel returns false on error", async () => {
+    queueFrom("wheel", "insert", {
+      data: null,
+      error: { message: "insert fail" },
+    });
+
+    await expect(addNewWheel("Dinner", ["A"])).resolves.toBe(false);
   });
 
   it("deleteWheel returns false on error", async () => {
@@ -72,5 +96,11 @@ describe("api/endpoints/wheels", () => {
     });
 
     await expect(deleteWheel("w1")).resolves.toBe(false);
+  });
+
+  it("deleteWheel returns true on success", async () => {
+    queueFrom("wheel", "delete", { data: null, error: null });
+
+    await expect(deleteWheel("w1")).resolves.toBe(true);
   });
 });

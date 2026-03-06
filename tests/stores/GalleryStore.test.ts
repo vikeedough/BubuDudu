@@ -87,6 +87,9 @@ describe("stores/GalleryStore", () => {
     resetAllStores();
     const { resetToastMock } = require("@/tests/mocks/toast");
     resetToastMock();
+    (generateVariants as jest.Mock).mockClear();
+    (generateBlurhash as jest.Mock).mockClear();
+    (runWithConcurrency as jest.Mock).mockClear();
   });
 
   it("clear resets gallery store state", () => {
@@ -950,5 +953,203 @@ describe("stores/GalleryStore", () => {
     expect(ok).toBe(true);
     expect(fetchSpy).toHaveBeenCalledWith("g1");
     expect(deleteMultiSpy).toHaveBeenCalledWith("g1", ["i1"]);
+  });
+
+  it("loadInitialGalleries keeps null cover url when signing thumbnail fails", async () => {
+    secureStoreUtilsMock.getSpaceId.mockResolvedValueOnce("space-1");
+    queueFrom("galleries", "select", {
+      data: [
+        {
+          ...BASE_GALLERY,
+          cover_image_thumb_path: "covers/g1-thumb.jpg",
+        },
+      ],
+      error: null,
+    });
+    queueStorage("gallery-private", "createSignedUrl", {
+      data: null,
+      error: { message: "sign fail" },
+    });
+
+    const rows = await useGalleryStore.getState().loadInitialGalleries();
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0].cover_thumb_url).toBeNull();
+  });
+
+  it("loadMoreGalleries uses asc cursor branch with search and keeps null cover url when signing fails", async () => {
+    secureStoreUtilsMock.getSpaceId.mockResolvedValueOnce("space-1");
+    useGalleryStore.setState({
+      galleries: [BASE_GALLERY],
+      galleriesQuery: {
+        searchText: "Trip",
+        sortDir: "asc",
+      },
+      galleriesPage: {
+        cursor: { date: "2026-03-01", id: "g1" },
+        hasMore: true,
+        isLoadingInitial: false,
+        isLoadingMore: false,
+      },
+    });
+    queueFrom("galleries", "select", {
+      data: [
+        {
+          ...BASE_GALLERY,
+          id: "g2",
+          date_date: "2026-03-02",
+          cover_image_thumb_path: "covers/g2-thumb.jpg",
+        },
+      ],
+      error: null,
+    });
+    queueStorage("gallery-private", "createSignedUrl", {
+      data: null,
+      error: { message: "sign fail" },
+    });
+
+    const rows = await useGalleryStore.getState().loadMoreGalleries();
+
+    expect(rows.map((x) => x.id)).toEqual(["g1", "g2"]);
+    expect(rows.find((x) => x.id === "g2")?.cover_thumb_url).toBeNull();
+
+    const builder = (supabaseMock.from as jest.Mock).mock.results[0].value;
+    expect(builder.ilike).toHaveBeenCalledWith("title", "%Trip%");
+    expect(builder.or).toHaveBeenCalledWith(
+      expect.stringContaining("date_date.gt.2026-03-01"),
+    );
+  });
+
+  it("loadMoreGalleries keeps previous cursor when fetched page is empty", async () => {
+    secureStoreUtilsMock.getSpaceId.mockResolvedValueOnce("space-1");
+    useGalleryStore.setState({
+      galleries: [BASE_GALLERY],
+      galleriesPage: {
+        cursor: { date: "2026-03-01", id: "g1" },
+        hasMore: true,
+        isLoadingInitial: false,
+        isLoadingMore: false,
+      },
+    });
+    queueFrom("galleries", "select", {
+      data: [],
+      error: null,
+    });
+
+    await useGalleryStore.getState().loadMoreGalleries();
+
+    expect(useGalleryStore.getState().galleriesPage.cursor).toEqual({
+      date: "2026-03-01",
+      id: "g1",
+    });
+  });
+
+  it("loadMoreGalleryImages returns existing rows when page cursor is missing", async () => {
+    useGalleryStore.setState({
+      imagesByGalleryId: { g1: [BASE_IMAGE] },
+      imagesPageByGalleryId: {
+        g1: {
+          cursor: null,
+          hasMore: true,
+          isLoadingInitial: false,
+          isLoadingMore: false,
+        },
+      },
+    });
+
+    const rows = await useGalleryStore.getState().loadMoreGalleryImages("g1");
+
+    expect(rows).toEqual([BASE_IMAGE]);
+    expect(supabaseMock.from).not.toHaveBeenCalled();
+  });
+
+  it("refreshGalleries delegates to loadInitialGalleries", async () => {
+    const loadInitialSpy = jest
+      .spyOn(useGalleryStore.getState(), "loadInitialGalleries")
+      .mockResolvedValue([BASE_GALLERY]);
+
+    const rows = await useGalleryStore.getState().refreshGalleries();
+
+    expect(loadInitialSpy).toHaveBeenCalledTimes(1);
+    expect(rows).toEqual([BASE_GALLERY]);
+  });
+
+  it("refreshGalleryImages delegates to loadInitialGalleryImages", async () => {
+    const loadInitialImagesSpy = jest
+      .spyOn(useGalleryStore.getState(), "loadInitialGalleryImages")
+      .mockResolvedValue([BASE_IMAGE]);
+
+    const rows = await useGalleryStore.getState().refreshGalleryImages("g1");
+
+    expect(loadInitialImagesSpy).toHaveBeenCalledWith("g1");
+    expect(rows).toEqual([BASE_IMAGE]);
+  });
+
+  it("fetchGalleries delegates to refreshGalleries", async () => {
+    const refreshSpy = jest
+      .spyOn(useGalleryStore.getState(), "refreshGalleries")
+      .mockResolvedValue([BASE_GALLERY]);
+
+    const rows = await useGalleryStore.getState().fetchGalleries();
+
+    expect(refreshSpy).toHaveBeenCalledTimes(1);
+    expect(rows).toEqual([BASE_GALLERY]);
+  });
+
+  it("uploadGalleryImages rejects when inserted image row has no id", async () => {
+    queueFromSingle("galleries", "select", {
+      data: {
+        space_id: "space-1",
+        cover_image_path: null,
+        cover_image_thumb_path: null,
+      },
+      error: null,
+    });
+    queueFromSingle("date_images", "insert", {
+      data: { created_at: "2026-03-06T00:00:00.000Z" },
+      error: null,
+    });
+
+    await expect(
+      useGalleryStore.getState().uploadGalleryImages("g1", ["file://1.jpg"]),
+    ).rejects.toThrow("Failed to create image row");
+
+    expect(generateVariants).not.toHaveBeenCalled();
+    expect(useGalleryStore.getState().isUploadingByGalleryId.g1).toBe(false);
+    expect(toastMock.dismiss).toHaveBeenCalledWith("toast-id");
+  });
+
+  it("uploadGalleryImages cleans up files and db row when image update fails", async () => {
+    (generateVariants as jest.Mock).mockResolvedValueOnce(MOCK_VARIANTS);
+    (generateBlurhash as jest.Mock).mockResolvedValueOnce("blur-1");
+
+    queueFromSingle("galleries", "select", {
+      data: {
+        space_id: "space-1",
+        cover_image_path: null,
+        cover_image_thumb_path: null,
+      },
+      error: null,
+    });
+    queueFromSingle("date_images", "insert", {
+      data: { id: "img-upd-fail", created_at: "2026-03-06T00:00:00.000Z" },
+      error: null,
+    });
+    queueStorage("gallery-private", "upload", { data: { path: "a" }, error: null });
+    queueStorage("gallery-private", "upload", { data: { path: "b" }, error: null });
+    queueStorage("gallery-private", "upload", { data: { path: "c" }, error: null });
+    queueFrom("date_images", "update", {
+      data: null,
+      error: { message: "db update failed" },
+    });
+    queueStorage("gallery-private", "remove", { data: [], error: null });
+    queueFrom("date_images", "delete", { data: null, error: null });
+
+    await expect(
+      useGalleryStore.getState().uploadGalleryImages("g1", ["file://1.jpg"]),
+    ).rejects.toMatchObject({ message: "db update failed" });
+
+    expect(useGalleryStore.getState().isUploadingByGalleryId.g1).toBe(false);
+    expect(toastMock.dismiss).toHaveBeenCalledWith("toast-id");
   });
 });

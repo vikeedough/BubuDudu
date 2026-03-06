@@ -42,6 +42,19 @@ describe("stores/WheelStore", () => {
     expect(useWheelStore.getState().isLoadingWheels).toBe(false);
   });
 
+  it("throws on fetch error and resets loading state", async () => {
+    secureStoreUtilsMock.getSpaceId.mockResolvedValueOnce("space-1");
+    queueFrom("wheel", "select", {
+      data: null,
+      error: { message: "fetch failed" },
+    });
+
+    await expect(useWheelStore.getState().fetchWheels()).rejects.toMatchObject({
+      message: "fetch failed",
+    });
+    expect(useWheelStore.getState().isLoadingWheels).toBe(false);
+  });
+
   it("handles local draft lifecycle", () => {
     const store = useWheelStore.getState();
 
@@ -76,6 +89,14 @@ describe("stores/WheelStore", () => {
     expect(useWheelStore.getState().draft).toBeNull();
   });
 
+  it("throws when adding wheel without active space", async () => {
+    secureStoreUtilsMock.getSpaceId.mockResolvedValueOnce(null);
+
+    await expect(
+      useWheelStore.getState().addWheel("Dinner", ["A", "B"]),
+    ).rejects.toThrow("No active spaceId");
+  });
+
   it("updates wheel title without changing item count", async () => {
     queueFrom("wheel", "update", { data: null, error: null });
     useWheelStore.setState({ wheels: [WHEEL_A] });
@@ -84,6 +105,19 @@ describe("stores/WheelStore", () => {
 
     expect(useWheelStore.getState().wheels).toHaveLength(1);
     expect(useWheelStore.getState().wheels[0].title).toBe("Lunch");
+  });
+
+  it("throws when updating wheel title fails", async () => {
+    queueFrom("wheel", "update", {
+      data: null,
+      error: { message: "title failed" },
+    });
+
+    await expect(
+      useWheelStore.getState().updateWheelTitle("w1", "Lunch"),
+    ).rejects.toMatchObject({
+      message: "title failed",
+    });
   });
 
   it("updates wheel choices", async () => {
@@ -95,6 +129,19 @@ describe("stores/WheelStore", () => {
     expect(useWheelStore.getState().wheels[0].choices).toEqual(["Ramen"]);
   });
 
+  it("throws when updating wheel choices fails", async () => {
+    queueFrom("wheel", "update", {
+      data: null,
+      error: { message: "choices failed" },
+    });
+
+    await expect(
+      useWheelStore.getState().updateWheelChoices("w1", ["Ramen"]),
+    ).rejects.toMatchObject({
+      message: "choices failed",
+    });
+  });
+
   it("deletes a wheel from state", async () => {
     queueFrom("wheel", "delete", { data: null, error: null });
     useWheelStore.setState({ wheels: [WHEEL_A] });
@@ -102,5 +149,16 @@ describe("stores/WheelStore", () => {
     await useWheelStore.getState().deleteWheel("w1");
 
     expect(useWheelStore.getState().wheels).toEqual([]);
+  });
+
+  it("throws when deleting wheel fails", async () => {
+    queueFrom("wheel", "delete", {
+      data: null,
+      error: { message: "delete failed" },
+    });
+
+    await expect(useWheelStore.getState().deleteWheel("w1")).rejects.toMatchObject({
+      message: "delete failed",
+    });
   });
 });

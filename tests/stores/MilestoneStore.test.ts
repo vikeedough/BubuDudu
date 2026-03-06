@@ -40,6 +40,20 @@ describe("stores/MilestoneStore", () => {
     expect(useMilestoneStore.getState().error).toBe("fetch failed");
   });
 
+  it("returns null when milestone row is missing", async () => {
+    secureStoreUtilsMock.getSpaceId.mockResolvedValueOnce("space-1");
+    queueFromMaybeSingle("milestones", "select", {
+      data: null,
+      error: null,
+    });
+
+    const result = await useMilestoneStore.getState().fetchMilestone();
+
+    expect(result).toBeNull();
+    expect(useMilestoneStore.getState().milestone).toBeNull();
+    expect(useMilestoneStore.getState().isLoading).toBe(false);
+  });
+
   it("upserts milestone and updates store", async () => {
     secureStoreUtilsMock.getSpaceId.mockResolvedValueOnce("space-1");
     queueFromSingle("milestones", "upsert", {
@@ -66,6 +80,25 @@ describe("stores/MilestoneStore", () => {
     ).rejects.toThrow("No spaceId found");
 
     expect(useMilestoneStore.getState().error).toBe("No spaceId found");
+  });
+
+  it("throws and stores error when upsert query fails", async () => {
+    secureStoreUtilsMock.getSpaceId.mockResolvedValueOnce("space-1");
+    queueFromSingle("milestones", "upsert", {
+      data: null,
+      error: { message: "upsert failed" },
+    });
+
+    await expect(
+      useMilestoneStore
+        .getState()
+        .upsertMilestone("Anniversary", "2026-06-01"),
+    ).rejects.toMatchObject({
+      message: "upsert failed",
+    });
+
+    expect(useMilestoneStore.getState().error).toBe("upsert failed");
+    expect(useMilestoneStore.getState().isLoading).toBe(false);
   });
 
   it("clears milestone state", () => {
