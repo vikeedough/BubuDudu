@@ -1,14 +1,11 @@
 import { useEffect, useState } from "react";
-import { Alert, StyleSheet, View } from "react-native";
+import { Alert, View } from "react-native";
 
 import { GeneralButton } from "@/components/GeneralButton";
-import { DatePickerField } from "@/components/settings/DatePickerField";
+import { DisplayDatePickerField } from "@/components/settings/DisplayDatePickerField";
+import { settingsScreenStyles } from "@/components/settings/settingsScreenStyles";
 import { useAuthContext } from "@/hooks/useAuthContext";
-import {
-    convertToDisplayDate,
-    dateToYYYYMMDD,
-    formatDate,
-} from "@/utils/settings";
+import { dateToYYYYMMDD, formatDate } from "@/utils/settings";
 
 export default function DateOfBirth() {
     const { profile, updateProfile } = useAuthContext();
@@ -43,24 +40,15 @@ export default function DateOfBirth() {
     };
 
     return (
-        <View style={styles.container}>
-            <DatePickerField
+        <View style={settingsScreenStyles.container}>
+            <DisplayDatePickerField
                 label="Date of Birth"
-                value={displayedDate}
                 date={date}
-                onDateChange={(selectedDate) => {
-                    setDate(selectedDate);
-                    setDisplayedDate(convertToDisplayDate(selectedDate));
-                }}
+                displayedDate={displayedDate}
+                setDate={setDate}
+                setDisplayedDate={setDisplayedDate}
             />
             <GeneralButton label="Save" onPress={() => handleSaveDate(date)} />
         </View>
     );
 }
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        padding: "10%",
-    },
-});

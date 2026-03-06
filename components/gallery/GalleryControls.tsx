@@ -1,10 +1,5 @@
 import React from "react";
-import {
-    ActivityIndicator,
-    StyleSheet,
-    TouchableOpacity,
-    View,
-} from "react-native";
+import { ActivityIndicator, StyleSheet, View } from "react-native";
 
 import Plus from "@/assets/svgs/plus.svg";
 import SortAscending from "@/assets/svgs/sort-ascending.svg";
@@ -12,6 +7,8 @@ import SortDescending from "@/assets/svgs/sort-descending.svg";
 import TrashBin from "@/assets/svgs/trash-bin.svg";
 import CustomText from "@/components/CustomText";
 import { Colors } from "@/constants/colors";
+
+import GalleryControlButton from "./GalleryControlButton";
 
 interface GalleryControlsProps {
     galleryTitle: string;
@@ -43,32 +40,23 @@ const GalleryControls: React.FC<GalleryControlsProps> = ({
                         {galleryDate}
                     </CustomText>
                 </View>
-                <TouchableOpacity
-                    style={styles.controlButton}
-                    onPress={onDeleteGallery}
-                >
+                <GalleryControlButton onPress={onDeleteGallery}>
                     {isDeleting ? (
                         <ActivityIndicator size="small" color={Colors.red} />
                     ) : (
                         <TrashBin />
                     )}
-                </TouchableOpacity>
-                <TouchableOpacity
-                    style={styles.controlButton}
-                    onPress={onToggleSort}
-                >
+                </GalleryControlButton>
+                <GalleryControlButton onPress={onToggleSort}>
                     {sortingByAscending ? (
                         <SortAscending />
                     ) : (
                         <SortDescending />
                     )}
-                </TouchableOpacity>
-                <TouchableOpacity
-                    style={styles.controlButton}
-                    onPress={onAddImages}
-                >
+                </GalleryControlButton>
+                <GalleryControlButton onPress={onAddImages}>
                     <Plus />
-                </TouchableOpacity>
+                </GalleryControlButton>
             </View>
         </View>
     );
@@ -98,17 +86,6 @@ const styles = StyleSheet.create({
         marginTop: 5,
         fontSize: 10,
         color: Colors.darkGreenText,
-    },
-    controlButton: {
-        backgroundColor: Colors.white,
-        borderRadius: 999,
-        padding: 10,
-        height: 30,
-        width: 30,
-        justifyContent: "center",
-        alignItems: "center",
-        borderWidth: 1,
-        borderColor: "#EBEAEC",
     },
 });
 

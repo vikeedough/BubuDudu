@@ -20,21 +20,27 @@ const MilestoneTracker: FC<MilestoneTrackerProps> = ({
     milestoneKey,
 }) => {
     const daysToNextBirthday = getDaysUntilNextBirthday(date);
+    const isAnniversary = milestoneKey === 2;
+    const milestoneContainerStyle =
+        milestoneKey === 0
+            ? styles.birthdayContainer
+            : milestoneKey === 1
+              ? styles.partnerBirthdayContainer
+              : styles.anniversaryContainer;
+    const milestoneTextColor =
+        milestoneKey === 0
+            ? Colors.darkBlueText
+            : milestoneKey === 1
+              ? Colors.pinkText
+              : Colors.orangeText;
 
     return (
         <View style={styles.shadowContainer}>
-            <View
-                style={[
-                    styles.container,
-                    milestoneKey === 0 && { backgroundColor: Colors.lightBlue },
-                    milestoneKey === 1 && { backgroundColor: Colors.pink },
-                    milestoneKey === 2 && styles.anniversaryContainer,
-                ]}
-            >
+            <View style={[styles.container, milestoneContainerStyle]}>
                 <View
                     style={[
                         styles.imageContainer,
-                        milestoneKey === 2 && styles.anniversaryImageContainer,
+                        isAnniversary && styles.anniversaryImageContainer,
                     ]}
                 >
                     <Image
@@ -45,35 +51,13 @@ const MilestoneTracker: FC<MilestoneTrackerProps> = ({
                     <View style={styles.dateContainer}>
                         <CustomText
                             weight="bold"
-                            style={[
-                                styles.date,
-                                milestoneKey === 0 && {
-                                    color: Colors.darkBlueText,
-                                },
-                                milestoneKey === 1 && {
-                                    color: Colors.pinkText,
-                                },
-                                milestoneKey === 2 && {
-                                    color: Colors.orangeText,
-                                },
-                            ]}
+                            style={[styles.date, { color: milestoneTextColor }]}
                         >
                             {daysToNextBirthday ? daysToNextBirthday : "--"}
                         </CustomText>
                         <CustomText
                             weight="semibold"
-                            style={[
-                                styles.daysText,
-                                milestoneKey === 0 && {
-                                    color: Colors.darkBlueText,
-                                },
-                                milestoneKey === 1 && {
-                                    color: Colors.pinkText,
-                                },
-                                milestoneKey === 2 && {
-                                    color: Colors.orangeText,
-                                },
-                            ]}
+                            style={[styles.daysText, { color: milestoneTextColor }]}
                         >
                             days
                         </CustomText>
@@ -82,12 +66,7 @@ const MilestoneTracker: FC<MilestoneTrackerProps> = ({
 
                 <CustomText
                     weight="bold"
-                    style={[
-                        styles.title,
-                        milestoneKey === 0 && { color: Colors.darkBlueText },
-                        milestoneKey === 1 && { color: Colors.pinkText },
-                        milestoneKey === 2 && { color: Colors.orangeText },
-                    ]}
+                    style={[styles.title, { color: milestoneTextColor }]}
                 >
                     {title}
                 </CustomText>
@@ -143,6 +122,12 @@ const styles = StyleSheet.create({
         fontSize: 12,
         zIndex: 100,
         textAlign: "center",
+    },
+    birthdayContainer: {
+        backgroundColor: Colors.lightBlue,
+    },
+    partnerBirthdayContainer: {
+        backgroundColor: Colors.pink,
     },
     anniversaryContainer: {
         width: 225,

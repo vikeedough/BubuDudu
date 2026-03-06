@@ -1,15 +1,12 @@
 import { useEffect, useState } from "react";
-import { Alert, StyleSheet, View } from "react-native";
+import { Alert, View } from "react-native";
 
 import { GeneralButton } from "@/components/GeneralButton";
-import { DatePickerField } from "@/components/settings/DatePickerField";
+import { DisplayDatePickerField } from "@/components/settings/DisplayDatePickerField";
+import { settingsScreenStyles } from "@/components/settings/settingsScreenStyles";
 import { SettingsTextInputField } from "@/components/settings/SettingsTextInputField";
 import { useMilestoneStore } from "@/stores/MilestoneStore";
-import {
-    convertToDisplayDate,
-    dateToYYYYMMDD,
-    formatDate,
-} from "@/utils/settings";
+import { dateToYYYYMMDD, formatDate } from "@/utils/settings";
 
 export default function SharedMilestone() {
     const milestone = useMilestoneStore((s) => s.milestone);
@@ -58,7 +55,7 @@ export default function SharedMilestone() {
     };
 
     return (
-        <View style={styles.container}>
+        <View style={settingsScreenStyles.container}>
             <SettingsTextInputField
                 label="Name"
                 value={milestoneTitle}
@@ -66,24 +63,15 @@ export default function SharedMilestone() {
                 placeholder="Enter the name of your shared milestone!"
             />
 
-            <DatePickerField
+            <DisplayDatePickerField
                 label="Date"
-                value={displayedDate}
                 date={date}
-                onDateChange={(selectedDate) => {
-                    setDate(selectedDate);
-                    setDisplayedDate(convertToDisplayDate(selectedDate));
-                }}
+                displayedDate={displayedDate}
+                setDate={setDate}
+                setDisplayedDate={setDisplayedDate}
             />
 
             <GeneralButton label="Save" onPress={handleSaveMilestone} />
         </View>
     );
 }
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        padding: "10%",
-    },
-});

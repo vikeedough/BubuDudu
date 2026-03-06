@@ -1,15 +1,13 @@
 import { useState } from "react";
 import {
     Alert,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
     StyleSheet,
     TextInput,
     TouchableOpacity,
     View,
 } from "react-native";
 
+import CenteredModal from "@/components/common/CenteredModal";
 import { Colors } from "@/constants/colors";
 import { toast } from "@/toast/api";
 
@@ -50,87 +48,44 @@ const NoteModal: React.FC<NoteModalProps> = ({
     };
 
     return (
-        <Modal
-            visible={isOpen}
-            onRequestClose={onClose}
-            transparent={true}
-            animationType="fade"
+        <CenteredModal
+            isOpen={isOpen}
+            onClose={onClose}
+            useKeyboardAvoidingView
+            containerStyle={styles.modalContainer}
         >
-            <View style={styles.modalOverlay}>
-                <KeyboardAvoidingView
-                    style={styles.kav}
-                    behavior={Platform.OS === "ios" ? "padding" : "height"}
-                    keyboardVerticalOffset={0}
-                >
-                    <View style={styles.modalContainer}>
-                        <CustomText weight="bold" style={styles.modalTitle}>
-                            Edit Status
-                        </CustomText>
-                        <TextInput
-                            value={note}
-                            onChangeText={setNote}
-                            placeholder="Enter your note!"
-                            multiline
-                            style={styles.noteInput}
-                        />
-                        <View style={styles.buttonContainer}>
-                            <TouchableOpacity
-                                style={styles.saveButton}
-                                onPress={handleSave}
-                            >
-                                <CustomText
-                                    weight="bold"
-                                    style={styles.buttonText}
-                                >
-                                    Save
-                                </CustomText>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={styles.cancelButton}
-                                onPress={onClose}
-                            >
-                                <CustomText
-                                    weight="bold"
-                                    style={styles.buttonText}
-                                >
-                                    Cancel
-                                </CustomText>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                </KeyboardAvoidingView>
+            <CustomText weight="bold" style={styles.modalTitle}>
+                Edit Status
+            </CustomText>
+            <TextInput
+                value={note}
+                onChangeText={setNote}
+                placeholder="Enter your note!"
+                multiline
+                style={styles.noteInput}
+            />
+            <View style={styles.buttonContainer}>
+                <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
+                    <CustomText weight="bold" style={styles.buttonText}>
+                        Save
+                    </CustomText>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
+                    <CustomText weight="bold" style={styles.buttonText}>
+                        Cancel
+                    </CustomText>
+                </TouchableOpacity>
             </View>
-        </Modal>
+        </CenteredModal>
     );
 };
 
 export default NoteModal;
 
 const styles = StyleSheet.create({
-    modalOverlay: {
-        ...StyleSheet.absoluteFillObject,
-        backgroundColor: "rgba(0, 0, 0, 0.5)",
-    },
-    kav: {
-        flex: 1,
-        justifyContent: "center",
-        alignItems: "center",
-    },
     modalContainer: {
-        backgroundColor: "white",
-        borderRadius: 15,
         padding: 20,
         margin: 20,
-        shadowColor: "#000",
-        shadowOffset: {
-            width: 0,
-            height: 2,
-        },
-        shadowOpacity: 0.25,
-        shadowRadius: 4,
-        elevation: 5,
-        maxWidth: "90%",
-        maxHeight: "80%",
     },
     modalTitle: {
         fontSize: 16,

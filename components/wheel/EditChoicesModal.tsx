@@ -1,9 +1,6 @@
 import React, { useState } from "react";
 import {
     Alert,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
     ScrollView,
     StyleSheet,
     TextInput,
@@ -12,6 +9,7 @@ import {
 } from "react-native";
 
 import { Wheel } from "@/api/endpoints/types";
+import CenteredModal from "@/components/common/CenteredModal";
 import ModalActionButtons from "@/components/common/ModalActionButtons";
 import { Colors } from "@/constants/colors";
 import { useWheelStore } from "@/stores/WheelStore";
@@ -89,103 +87,68 @@ const EditChoicesModal: React.FC<EditChoicesModalProps> = ({
     };
 
     return (
-        <Modal
-            visible={isOpen}
-            onRequestClose={onClose}
-            transparent={true}
-            animationType="fade"
+        <CenteredModal
+            isOpen={isOpen}
+            onClose={onClose}
+            useKeyboardAvoidingView
+            containerStyle={styles.modalContainer}
         >
-            <View style={styles.modalOverlay}>
-                <KeyboardAvoidingView
-                    style={styles.kav}
-                    behavior={Platform.OS === "ios" ? "padding" : "height"}
-                    keyboardVerticalOffset={0}
+            <ScrollView
+                contentContainerStyle={styles.modalContent}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+            >
+                <CustomText weight="bold" style={styles.modalTitle}>
+                    Edit Items
+                </CustomText>
+                <CustomText weight="semibold" style={styles.modalSubtitle}>
+                    Name
+                </CustomText>
+                <TextInput
+                    style={styles.input}
+                    value={newChoice}
+                    onChangeText={setNewChoice}
+                    onSubmitEditing={handleAddChoice}
+                />
+                <ScrollView
+                    style={styles.choicesScrollView}
+                    contentContainerStyle={styles.choicesContainer}
                 >
-                    <View style={styles.modalContainer}>
-                        <ScrollView
-                            contentContainerStyle={styles.modalContent}
-                            keyboardShouldPersistTaps="handled"
-                            showsVerticalScrollIndicator={false}
-                        >
-                            <CustomText weight="bold" style={styles.modalTitle}>
-                                Edit Items
+                    <View style={styles.choicesList}>
+                        {currentChoices.length > 0 ? (
+                            currentChoices.map((choice) => (
+                                <ChoiceItem
+                                    key={choice}
+                                    item={choice}
+                                    onDelete={handleDeleteChoice}
+                                />
+                            ))
+                        ) : (
+                            <CustomText style={styles.noChoicesText}>
+                                No choices available for this wheel
                             </CustomText>
-                            <CustomText
-                                weight="semibold"
-                                style={styles.modalSubtitle}
-                            >
-                                Name
-                            </CustomText>
-                            <TextInput
-                                style={styles.input}
-                                value={newChoice}
-                                onChangeText={setNewChoice}
-                                onSubmitEditing={handleAddChoice}
-                            />
-                            <ScrollView
-                                style={styles.choicesScrollView}
-                                contentContainerStyle={styles.choicesContainer}
-                            >
-                                <View style={styles.choicesList}>
-                                    {currentChoices.length > 0 ? (
-                                        currentChoices.map((choice) => (
-                                            <ChoiceItem
-                                                key={choice}
-                                                item={choice}
-                                                onDelete={handleDeleteChoice}
-                                            />
-                                        ))
-                                    ) : (
-                                        <CustomText
-                                            style={styles.noChoicesText}
-                                        >
-                                            No choices available for this wheel
-                                        </CustomText>
-                                    )}
-                                </View>
-                            </ScrollView>
-                        </ScrollView>
-                        <ModalActionButtons
-                            onConfirm={handleSaveChoicesAndClose}
-                            onCancel={onClose}
-                            confirmLabel="Save"
-                            cancelLabel="Cancel"
-                            containerStyle={styles.modalButtons}
-                        />
+                        )}
                     </View>
-                </KeyboardAvoidingView>
-            </View>
-        </Modal>
+                </ScrollView>
+            </ScrollView>
+            <ModalActionButtons
+                onConfirm={handleSaveChoicesAndClose}
+                onCancel={onClose}
+                confirmLabel="Save"
+                cancelLabel="Cancel"
+                containerStyle={styles.modalButtons}
+            />
+        </CenteredModal>
     );
 };
 
 export default EditChoicesModal;
 
 const styles = StyleSheet.create({
-    modalOverlay: {
-        ...StyleSheet.absoluteFillObject,
-        backgroundColor: "rgba(0, 0, 0, 0.5)",
-    },
-    kav: {
-        flex: 1,
-        justifyContent: "center",
-        alignItems: "center",
-    },
     modalContainer: {
-        backgroundColor: "white",
-        borderRadius: 15,
         padding: 30,
         margin: 10,
-        shadowColor: "#000",
-        shadowOffset: {
-            width: 0,
-            height: 2,
-        },
-        shadowOpacity: 0.25,
-        shadowRadius: 4,
-        elevation: 5,
         width: "90%",
-        maxHeight: "80%",
     },
     modalContent: {
         flexGrow: 1,
