@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { memo, useCallback, useEffect, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
@@ -24,6 +24,50 @@ import { Colors, listColorsArray } from "@/constants/colors";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { useListStore } from "@/stores/ListStore";
 import { getDate } from "@/utils/home";
+
+interface ListLabelItemProps {
+    list: List;
+    index: number;
+    isSelected: boolean;
+    onPress: (list: List, index: number) => void;
+}
+
+const ListLabelItem = memo(
+    ({ list, index, isSelected, onPress }: ListLabelItemProps) => {
+        return (
+            <TouchableOpacity
+                style={[
+                    styles.labelContainer,
+                    {
+                        backgroundColor: listColorsArray[index % 6],
+                    },
+                    !isSelected && styles.unselectedLabel,
+                ]}
+                onPress={() => onPress(list, index)}
+            >
+                <View
+                    style={[
+                        styles.labelTextWrapper,
+                        {
+                            right: isSelected ? 15 : 20,
+                        },
+                    ]}
+                >
+                    <CustomText
+                        weight="semibold"
+                        style={styles.labelText}
+                        numberOfLines={1}
+                        ellipsizeMode="tail"
+                    >
+                        {list.type}
+                    </CustomText>
+                </View>
+            </TouchableOpacity>
+        );
+    },
+);
+
+ListLabelItem.displayName = "ListLabelItem";
 
 const Lists = () => {
     const lists = useListStore((s) => s.lists);
@@ -75,16 +119,12 @@ const Lists = () => {
         }
     }, [lists, selectedList, isDraftOpen]);
 
-    const findIndex = (index: number) => {
-        return index % 6;
-    };
-
-    const handleListSelect = (list: List, index: number) => {
+    const handleListSelect = useCallback((list: List, index: number) => {
         setSelectedList(list);
         setNoteTitle(list.type);
         setNoteContent(list.content);
         setSelectedIndex(index);
-    };
+    }, []);
 
     const handleAddEmptyList = () => {
         openDraft();
@@ -141,39 +181,22 @@ const Lists = () => {
         }
     };
 
-    const labelItem = (list: List, index: number) => {
-        const isSelected = selectedIndex === index;
-        return (
-            <TouchableOpacity
-                style={[
-                    styles.labelContainer,
-                    {
-                        backgroundColor: listColorsArray[findIndex(index)],
-                    },
-                    !isSelected && styles.unselectedLabel,
-                ]}
-                onPress={() => handleListSelect(list, index)}
-            >
-                <View
-                    style={[
-                        styles.labelTextWrapper,
-                        {
-                            right: isSelected ? 15 : 20,
-                        },
-                    ]}
-                >
-                    <CustomText
-                        weight="semibold"
-                        style={styles.labelText}
-                        numberOfLines={1}
-                        ellipsizeMode="tail"
-                    >
-                        {list.type}
-                    </CustomText>
-                </View>
-            </TouchableOpacity>
-        );
-    };
+    const renderLabelItem = useCallback(
+        ({ item, index }: { item: List; index: number }) => (
+            <ListLabelItem
+                list={item}
+                index={index}
+                isSelected={selectedIndex === index}
+                onPress={handleListSelect}
+            />
+        ),
+        [selectedIndex, handleListSelect],
+    );
+
+    const renderLabelSeparator = useCallback(
+        () => <View style={styles.labelSeparator} />,
+        [],
+    );
 
     return (
         <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
@@ -208,17 +231,10 @@ const Lists = () => {
                         <View style={styles.labelsContainer}>
                             <FlatList
                                 data={lists}
-                                style={{ marginBottom: 5 }}
-                                renderItem={({
-                                    item,
-                                    index,
-                                }: {
-                                    item: List;
-                                    index: number;
-                                }) => labelItem(item, index)}
-                                ItemSeparatorComponent={() => (
-                                    <View style={{ height: 5 }} />
-                                )}
+                                style={styles.labelList}
+                                renderItem={renderLabelItem}
+                                keyExtractor={(item) => item.id}
+                                ItemSeparatorComponent={renderLabelSeparator}
                                 refreshing={refreshing}
                                 onRefresh={onRefresh}
                                 keyboardShouldPersistTaps="handled"
@@ -340,6 +356,12 @@ const styles = StyleSheet.create({
         zIndex: 100,
         width: 70,
         paddingLeft: 0,
+    },
+    labelList: {
+        marginBottom: 5,
+    },
+    labelSeparator: {
+        height: 5,
     },
     addListLabel: {
         height: 57,

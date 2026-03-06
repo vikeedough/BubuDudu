@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
     ActivityIndicator,
     FlatList,
@@ -27,6 +27,69 @@ import { Colors, listColorsArray } from "@/constants/colors";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { useWheelStore } from "@/stores/WheelStore";
 import { getDate } from "@/utils/home";
+
+interface WheelLabelItemProps {
+    item: string;
+    index: number;
+    isSelected: boolean;
+    onPress: (index: number) => void;
+}
+
+const WheelLabelItem = memo(
+    ({ item, index, isSelected, onPress }: WheelLabelItemProps) => {
+        return (
+            <TouchableOpacity
+                style={[
+                    styles.labelContainer,
+                    {
+                        backgroundColor: listColorsArray[index % 6],
+                    },
+                    !isSelected && styles.unselectedLabel,
+                ]}
+                onPress={() => onPress(index)}
+            >
+                <View style={styles.labelTextWrapper}>
+                    <CustomText
+                        weight="semibold"
+                        style={styles.labelText}
+                        numberOfLines={1}
+                        ellipsizeMode="tail"
+                    >
+                        {item}
+                    </CustomText>
+                </View>
+            </TouchableOpacity>
+        );
+    },
+);
+
+WheelLabelItem.displayName = "WheelLabelItem";
+
+interface WheelChoiceItemProps {
+    item: string;
+    isSelected: boolean;
+    onPress: (item: string) => void;
+}
+
+const WheelChoiceItem = memo(
+    ({ item, isSelected, onPress }: WheelChoiceItemProps) => {
+        return (
+            <TouchableOpacity
+                style={[
+                    styles.selectableChoice,
+                    isSelected && styles.selectedChoice,
+                ]}
+                onPress={() => onPress(item)}
+            >
+                <CustomText weight="semibold" style={styles.choiceText}>
+                    {item}
+                </CustomText>
+            </TouchableOpacity>
+        );
+    },
+);
+
+WheelChoiceItem.displayName = "WheelChoiceItem";
 
 const Wheel = () => {
     const currentDate = getDate();
@@ -117,10 +180,9 @@ const Wheel = () => {
     const handleTitleChange = (newTitle: string) => {
         setLocalTitle(newTitle);
 
-        const selected = wheelsForUI[selectedIndex];
-        if (!selected) return;
+        if (!selectedWheel) return;
 
-        debouncedUpdateTitle(selected.id, newTitle);
+        debouncedUpdateTitle(selectedWheel.id, newTitle);
     };
 
     const handleAddEmptyWheel = () => {
@@ -142,7 +204,7 @@ const Wheel = () => {
     const handleDeleteWheel = async () => {
         setIsDeletingWheel(true);
         try {
-            const wheelId = wheelsForUI[selectedIndex]?.id;
+            const wheelId = selectedWheel?.id;
             if (!wheelId || wheelId === "__DRAFT__") return;
 
             await deleteWheelAction(wheelId);
@@ -156,77 +218,55 @@ const Wheel = () => {
         }
     };
 
-    const findIndex = (index: number) => {
-        return index % 6;
-    };
-
-    const handleLabelSelect = (index: number) => {
+    const handleLabelSelect = useCallback((index: number) => {
         setSelectedIndex(index);
         setCurrentSelections([]);
-    };
+    }, []);
 
-    const LabelItem = ({ item, index }: { item: string; index: number }) => {
-        const isSelected = selectedIndex === index;
-        return (
-            <TouchableOpacity
-                style={[
-                    styles.labelContainer,
-                    {
-                        backgroundColor: listColorsArray[findIndex(index)],
-                    },
-                    !isSelected && styles.unselectedLabel,
-                ]}
-                onPress={() => handleLabelSelect(index)}
-            >
-                <View style={styles.labelTextWrapper}>
-                    <CustomText
-                        weight="semibold"
-                        style={styles.labelText}
-                        numberOfLines={1}
-                        ellipsizeMode="tail"
-                    >
-                        {item}
-                    </CustomText>
-                </View>
-            </TouchableOpacity>
-        );
-    };
-
-    const ChoiceItem = ({ item }: { item: string }) => {
-        const isSelected = currentSelections.includes(item);
-
-        return (
-            <TouchableOpacity
-                style={[
-                    styles.selectableChoice,
-                    isSelected && styles.selectedChoice,
-                ]}
-                onPress={() => handleChoiceSelect(item)}
-            >
-                <CustomText weight="semibold" style={styles.choiceText}>
-                    {item}
-                </CustomText>
-            </TouchableOpacity>
-        );
-    };
-
-    const handleChoiceSelect = (choice: string) => {
+    const handleChoiceSelect = useCallback((choice: string) => {
         setCurrentSelections((prev) => {
             if (prev.includes(choice)) {
                 return prev.filter((item) => item !== choice);
             }
             return [...prev, choice];
         });
-    };
+    }, []);
+
+    const selectedWheel = wheelsForUI[selectedIndex];
+    const selectedChoicesSet = useMemo(
+        () => new Set(currentSelections),
+        [currentSelections],
+    );
+    const selectedWheelChoices = useMemo(
+        () =>
+            selectedWheel &&
+            Array.isArray(selectedWheel.choices) &&
+            selectedWheel.choices.length > 0
+                ? selectedWheel.choices
+                : [],
+        [selectedWheel],
+    );
+
+    const renderLabelItem = useCallback(
+        ({ item, index }: { item: string; index: number }) => (
+            <WheelLabelItem
+                item={item}
+                index={index}
+                isSelected={selectedIndex === index}
+                onPress={handleLabelSelect}
+            />
+        ),
+        [selectedIndex, handleLabelSelect],
+    );
 
     return (
         <SafeAreaView style={styles.container}>
-            {isEditChoicesModalOpen && (
+            {isEditChoicesModalOpen && selectedWheel && (
                 <View style={{ zIndex: 1000 }}>
                     <EditChoicesModal
                         isOpen={isEditChoicesModalOpen}
                         onClose={() => setIsEditChoicesModalOpen(false)}
-                        wheel={wheelsForUI[selectedIndex]}
+                        wheel={selectedWheel}
                     />
                 </View>
             )}
@@ -281,9 +321,7 @@ const Wheel = () => {
                             <View style={styles.labelsContainer}>
                                 <FlatList
                                     data={wheelNames}
-                                    renderItem={({ item, index }) => (
-                                        <LabelItem item={item} index={index} />
-                                    )}
+                                    renderItem={renderLabelItem}
                                     keyExtractor={(item, index) =>
                                         `${item}-${index}`
                                     }
@@ -345,19 +383,16 @@ const Wheel = () => {
                                 </View>
 
                                 <View style={styles.choicesList}>
-                                    {wheelsForUI.length > selectedIndex &&
-                                    wheelsForUI[selectedIndex] &&
-                                    wheelsForUI[selectedIndex].choices &&
-                                    Array.isArray(
-                                        wheelsForUI[selectedIndex].choices,
-                                    ) &&
-                                    wheelsForUI[selectedIndex].choices.length >
-                                        0 ? (
-                                        wheelsForUI[selectedIndex].choices.map(
+                                    {selectedWheelChoices.length > 0 ? (
+                                        selectedWheelChoices.map(
                                             (choice: string, index: number) => (
-                                                <ChoiceItem
+                                                <WheelChoiceItem
                                                     item={choice}
                                                     key={`${choice}-${index}`}
+                                                    isSelected={selectedChoicesSet.has(
+                                                        choice,
+                                                    )}
+                                                    onPress={handleChoiceSelect}
                                                 />
                                             ),
                                         )

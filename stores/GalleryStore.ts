@@ -10,6 +10,9 @@ const GALLERY_BUCKET = "gallery-private";
 const SIGN_TTL_SECONDS = 60 * 60;
 const GALLERIES_PAGE_SIZE = 10;
 const IMAGES_PAGE_SIZE = 20;
+const BULK_DELETE_THRESHOLD = 10;
+const STORAGE_REMOVE_CHUNK_SIZE = 100;
+const DELETE_IMAGES_CONCURRENCY = 4;
 
 function mergeUniqueById<T extends { id: string }>(prev: T[], next: T[]): T[] {
     if (next.length === 0) return prev;
@@ -23,6 +26,19 @@ function mergeUniqueById<T extends { id: string }>(prev: T[], next: T[]): T[] {
         merged.push(item);
     }
     return merged;
+}
+
+function chunk<T>(items: T[], size: number): T[][] {
+    if (items.length === 0) return [];
+    const out: T[][] = [];
+    for (let i = 0; i < items.length; i += size) {
+        out.push(items.slice(i, i + size));
+    }
+    return out;
+}
+
+function isNonEmptyString(value: unknown): value is string {
+    return typeof value === "string" && value.length > 0;
 }
 
 export type Gallery = {
@@ -70,6 +86,128 @@ export type GalleryImage = {
     url_grid?: string;
     url_orig?: string;
 };
+
+function clearGalleryCoverInList(
+    galleries: Gallery[],
+    galleryId: string,
+): Gallery[] {
+    return galleries.map((gallery) =>
+        gallery.id === galleryId
+            ? {
+                  ...gallery,
+                  cover_image_path: null,
+                  cover_image_thumb_path: null,
+                  cover_image_blur_hash: null,
+                  cover_thumb_url: null,
+              }
+            : gallery,
+    );
+}
+
+function setGalleryCoverInList(
+    galleries: Gallery[],
+    galleryId: string,
+    replacement: Pick<
+        GalleryImage,
+        "storage_path_grid" | "storage_path_thumb" | "blur_hash"
+    >,
+    signedThumbUrl: string | null,
+): Gallery[] {
+    return galleries.map((gallery) =>
+        gallery.id === galleryId
+            ? {
+                  ...gallery,
+                  cover_image_path: replacement.storage_path_grid,
+                  cover_image_thumb_path: replacement.storage_path_thumb,
+                  cover_image_blur_hash: replacement.blur_hash,
+                  cover_thumb_url: signedThumbUrl,
+              }
+            : gallery,
+    );
+}
+
+function removeImageFromGalleryCache(
+    imagesByGalleryId: Record<string, GalleryImage[]>,
+    galleryId: string,
+    imageId: string,
+): Record<string, GalleryImage[]> {
+    const previous = imagesByGalleryId[galleryId] ?? [];
+    return {
+        ...imagesByGalleryId,
+        [galleryId]: previous.filter((img) => img.id !== imageId),
+    };
+}
+
+function omitRecordKey<T>(
+    record: Record<string, T>,
+    key: string,
+): Record<string, T> {
+    const { [key]: _removed, ...rest } = record;
+    return rest;
+}
+
+async function attachSignedCoverThumbUrls(galleries: Gallery[]): Promise<Gallery[]> {
+    if (galleries.length === 0) return [];
+
+    const withCoverThumbUrl = galleries.map((gallery) => ({
+        ...gallery,
+        cover_thumb_url: null,
+    }));
+
+    const thumbPaths = Array.from(
+        new Set(
+            withCoverThumbUrl
+                .map((gallery) => gallery.cover_image_thumb_path)
+                .filter(isNonEmptyString),
+        ),
+    );
+
+    if (thumbPaths.length === 0) return withCoverThumbUrl;
+
+    const signedByPath: Record<string, string> = {};
+
+    const { data: batchSigned, error: batchErr } = await supabase.functions.invoke(
+        "sign-gallery-cover-urls",
+        {
+            body: {
+                paths: thumbPaths,
+            },
+        },
+    );
+
+    if (batchErr) {
+        console.warn("Batch cover signing failed, falling back per-path", batchErr);
+    } else if (batchSigned && typeof batchSigned === "object") {
+        for (const path of thumbPaths) {
+            const maybeUrl = (batchSigned as Record<string, unknown>)[path];
+            if (typeof maybeUrl === "string" && maybeUrl.length > 0) {
+                signedByPath[path] = maybeUrl;
+            }
+        }
+    }
+
+    const unresolvedPaths = thumbPaths.filter((path) => !signedByPath[path]);
+    if (unresolvedPaths.length > 0) {
+        await Promise.all(
+            unresolvedPaths.map(async (path) => {
+                const { data: signed, error: signErr } = await supabase.storage
+                    .from(GALLERY_BUCKET)
+                    .createSignedUrl(path, SIGN_TTL_SECONDS);
+                if (signErr || !signed?.signedUrl) return;
+                signedByPath[path] = signed.signedUrl;
+            }),
+        );
+    }
+
+    return withCoverThumbUrl.map((gallery) => {
+        const thumbPath = gallery.cover_image_thumb_path;
+        if (!isNonEmptyString(thumbPath)) return gallery;
+        return {
+            ...gallery,
+            cover_thumb_url: signedByPath[thumbPath] ?? null,
+        };
+    });
+}
 
 export type GalleryState = {
     galleries: Gallery[];
@@ -377,23 +515,8 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
                 return [];
             }
 
-            const page = ((data as Gallery[]) ?? []).map((g) => ({
-                ...g,
-                cover_thumb_url: null,
-            }));
-
-            const signed = await Promise.all(
-                page.map(async (g) => {
-                    if (!g.cover_image_thumb_path) return g;
-                    const { data: s, error: e } = await supabase.storage
-                        .from(GALLERY_BUCKET)
-                        .createSignedUrl(
-                            g.cover_image_thumb_path,
-                            SIGN_TTL_SECONDS,
-                        );
-                    if (e || !s?.signedUrl) return g;
-                    return { ...g, cover_thumb_url: s.signedUrl };
-                }),
+            const signed = await attachSignedCoverThumbUrls(
+                (data as Gallery[]) ?? [],
             );
 
             const last = signed[signed.length - 1];
@@ -479,23 +602,8 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
                 return get().galleries;
             }
 
-            const page = ((data as Gallery[]) ?? []).map((g) => ({
-                ...g,
-                cover_thumb_url: null,
-            }));
-
-            const signed = await Promise.all(
-                page.map(async (g) => {
-                    if (!g.cover_image_thumb_path) return g;
-                    const { data: s, error: e } = await supabase.storage
-                        .from(GALLERY_BUCKET)
-                        .createSignedUrl(
-                            g.cover_image_thumb_path,
-                            SIGN_TTL_SECONDS,
-                        );
-                    if (e || !s?.signedUrl) return g;
-                    return { ...g, cover_thumb_url: s.signedUrl };
-                }),
+            const signed = await attachSignedCoverThumbUrls(
+                (data as Gallery[]) ?? [],
             );
 
             const lastFetched = signed[signed.length - 1];
@@ -1020,15 +1128,9 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
                     .eq("id", galleryId);
 
                 set((state) => ({
-                    galleries: state.galleries.map((g) =>
-                        g.id === galleryId
-                            ? {
-                                  ...g,
-                                  cover_image_path: null,
-                                  cover_image_thumb_path: null,
-                                  cover_image_blur_hash: null,
-                              }
-                            : g,
+                    galleries: clearGalleryCoverInList(
+                        state.galleries,
+                        galleryId,
                     ),
                 }));
             } else {
@@ -1049,18 +1151,11 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
                     );
 
                 set((state) => ({
-                    galleries: state.galleries.map((g) =>
-                        g.id === galleryId
-                            ? {
-                                  ...g,
-                                  cover_image_path:
-                                      replacement.storage_path_grid,
-                                  cover_image_thumb_path:
-                                      replacement.storage_path_thumb,
-                                  cover_image_blur_hash: replacement.blur_hash,
-                                  cover_thumb_url: signed?.signedUrl ?? null,
-                              }
-                            : g,
+                    galleries: setGalleryCoverInList(
+                        state.galleries,
+                        galleryId,
+                        replacement,
+                        signed?.signedUrl ?? null,
                     ),
                 }));
             }
@@ -1083,12 +1178,12 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
 
         // Update store images list immediately
         set((state) => {
-            const prev = state.imagesByGalleryId[galleryId] ?? [];
             return {
-                imagesByGalleryId: {
-                    ...state.imagesByGalleryId,
-                    [galleryId]: prev.filter((img) => img.id !== imageId),
-                },
+                imagesByGalleryId: removeImageFromGalleryCache(
+                    state.imagesByGalleryId,
+                    galleryId,
+                    imageId,
+                ),
             };
         });
 
@@ -1099,8 +1194,14 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
         galleryId: string,
         imageIds: string[],
     ) => {
-        await Promise.all(
-            imageIds.map((id) => get().deleteOneGalleryImage(galleryId, id)),
+        if (imageIds.length === 0) return true;
+
+        await runWithConcurrency(
+            imageIds,
+            DELETE_IMAGES_CONCURRENCY,
+            async (id) => {
+                await get().deleteOneGalleryImage(galleryId, id);
+            },
         );
 
         return true;
@@ -1109,13 +1210,131 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
     deleteGallery: async (galleryId: string) => {
         set({ error: null });
 
-        // Ensure we have images in store or fetch
-        const existing = get().imagesByGalleryId[galleryId];
-        const images = existing ?? (await get().fetchGalleryImages(galleryId));
-        const imageIds = images.map((img) => img.id.toString());
+        const finalizeDelete = () => {
+            // Clear cached images for this gallery; list ordering is reloaded via refresh.
+            set((state) => ({
+                imagesByGalleryId: omitRecordKey(
+                    state.imagesByGalleryId,
+                    galleryId,
+                ),
+                imagesPageByGalleryId: omitRecordKey(
+                    state.imagesPageByGalleryId,
+                    galleryId,
+                ),
+            }));
 
-        // Delete images (DB + storage) first
-        await get().deleteMultipleGalleryImages(galleryId, imageIds);
+            toast.show({
+                title: "Success!",
+                message: "The gallery has been successfully deleted!",
+                durationMs: 2000,
+            });
+            return true;
+        };
+
+        const { data: functionData, error: functionErr } =
+            await supabase.functions.invoke("delete-gallery", {
+                body: { galleryId },
+            });
+
+        if (!functionErr) {
+            if (functionData?.ok === true) {
+                return finalizeDelete();
+            }
+
+            if (functionData?.ok === false) {
+                const serverMessage =
+                    functionData?.error ??
+                    "Server-side gallery delete failed.";
+                set({ error: serverMessage });
+                return false;
+            }
+        }
+
+        if (functionErr) {
+            const functionMessage = String(functionErr?.message ?? "");
+            const isFunctionUnavailable =
+                functionMessage.includes("404") ||
+                functionMessage.toLowerCase().includes("not found");
+
+            if (!isFunctionUnavailable) {
+                console.error(
+                    "Server-side gallery delete failed:",
+                    functionErr,
+                );
+                set({ error: functionMessage || "Server-side gallery delete failed." });
+                return false;
+            }
+
+            console.warn(
+                "Server-side delete function unavailable, falling back to client-side delete:",
+                functionErr,
+            );
+        }
+
+        const { data: imageRows, error: imageRowsErr } = await supabase
+            .from("date_images")
+            .select("id, storage_path_thumb, storage_path_grid, storage_path_orig")
+            .eq("gallery_id", galleryId);
+
+        if (imageRowsErr) {
+            console.error("Error fetching gallery images for deletion:", imageRowsErr);
+            set({ error: imageRowsErr.message });
+            return false;
+        }
+
+        const rows =
+            (imageRows as
+                | Array<
+                      Pick<
+                          GalleryImage,
+                          | "id"
+                          | "storage_path_thumb"
+                          | "storage_path_grid"
+                          | "storage_path_orig"
+                      >
+                  >
+                | null) ?? [];
+
+        if (rows.length >= BULK_DELETE_THRESHOLD) {
+            const storagePaths = Array.from(
+                new Set(
+                    rows
+                        .flatMap((row) => [
+                            row.storage_path_thumb,
+                            row.storage_path_grid,
+                            row.storage_path_orig,
+                        ])
+                        .filter(isNonEmptyString),
+                ),
+            );
+
+            for (const pathChunk of chunk(storagePaths, STORAGE_REMOVE_CHUNK_SIZE)) {
+                const { error: storageErr } = await supabase.storage
+                    .from(GALLERY_BUCKET)
+                    .remove(pathChunk);
+
+                if (storageErr) {
+                    console.error(
+                        "Error deleting gallery image paths from storage:",
+                        storageErr,
+                    );
+                }
+            }
+
+            const { error: delImagesErr } = await supabase
+                .from("date_images")
+                .delete()
+                .eq("gallery_id", galleryId);
+
+            if (delImagesErr) {
+                console.error("Error deleting gallery image rows:", delImagesErr);
+            }
+        } else if (rows.length > 0) {
+            await get().deleteMultipleGalleryImages(
+                galleryId,
+                rows.map((img) => String(img.id)),
+            );
+        }
 
         // Delete gallery row
         const { error: delGalleryErr } = await supabase
@@ -1128,22 +1347,6 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
             return false;
         }
 
-        // Clear cached images for this gallery; list ordering is reloaded via refresh.
-        set((state) => {
-            const { [galleryId]: _removed, ...rest } = state.imagesByGalleryId;
-            const { [galleryId]: _removedPage, ...restPages } =
-                state.imagesPageByGalleryId;
-            return {
-                imagesByGalleryId: rest,
-                imagesPageByGalleryId: restPages,
-            };
-        });
-
-        toast.show({
-            title: "Success!",
-            message: "The gallery has been successfully deleted!",
-            durationMs: 2000,
-        });
-        return true;
+        return finalizeDelete();
     },
 }));

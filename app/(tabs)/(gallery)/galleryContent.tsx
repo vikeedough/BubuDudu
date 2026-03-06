@@ -41,7 +41,8 @@ const GalleryContent = () => {
         isDeleteImagesModalOpen,
         isDeleteGalleryModalOpen,
         editMode,
-        selectedImages,
+        selectedImageIds,
+        selectedImageIdList,
         sortingByAscending,
         handleAddImages,
         handleBack,
@@ -56,8 +57,6 @@ const GalleryContent = () => {
         setViewerInitialImageId,
         setIsDeleteImagesModalOpen,
         setIsDeleteGalleryModalOpen,
-        setSelectedImages,
-        setEditMode,
     } = useGalleryContent({ galleryId: galleryId as string });
 
     return (
@@ -78,10 +77,9 @@ const GalleryContent = () => {
                 <DeleteImagesModal
                     isOpen={isDeleteImagesModalOpen}
                     onClose={() => setIsDeleteImagesModalOpen(false)}
-                    selectedImages={selectedImages}
+                    selectedImageIds={selectedImageIdList}
                     galleryId={galleryId as string}
-                    setSelectedImages={setSelectedImages}
-                    setEditMode={setEditMode}
+                    onCleared={handleClearSelection}
                 />
             )}
             {isDeleteGalleryModalOpen && (
@@ -122,7 +120,7 @@ const GalleryContent = () => {
 
                 <GalleryLocationBar
                     location={galleryLocation as string}
-                    showClearButton={selectedImages.length > 0}
+                    showClearButton={selectedImageIds.size > 0}
                     onClear={handleClearSelection}
                 />
 
@@ -134,7 +132,7 @@ const GalleryContent = () => {
                         loadMoreGalleryImages(galleryId as string)
                     }
                     editMode={editMode}
-                    selectedImages={selectedImages}
+                    selectedImageIds={selectedImageIds}
                     onImagePress={handleImagePress}
                     onImageLongPress={handleImageLongPress}
                     onImageSelect={handleSelectImage}

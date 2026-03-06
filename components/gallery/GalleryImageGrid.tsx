@@ -1,6 +1,6 @@
 import { FlashList } from "@shopify/flash-list";
-import React from "react";
-import { ActivityIndicator, StyleSheet, View } from "react-native";
+import React, { useCallback, useMemo } from "react";
+import { ActivityIndicator, Dimensions, StyleSheet, View } from "react-native";
 
 import { Colors } from "@/constants/colors";
 import { GalleryImage } from "@/stores/GalleryStore";
@@ -13,15 +13,17 @@ interface GalleryImageGridProps {
     isLoadingMore: boolean;
     onEndReached: () => void;
     editMode: boolean;
-    selectedImages: GalleryImage[];
+    selectedImageIds: ReadonlySet<string>;
     onImagePress: (image: GalleryImage) => void;
     onImageLongPress: (image: GalleryImage) => void;
     onImageSelect: (image: GalleryImage) => void;
 }
 
+type GalleryImageRow = (GalleryImage | null)[];
+
 // Helper function to group pictures into pairs (rows of 2)
-const groupIntoRows = (images: GalleryImage[]): (GalleryImage | null)[][] => {
-    const rows: (GalleryImage | null)[][] = [];
+const groupIntoRows = (images: GalleryImage[]): GalleryImageRow[] => {
+    const rows: GalleryImageRow[] = [];
     for (let i = 0; i < images.length; i += 2) {
         const row = [images[i], images[i + 1] || null];
         rows.push(row);
@@ -29,17 +31,71 @@ const groupIntoRows = (images: GalleryImage[]): (GalleryImage | null)[][] => {
     return rows;
 };
 
+const IMAGE_SIZE = (Dimensions.get("window").width - 110) / 2;
+const ESTIMATED_ROW_SIZE = IMAGE_SIZE + 15;
+
 const GalleryImageGrid: React.FC<GalleryImageGridProps> = ({
     images,
     isLoadingInitial,
     isLoadingMore,
     onEndReached,
     editMode,
-    selectedImages,
+    selectedImageIds,
     onImagePress,
     onImageLongPress,
     onImageSelect,
 }) => {
+    const rows = useMemo(() => groupIntoRows(images), [images]);
+    const renderSeparator = useCallback(
+        () => <View style={styles.separator} />,
+        [],
+    );
+    const handleEndReached = useCallback(() => {
+        if (isLoadingMore) return;
+        onEndReached();
+    }, [isLoadingMore, onEndReached]);
+    const renderFooter = useMemo(
+        () =>
+            isLoadingMore ? (
+                <View style={styles.footer}>
+                    <ActivityIndicator size="small" color={Colors.lightBlue} />
+                </View>
+            ) : null,
+        [isLoadingMore],
+    );
+    const renderRow = useCallback(
+        ({ item: row }: { item: GalleryImageRow }) => (
+            <View style={styles.row}>
+                {row.map((gallery, index) => (
+                    <View
+                        key={gallery?.id || `empty-${index}`}
+                        style={styles.itemContainer}
+                    >
+                        {gallery ? (
+                            <GalleryImageItem
+                                image={gallery}
+                                editMode={editMode}
+                                isSelected={selectedImageIds.has(gallery.id)}
+                                onPress={onImagePress}
+                                onLongPress={onImageLongPress}
+                                onSelect={onImageSelect}
+                            />
+                        ) : (
+                            <View style={styles.emptyItem} />
+                        )}
+                    </View>
+                ))}
+            </View>
+        ),
+        [
+            editMode,
+            onImageLongPress,
+            onImagePress,
+            onImageSelect,
+            selectedImageIds,
+        ],
+    );
+
     if (isLoadingInitial) {
         return (
             <View style={styles.loadingContainer}>
@@ -48,59 +104,16 @@ const GalleryImageGrid: React.FC<GalleryImageGridProps> = ({
         );
     }
 
-    const rows = groupIntoRows(images);
-
     return (
         <View style={styles.flatListContainer}>
             <FlashList
                 data={rows}
-                renderItem={({
-                    item: row,
-                }: {
-                    item: (GalleryImage | null)[];
-                }) => (
-                    <View style={styles.row}>
-                        {row.map((gallery, index) => (
-                            <View
-                                key={gallery?.id || `empty-${index}`}
-                                style={styles.itemContainer}
-                            >
-                                {gallery ? (
-                                    <GalleryImageItem
-                                        image={gallery}
-                                        editMode={editMode}
-                                        isSelected={selectedImages.some(
-                                            (img) => img.id === gallery.id,
-                                        )}
-                                        onPress={() => onImagePress(gallery)}
-                                        onLongPress={() =>
-                                            onImageLongPress(gallery)
-                                        }
-                                        onSelect={() => onImageSelect(gallery)}
-                                    />
-                                ) : (
-                                    <View style={styles.emptyItem} />
-                                )}
-                            </View>
-                        ))}
-                    </View>
-                )}
-                ItemSeparatorComponent={() => <View style={styles.separator} />}
-                onEndReached={() => {
-                    if (isLoadingMore) return;
-                    onEndReached();
-                }}
+                renderItem={renderRow}
+                ItemSeparatorComponent={renderSeparator}
+                estimatedItemSize={ESTIMATED_ROW_SIZE}
+                onEndReached={handleEndReached}
                 onEndReachedThreshold={0.5}
-                ListFooterComponent={
-                    isLoadingMore ? (
-                        <View style={styles.footer}>
-                            <ActivityIndicator
-                                size="small"
-                                color={Colors.lightBlue}
-                            />
-                        </View>
-                    ) : null
-                }
+                ListFooterComponent={renderFooter}
             />
         </View>
     );

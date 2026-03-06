@@ -164,25 +164,24 @@ describe("hooks/useGalleryContent", () => {
     const { result } = renderHook(() => useGalleryContent({ galleryId: "g1" }));
 
     act(() => {
-      result.current.setEditMode(true);
+      result.current.handleImageLongPress(image2 as any);
     });
     act(() => {
       result.current.handleImagePress(image1 as any);
     });
-    expect(result.current.selectedImages.map((x) => x.id)).toEqual(["i1"]);
+    expect(result.current.selectedImages.map((x) => x.id)).toEqual(["i2", "i1"]);
 
     act(() => {
       result.current.handleImagePress(image1 as any);
     });
-    expect(result.current.selectedImages).toEqual([]);
+    expect(result.current.selectedImages.map((x) => x.id)).toEqual(["i2"]);
   });
 
   it("handleSelectImage removes selected image and exits edit mode when empty", () => {
     const { result } = renderHook(() => useGalleryContent({ galleryId: "g1" }));
 
     act(() => {
-      result.current.setEditMode(true);
-      result.current.setSelectedImages([image1 as any]);
+      result.current.handleImageLongPress(image1 as any);
     });
     act(() => {
       result.current.handleSelectImage(image1 as any);
@@ -196,8 +195,8 @@ describe("hooks/useGalleryContent", () => {
     const { result } = renderHook(() => useGalleryContent({ galleryId: "g1" }));
 
     act(() => {
-      result.current.setEditMode(true);
-      result.current.setSelectedImages([image1 as any, image2 as any]);
+      result.current.handleImageLongPress(image1 as any);
+      result.current.handleSelectImage(image2 as any);
     });
     act(() => {
       result.current.handleSelectImage(image1 as any);
@@ -211,7 +210,6 @@ describe("hooks/useGalleryContent", () => {
     const { result } = renderHook(() => useGalleryContent({ galleryId: "g1" }));
 
     act(() => {
-      result.current.setSelectedImages([]);
       result.current.handleSelectImage(image1 as any);
     });
 
@@ -233,8 +231,7 @@ describe("hooks/useGalleryContent", () => {
     const { result } = renderHook(() => useGalleryContent({ galleryId: "g1" }));
 
     act(() => {
-      result.current.setEditMode(true);
-      result.current.setSelectedImages([image2 as any]);
+      result.current.handleImageLongPress(image2 as any);
     });
     act(() => {
       result.current.handleImageLongPress(image1 as any);
@@ -254,10 +251,7 @@ describe("hooks/useGalleryContent", () => {
     const { result } = renderHook(() => useGalleryContent({ galleryId: "g1" }));
 
     act(() => {
-      result.current.setSelectedImages([
-        { id: "i1", created_at: "2026-03-06T00:00:00.000Z", url_orig: undefined } as any,
-      ]);
-      result.current.setEditMode(true);
+      result.current.handleImageLongPress(image1 as any);
     });
 
     await act(async () => {
@@ -265,7 +259,7 @@ describe("hooks/useGalleryContent", () => {
     });
 
     expect(multipleDownloadAndSaveImage).toHaveBeenCalledWith([
-      { id: "i1", created_at: "2026-03-06T00:00:00.000Z", url_orig: undefined },
+      { id: "i1", created_at: "2026-03-06T00:00:00.000Z", url_orig: "https://signed/i1.jpg" },
     ]);
     expect(supabaseMock.functions.invoke).toHaveBeenCalledWith("sign-gallery-urls", {
       body: { galleryId: "g1", imageIds: ["i1"] },
@@ -278,8 +272,7 @@ describe("hooks/useGalleryContent", () => {
     const { result } = renderHook(() => useGalleryContent({ galleryId: "g1" }));
 
     act(() => {
-      result.current.setSelectedImages([image2 as any]);
-      result.current.setEditMode(true);
+      result.current.handleImageLongPress(image2 as any);
     });
 
     await act(async () => {
@@ -300,8 +293,7 @@ describe("hooks/useGalleryContent", () => {
     const { result } = renderHook(() => useGalleryContent({ galleryId: "g1" }));
 
     act(() => {
-      result.current.setSelectedImages([image1 as any]);
-      result.current.setEditMode(true);
+      result.current.handleImageLongPress(image1 as any);
     });
 
     await act(async () => {
@@ -317,8 +309,7 @@ describe("hooks/useGalleryContent", () => {
     const { result } = renderHook(() => useGalleryContent({ galleryId: "g1" }));
 
     act(() => {
-      result.current.setSelectedImages([image1 as any]);
-      result.current.setEditMode(true);
+      result.current.handleImageLongPress(image1 as any);
     });
     act(() => {
       result.current.handleClearSelection();

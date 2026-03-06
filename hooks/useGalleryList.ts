@@ -1,6 +1,6 @@
 import { Gallery, useGalleryStore } from "@/stores/GalleryStore";
 import { router } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 export const useGalleryList = () => {
     const galleries = useGalleryStore((s) => s.galleries);
@@ -31,14 +31,22 @@ export const useGalleryList = () => {
 
     const filteredGalleries = useMemo(() => galleries, [galleries]);
 
-    const handleAddNewGallery = () => setIsNewGalleryModalOpen(true);
+    const handleAddNewGallery = useCallback(
+        () => setIsNewGalleryModalOpen(true),
+        [],
+    );
     const sortingByDescending = galleriesQuery.sortDir === "desc";
-    const handleToggleSort = () =>
-        setGalleriesQuery({ sortDir: sortingByDescending ? "asc" : "desc" });
-    const handleSearchChange = (text: string) => setSearchText(text);
-    const handleCloseModal = () => setIsNewGalleryModalOpen(false);
+    const handleToggleSort = useCallback(
+        () =>
+            setGalleriesQuery({ sortDir: sortingByDescending ? "asc" : "desc" }),
+        [setGalleriesQuery, sortingByDescending],
+    );
+    const handleSearchChange = useCallback((text: string) => {
+        setSearchText(text);
+    }, []);
+    const handleCloseModal = useCallback(() => setIsNewGalleryModalOpen(false), []);
 
-    const navigateToGalleryContent = (gallery: Gallery) => {
+    const navigateToGalleryContent = useCallback((gallery: Gallery) => {
         router.push({
             pathname: "/(tabs)/(gallery)/galleryContent",
             params: {
@@ -52,7 +60,7 @@ export const useGalleryList = () => {
                 galleryColor: gallery.color,
             },
         });
-    };
+    }, []);
 
     const refresh = async () => {
         await refreshGalleries();

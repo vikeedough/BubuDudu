@@ -149,6 +149,52 @@ describe("stores/GalleryStore", () => {
     expect(useGalleryStore.getState().galleriesPage.hasMore).toBe(false);
   });
 
+  it("loadInitialGalleries uses batched cover signing function when available", async () => {
+    const gallery = {
+      ...BASE_GALLERY,
+      cover_image_thumb_path: "covers/g1-thumb.jpg",
+    };
+
+    secureStoreUtilsMock.getSpaceId.mockResolvedValueOnce("space-1");
+    queueFrom("galleries", "select", { data: [gallery], error: null });
+    queueFunction("sign-gallery-cover-urls", {
+      data: {
+        "covers/g1-thumb.jpg": "https://signed/batch-thumb.jpg",
+      },
+      error: null,
+    });
+
+    const result = await useGalleryStore.getState().loadInitialGalleries();
+
+    expect(result[0].cover_thumb_url).toBe("https://signed/batch-thumb.jpg");
+    expect(supabaseMock.functions.invoke).toHaveBeenCalledWith(
+      "sign-gallery-cover-urls",
+      { body: { paths: ["covers/g1-thumb.jpg"] } },
+    );
+  });
+
+  it("loadInitialGalleries falls back to storage signing when batched signer fails", async () => {
+    const gallery = {
+      ...BASE_GALLERY,
+      cover_image_thumb_path: "covers/g1-thumb.jpg",
+    };
+
+    secureStoreUtilsMock.getSpaceId.mockResolvedValueOnce("space-1");
+    queueFrom("galleries", "select", { data: [gallery], error: null });
+    queueFunction("sign-gallery-cover-urls", {
+      data: null,
+      error: { message: "batch signer unavailable" },
+    });
+    queueStorage("gallery-private", "createSignedUrl", {
+      data: { signedUrl: "https://signed/fallback-thumb.jpg" },
+      error: null,
+    });
+
+    const result = await useGalleryStore.getState().loadInitialGalleries();
+
+    expect(result[0].cover_thumb_url).toBe("https://signed/fallback-thumb.jpg");
+  });
+
   it("loadMoreGalleries returns early without cursor", async () => {
     useGalleryStore.setState({
       galleries: [BASE_GALLERY],
@@ -540,6 +586,86 @@ describe("stores/GalleryStore", () => {
         title: "Success!",
       }),
     );
+  });
+
+  it("deleteGallery uses server-side delete function when available", async () => {
+    useGalleryStore.setState({
+      imagesByGalleryId: { g1: [BASE_IMAGE] },
+      imagesPageByGalleryId: {
+        g1: {
+          cursor: null,
+          hasMore: false,
+          isLoadingInitial: false,
+          isLoadingMore: false,
+        },
+      },
+    });
+    queueFunction("delete-gallery", {
+      data: { ok: true },
+      error: null,
+    });
+
+    const ok = await useGalleryStore.getState().deleteGallery("g1");
+
+    expect(ok).toBe(true);
+    expect(supabaseMock.functions.invoke).toHaveBeenCalledWith(
+      "delete-gallery",
+      { body: { galleryId: "g1" } },
+    );
+    expect(useGalleryStore.getState().imagesByGalleryId.g1).toBeUndefined();
+    expect(useGalleryStore.getState().imagesPageByGalleryId.g1).toBeUndefined();
+  });
+
+  it("deleteGallery falls back to client-side delete when server function is unavailable", async () => {
+    queueFunction("delete-gallery", {
+      data: null,
+      error: { message: "404 Function not found" },
+    });
+    queueFrom("date_images", "select", {
+      data: [BASE_IMAGE],
+      error: null,
+    });
+    queueFromSingle("galleries", "select", {
+      data: {
+        cover_image_path: "cover/grid.jpg",
+        cover_image_thumb_path: "cover/thumb.jpg",
+      },
+      error: null,
+    });
+    queueFromSingle("date_images", "select", {
+      data: {
+        storage_path_thumb: "thumb.jpg",
+        storage_path_grid: "grid.jpg",
+        storage_path_orig: "orig.jpg",
+      },
+      error: null,
+    });
+    queueStorage("gallery-private", "remove", { data: [], error: null });
+    queueFrom("date_images", "delete", { data: null, error: null });
+    queueFrom("galleries", "delete", { data: null, error: null });
+
+    const ok = await useGalleryStore.getState().deleteGallery("g1");
+
+    expect(ok).toBe(true);
+    expect(supabaseMock.from).toHaveBeenCalledWith("date_images");
+  });
+
+  it("deleteGallery returns false when server-side delete reports non-fallback failure", async () => {
+    queueFunction("delete-gallery", {
+      data: {
+        ok: false,
+        stage: "delete_images",
+        error: "db delete failed",
+        canFallback: false,
+      },
+      error: null,
+    });
+
+    const ok = await useGalleryStore.getState().deleteGallery("g1");
+
+    expect(ok).toBe(false);
+    expect(useGalleryStore.getState().error).toBe("db delete failed");
+    expect(supabaseMock.from).not.toHaveBeenCalledWith("date_images");
   });
 
   it("deleteGallery sets error and returns false when gallery row delete fails", async () => {
@@ -1006,20 +1132,87 @@ describe("stores/GalleryStore", () => {
     expect(deleteOneSpy).toHaveBeenNthCalledWith(2, "g1", "i2");
   });
 
-  it("deleteGallery fetches images when cache is missing", async () => {
-    const fetchSpy = jest
-      .spyOn(useGalleryStore.getState(), "fetchGalleryImages")
-      .mockResolvedValue([BASE_IMAGE]);
-    const deleteMultiSpy = jest
-      .spyOn(useGalleryStore.getState(), "deleteMultipleGalleryImages")
-      .mockResolvedValue(true);
+  it("deleteGallery queries image rows and deletes a small set before gallery row", async () => {
+    queueFrom("date_images", "select", {
+      data: [BASE_IMAGE],
+      error: null,
+    });
+    queueFromSingle("galleries", "select", {
+      data: {
+        cover_image_path: "cover/grid.jpg",
+        cover_image_thumb_path: "cover/thumb.jpg",
+      },
+      error: null,
+    });
+    queueFromSingle("date_images", "select", {
+      data: {
+        storage_path_thumb: "thumb.jpg",
+        storage_path_grid: "grid.jpg",
+        storage_path_orig: "orig.jpg",
+      },
+      error: null,
+    });
+    queueStorage("gallery-private", "remove", { data: [], error: null });
+    queueFrom("date_images", "delete", { data: null, error: null });
     queueFrom("galleries", "delete", { data: null, error: null });
 
     const ok = await useGalleryStore.getState().deleteGallery("g1");
 
     expect(ok).toBe(true);
-    expect(fetchSpy).toHaveBeenCalledWith("g1");
-    expect(deleteMultiSpy).toHaveBeenCalledWith("g1", ["i1"]);
+    expect(supabaseMock.from).toHaveBeenCalledWith("date_images");
+  });
+
+  it("deleteGallery uses bulk deletion path for large image sets", async () => {
+    const rows = Array.from({ length: 10 }, (_, idx) => ({
+      id: `i${idx + 1}`,
+      storage_path_thumb: `thumb-${idx + 1}.jpg`,
+      storage_path_grid: `grid-${idx + 1}.jpg`,
+      storage_path_orig: `orig-${idx + 1}.jpg`,
+    }));
+
+    queueFrom("date_images", "select", { data: rows, error: null });
+    queueStorage("gallery-private", "remove", { data: [], error: null });
+    queueFrom("date_images", "delete", { data: null, error: null });
+    queueFrom("galleries", "delete", { data: null, error: null });
+
+    const ok = await useGalleryStore.getState().deleteGallery("g1");
+    const galleriesCalls = supabaseMock.from.mock.calls.filter(
+      ([table]) => table === "galleries",
+    );
+
+    expect(ok).toBe(true);
+    expect(galleriesCalls).toHaveLength(1);
+    expect(supabaseMock.storage.from).toHaveBeenCalledWith("gallery-private");
+  });
+
+  it("deleteGallery chunks storage removals for large galleries (perf guardrail)", async () => {
+    const rows = Array.from({ length: 250 }, (_, idx) => ({
+      id: `i${idx + 1}`,
+      storage_path_thumb: `thumb-${idx + 1}.jpg`,
+      storage_path_grid: `grid-${idx + 1}.jpg`,
+      storage_path_orig: `orig-${idx + 1}.jpg`,
+    }));
+    const expectedStorageRemoveCalls = Math.ceil((rows.length * 3) / 100);
+
+    queueFrom("date_images", "select", { data: rows, error: null });
+    queueStorage(
+      "gallery-private",
+      "remove",
+      ...Array.from({ length: expectedStorageRemoveCalls }, () => ({
+        data: [],
+        error: null,
+      })),
+    );
+    queueFrom("date_images", "delete", { data: null, error: null });
+    queueFrom("galleries", "delete", { data: null, error: null });
+
+    const ok = await useGalleryStore.getState().deleteGallery("g1");
+    const storageFromCalls = supabaseMock.storage.from.mock.calls.filter(
+      ([bucket]) => bucket === "gallery-private",
+    );
+
+    expect(ok).toBe(true);
+    expect(storageFromCalls).toHaveLength(expectedStorageRemoveCalls);
   });
 
   it("loadInitialGalleries keeps null cover url when signing thumbnail fails", async () => {

@@ -29,6 +29,7 @@ import { getSpaceId } from "@/utils/secure-store";
 const Home = () => {
     const { profile, session, isLoggedIn, refreshProfile, updateProfile } =
         useAuthContext();
+    const sessionUserId = session?.user?.id;
     const [quotes, setQuotes] = useState<Quote[]>([]);
     const [spaceId, setSpaceId] = useState<string | null>(null);
     const [userProfiles, setUserProfiles] = useState<Profile[]>([]);
@@ -47,7 +48,7 @@ const Home = () => {
         const loadData = async () => {
             const fetchedSpaceId = await getSpaceId();
 
-            if (!fetchedSpaceId || !session) {
+            if (!fetchedSpaceId || !sessionUserId) {
                 return;
             }
 
@@ -64,7 +65,7 @@ const Home = () => {
         };
 
         loadData();
-    }, [session?.user?.id]);
+    }, [sessionUserId]);
 
     const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
 
