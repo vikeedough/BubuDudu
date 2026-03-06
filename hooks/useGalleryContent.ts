@@ -6,7 +6,7 @@ import {
     pickMultipleImages,
 } from "@/utils/gallery";
 import { router } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 const EMPTY_IMAGES: GalleryImage[] = [];
 
@@ -64,7 +64,7 @@ export const useGalleryContent = ({ galleryId }: { galleryId: string }) => {
             );
     }, [canonicalImages, sortingByAscending]);
 
-    const handleAddImages = async () => {
+    const handleAddImages = useCallback(async () => {
         const newImages = await pickMultipleImages();
         if (!newImages?.length) return;
 
@@ -72,9 +72,9 @@ export const useGalleryContent = ({ galleryId }: { galleryId: string }) => {
         if (ok) {
             await refreshGalleries();
         }
-    };
+    }, [galleryId, refreshGalleries, uploadGalleryImages]);
 
-    const handleDeleteGallery = async () => {
+    const handleDeleteGallery = useCallback(async () => {
         setIsDeleting(true);
         await deleteGallery(galleryId);
         setIsDeleting(false);
@@ -82,9 +82,9 @@ export const useGalleryContent = ({ galleryId }: { galleryId: string }) => {
         setIsDeleteGalleryModalOpen(false);
         router.back();
         await refreshGalleries();
-    };
+    }, [deleteGallery, galleryId, refreshGalleries]);
 
-    const handleImagePress = (image: GalleryImage) => {
+    const handleImagePress = useCallback((image: GalleryImage) => {
         if (editMode) {
             setSelectedImages((prev) => {
                 const exists = prev.some((i) => i.id === image.id);
@@ -96,10 +96,11 @@ export const useGalleryContent = ({ galleryId }: { galleryId: string }) => {
         }
         setViewerInitialImageId(image.id);
         setIsViewerOpen(true);
-    };
+    }, [editMode]);
 
-    const handleSelectImage = (image: GalleryImage) => {
-        if (selectedImages.includes(image)) {
+    const handleSelectImage = useCallback((image: GalleryImage) => {
+        const exists = selectedImages.some((i) => i.id === image.id);
+        if (exists) {
             const filteredImages = selectedImages.filter(
                 (i) => i.id !== image.id,
             );
@@ -107,54 +108,59 @@ export const useGalleryContent = ({ galleryId }: { galleryId: string }) => {
             if (filteredImages.length === 0) {
                 setEditMode(false);
             }
-        } else {
-            setSelectedImages([...selectedImages, image]);
+            return;
         }
-    };
 
-    const handleImageLongPress = (image: GalleryImage) => {
+        setSelectedImages([...selectedImages, image]);
+    }, [selectedImages]);
+
+    const handleImageLongPress = useCallback((image: GalleryImage) => {
         if (!editMode) {
             setEditMode(true);
             setSelectedImages([image]);
         }
-    };
+    }, [editMode]);
 
-    const handleDownloadImages = async () => {
+    const handleDownloadImages = useCallback(async () => {
         setIsDownloading(true);
-        const needs = selectedImages
-            .filter((i) => !i.url_orig)
-            .map((i) => i.id);
-        if (needs.length) {
-            const { data: signedMap, error } = await supabase.functions.invoke(
-                "sign-gallery-urls",
-                {
-                    body: { galleryId, imageIds: needs },
-                },
-            );
-            if (!error) {
-                setSelectedImages((prev) =>
-                    prev.map((img) => ({
+        try {
+            const selectedSnapshot = selectedImages;
+            const needs = selectedSnapshot
+                .filter((i) => !i.url_orig)
+                .map((i) => i.id);
+
+            let imagesToDownload = selectedSnapshot;
+            if (needs.length) {
+                const { data: signedMap, error } =
+                    await supabase.functions.invoke("sign-gallery-urls", {
+                        body: { galleryId, imageIds: needs },
+                    });
+
+                if (!error) {
+                    imagesToDownload = selectedSnapshot.map((img) => ({
                         ...img,
                         url_orig:
                             img.url_orig ??
                             signedMap?.[String(img.id)]?.url_orig,
-                    })),
-                );
+                    }));
+                }
             }
+
+            await multipleDownloadAndSaveImage(imagesToDownload);
+        } finally {
+            setSelectedImages([]);
+            setEditMode(false);
+            setIsDownloading(false);
         }
-        await multipleDownloadAndSaveImage(selectedImages);
+    }, [galleryId, selectedImages]);
 
+    const handleClearSelection = useCallback(() => {
         setSelectedImages([]);
         setEditMode(false);
-        setIsDownloading(false);
-    };
+    }, []);
 
-    const handleClearSelection = () => {
-        setSelectedImages([]);
-        setEditMode(false);
-    };
-
-    const handleToggleSort = () => setSortingByAscending((v) => !v);
+    const handleToggleSort = useCallback(() => setSortingByAscending((v) => !v), []);
+    const handleBack = useCallback(() => router.back(), []);
 
     return {
         loading: isLoadingInitialImages,
@@ -178,7 +184,7 @@ export const useGalleryContent = ({ galleryId }: { galleryId: string }) => {
         sortingByAscending,
 
         handleAddImages,
-        handleBack: () => router.back(),
+        handleBack,
         handleDownloadImages,
         handleDeleteGallery,
         handleSelectImage,

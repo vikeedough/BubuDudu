@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
     ActivityIndicator,
     Image,
@@ -142,6 +142,44 @@ const GalleryImageViewerModal: React.FC<GalleryImageViewerModalProps> = ({
 
     const containerWidth = containerSize.width || window.width;
     const containerHeight = containerSize.height || window.height;
+    const emptyPageStyle = useMemo(
+        () => ({
+            width: containerWidth,
+            height: containerHeight,
+        }),
+        [containerHeight, containerWidth],
+    );
+    const handleIndexChange = useCallback(
+        (index: number) => {
+            if (index < images.length - 3 || !hasMore || isLoadingMore) return;
+
+            if (lastLoadMoreLengthRef.current !== images.length) {
+                lastLoadMoreLengthRef.current = images.length;
+                onLoadMore();
+            }
+        },
+        [hasMore, images.length, isLoadingMore, onLoadMore],
+    );
+    const renderGalleryItem = useCallback(
+        (item: GalleryImage, _index: number) => {
+            const img = item as unknown as
+                | GalleryImage
+                | null
+                | undefined;
+            if (!img) {
+                return <View style={emptyPageStyle} />;
+            }
+
+            return (
+                <GalleryViewerItem
+                    img={img}
+                    containerWidth={containerWidth}
+                    containerHeight={containerHeight}
+                />
+            );
+        },
+        [containerHeight, containerWidth, emptyPageStyle],
+    );
 
     const shouldMountGallery =
         isOpen &&
@@ -202,48 +240,8 @@ const GalleryImageViewerModal: React.FC<GalleryImageViewerModalProps> = ({
                                     gap={16}
                                     windowSize={3}
                                     keyExtractor={(item) => item.id}
-                                    onIndexChange={(index) => {
-                                        if (
-                                            index >= images.length - 3 &&
-                                            hasMore &&
-                                            !isLoadingMore
-                                        ) {
-                                            if (
-                                                lastLoadMoreLengthRef.current !==
-                                                images.length
-                                            ) {
-                                                lastLoadMoreLengthRef.current =
-                                                    images.length;
-                                                onLoadMore();
-                                            }
-                                        }
-                                    }}
-                                    renderItem={(item, _index) => {
-                                        const img = item as unknown as
-                                            | GalleryImage
-                                            | null
-                                            | undefined;
-                                        if (!img) {
-                                            return (
-                                                <View
-                                                    style={{
-                                                        width: containerWidth,
-                                                        height: containerHeight,
-                                                    }}
-                                                />
-                                            );
-                                        }
-
-                                        return (
-                                            <GalleryViewerItem
-                                                img={img}
-                                                containerWidth={containerWidth}
-                                                containerHeight={
-                                                    containerHeight
-                                                }
-                                            />
-                                        );
-                                    }}
+                                    onIndexChange={handleIndexChange}
+                                    renderItem={renderGalleryItem}
                                 />
                             )}
                         </View>

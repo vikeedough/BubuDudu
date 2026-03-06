@@ -265,7 +265,7 @@ describe("hooks/useGalleryContent", () => {
     });
 
     expect(multipleDownloadAndSaveImage).toHaveBeenCalledWith([
-      { id: "i1", created_at: "2026-03-06T00:00:00.000Z", url_orig: undefined },
+      { id: "i1", created_at: "2026-03-06T00:00:00.000Z", url_orig: "https://signed/i1.jpg" },
     ]);
     expect(supabaseMock.functions.invoke).toHaveBeenCalledWith("sign-gallery-urls", {
       body: { galleryId: "g1", imageIds: ["i1"] },

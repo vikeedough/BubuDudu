@@ -1,5 +1,3 @@
-import "react-native-gesture-handler";
-
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import { ActivityIndicator, View } from "react-native";

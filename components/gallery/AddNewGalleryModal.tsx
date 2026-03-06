@@ -1,6 +1,6 @@
 import { FlashList } from "@shopify/flash-list";
 import { Image } from "expo-image";
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
@@ -51,6 +51,25 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
     const [isUploadingImages, setIsUploadingImages] = useState(false);
     const [formScrollEnabled, setFormScrollEnabled] = useState(true);
     const formScrollRef = useRef<React.ElementRef<typeof ScrollView>>(null);
+
+    const handleRemovePreviewImage = useCallback((imageUri: string) => {
+        setImages((prev) => prev.filter((img) => img !== imageUri));
+    }, []);
+
+    const renderPreviewItem = useCallback(
+        ({ item }: { item: string }) => (
+            <TouchableOpacity onPress={() => handleRemovePreviewImage(item)}>
+                <Image
+                    source={{ uri: item }}
+                    style={styles.image}
+                    placeholder={{ blurhash }}
+                    contentFit="cover"
+                    transition={1000}
+                />
+            </TouchableOpacity>
+        ),
+        [handleRemovePreviewImage],
+    );
 
     const resetForm = () => {
         setDateName("");
@@ -116,22 +135,8 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
         <View style={styles.flashListContainer}>
             <FlashList
                 data={images}
-                keyExtractor={(_, index) => index.toString()}
-                renderItem={({ item }) => (
-                    <TouchableOpacity
-                        onPress={() =>
-                            setImages(images.filter((img) => img !== item))
-                        }
-                    >
-                        <Image
-                            source={{ uri: item }}
-                            style={styles.image}
-                            placeholder={{ blurhash }}
-                            contentFit="cover"
-                            transition={1000}
-                        />
-                    </TouchableOpacity>
-                )}
+                keyExtractor={(item) => item}
+                renderItem={renderPreviewItem}
                 numColumns={3}
             />
             <CustomText weight="regular" style={styles.instructionText}>
@@ -178,10 +183,14 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
                                         pickMultipleImages().then(
                                             (imagesToAdd) => {
                                                 if (imagesToAdd?.length) {
-                                                    setImages((prev) => [
-                                                        ...prev,
-                                                        ...imagesToAdd,
-                                                    ]);
+                                                    setImages((prev) =>
+                                                        Array.from(
+                                                            new Set([
+                                                                ...prev,
+                                                                ...imagesToAdd,
+                                                            ]),
+                                                        ),
+                                                    );
                                                 }
                                                 setIsAddingImages(false);
                                             },

@@ -12,6 +12,7 @@ const GALLERIES_PAGE_SIZE = 10;
 const IMAGES_PAGE_SIZE = 20;
 const BULK_DELETE_THRESHOLD = 10;
 const STORAGE_REMOVE_CHUNK_SIZE = 100;
+const DELETE_IMAGES_CONCURRENCY = 4;
 
 function mergeUniqueById<T extends { id: string }>(prev: T[], next: T[]): T[] {
     if (next.length === 0) return prev;
@@ -1114,8 +1115,14 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
         galleryId: string,
         imageIds: string[],
     ) => {
-        await Promise.all(
-            imageIds.map((id) => get().deleteOneGalleryImage(galleryId, id)),
+        if (imageIds.length === 0) return true;
+
+        await runWithConcurrency(
+            imageIds,
+            DELETE_IMAGES_CONCURRENCY,
+            async (id) => {
+                await get().deleteOneGalleryImage(galleryId, id);
+            },
         );
 
         return true;
