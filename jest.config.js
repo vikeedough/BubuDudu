@@ -12,6 +12,5 @@ module.exports = {
     "stores/**/*.ts",
     "api/endpoints/**/*.ts",
     "hooks/**/*.ts",
-    "!api/endpoints/old-galleries.ts",
   ],
 };

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
     ActivityIndicator,
     FlatList,
@@ -18,8 +18,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import DebonLyingDown from "@/assets/svgs/debon-lying-down.svg";
 import Plus from "@/assets/svgs/plus.svg";
 import TrashIcon from "@/assets/svgs/trash-bin.svg";
+import ConfirmModal from "@/components/common/ConfirmModal";
 import CustomText from "@/components/CustomText";
-import DeleteWheelModal from "@/components/wheel/DeleteWheelModal";
 import EditChoicesModal from "@/components/wheel/EditChoicesModal";
 import SpinningWheel from "@/components/wheel/SpinningWheel";
 import WheelHeader from "@/components/wheel/WheelHeader";
@@ -48,18 +48,22 @@ const Wheel = () => {
     const [isDeletingWheel, setIsDeletingWheel] = useState(false);
     const { refreshing, onRefresh } = usePullToRefresh(fetchWheels);
 
-    const wheelsForUI = isDraftOpen
-        ? [
-              ...wheels,
-              {
-                  id: "__DRAFT__",
-                  title: localTitle,
-                  choices: [],
-                  created_at: "",
-                  space_id: "",
-              } as any,
-          ]
-        : wheels;
+    const wheelsForUI = useMemo(
+        () =>
+            isDraftOpen
+                ? [
+                      ...wheels,
+                      {
+                          id: "__DRAFT__",
+                          title: localTitle,
+                          choices: [],
+                          created_at: "",
+                          space_id: "",
+                      } as any,
+                  ]
+                : wheels,
+        [isDraftOpen, wheels, localTitle],
+    );
     const wheelNames = wheelsForUI.map((wheel) => wheel.title);
 
     useEffect(() => {
@@ -228,10 +232,12 @@ const Wheel = () => {
             )}
             {isDeleteWheelModalOpen && (
                 <View style={{ zIndex: 1000 }}>
-                    <DeleteWheelModal
+                    <ConfirmModal
                         isOpen={isDeleteWheelModalOpen}
                         onClose={() => setIsDeleteWheelModalOpen(false)}
-                        handleDeleteWheel={handleDeleteWheel}
+                        onConfirm={handleDeleteWheel}
+                        title="Are you sure?"
+                        message="Are you sure you want to delete this wheel?"
                     />
                 </View>
             )}
@@ -381,22 +387,11 @@ const styles = StyleSheet.create({
         paddingVertical: 25,
         paddingBottom: 70,
     },
-    wheelItem: {
-        backgroundColor: "white",
-        padding: 15,
-        marginVertical: 8,
-        borderRadius: 8,
-    },
     wheelTitle: {
         fontSize: 20,
         color: "black",
         fontFamily: "Raleway-ExtraBold",
     },
-    choiceItem: {
-        marginLeft: 10,
-        marginTop: 4,
-    },
-
     keyboardAvoidingView: {
         flex: 1,
     },
@@ -518,10 +513,6 @@ const styles = StyleSheet.create({
         alignItems: "center",
         borderWidth: 1,
         borderColor: "#EBEAEC",
-    },
-    editChoicesButtonText: {
-        fontSize: 32,
-        marginTop: -6,
     },
     controlButtonsContainer: {
         flexDirection: "row",

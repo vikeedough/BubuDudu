@@ -21,7 +21,7 @@ const QuoteContainer: React.FC<QuoteContainerProps> = ({ quotes }) => {
     return (
         <View style={styles.container}>
             <CustomText weight="semibold" style={styles.quote}>
-                "{quotes[rng]?.quote}"
+                {`"${quotes[rng]?.quote}"`}
             </CustomText>
             <View style={styles.tail} />
         </View>

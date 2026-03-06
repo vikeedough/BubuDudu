@@ -7,6 +7,8 @@ import SortAscending from "@/assets/svgs/sort-ascending.svg";
 import SortDescending from "@/assets/svgs/sort-descending.svg";
 import { Colors } from "@/constants/colors";
 
+import GalleryControlButton from "./GalleryControlButton";
+
 interface GalleryListControlsProps {
     searchText: string;
     sortingByDescending: boolean;
@@ -42,15 +44,12 @@ const GalleryListControls: React.FC<GalleryListControlsProps> = ({
                     onChangeText={onSearchChange}
                 />
             </TouchableOpacity>
-            <TouchableOpacity
-                style={styles.controlButton}
-                onPress={onToggleSort}
-            >
+            <GalleryControlButton onPress={onToggleSort}>
                 {sortingByDescending ? <SortDescending /> : <SortAscending />}
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.controlButton} onPress={onAddNew}>
+            </GalleryControlButton>
+            <GalleryControlButton onPress={onAddNew}>
                 <Plus />
-            </TouchableOpacity>
+            </GalleryControlButton>
         </View>
     );
 };
@@ -84,17 +83,6 @@ const styles = StyleSheet.create({
         paddingBottom: 0,
         paddingTop: 0,
         textAlignVertical: "center",
-    },
-    controlButton: {
-        backgroundColor: Colors.white,
-        borderRadius: 999,
-        padding: 10,
-        height: 30,
-        width: 30,
-        justifyContent: "center",
-        alignItems: "center",
-        borderWidth: 1,
-        borderColor: "#EBEAEC",
     },
 });
 

@@ -8,13 +8,14 @@ import {
     View,
     useWindowDimensions,
 } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Gallery, fitContainer } from "react-native-zoom-toolkit";
 
 import Back from "@/assets/svgs/back.svg";
 import { Colors } from "@/constants/colors";
+
 import type { GalleryImage } from "@/stores/GalleryStore";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 interface GalleryImageViewerModalProps {
     isOpen: boolean;

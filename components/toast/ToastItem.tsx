@@ -1,5 +1,4 @@
 // components/toast/ToastItem.tsx
-import { Colors } from "@/constants/colors";
 import React, { useEffect, useMemo } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
@@ -14,9 +13,13 @@ import Animated, {
     withSpring,
     withTiming,
 } from "react-native-reanimated";
+
+import { Colors } from "@/constants/colors";
+
 import { toast } from "../../toast/api";
-import type { Toast as ToastModel } from "../../toast/types";
 import CustomText from "../CustomText";
+
+import type { Toast as ToastModel } from "../../toast/types";
 
 type Props = { toast: ToastModel };
 
@@ -33,7 +36,6 @@ export const ToastItem: React.FC<Props> = ({ toast: t }) => {
     const showDeterminateBar = hasDeterminate; // keep upload progress bar
     // const showTimerBar = false; // disabled UI for timer-based dismissal
     const durationMs = payload.durationMs ?? null;
-    const persistent = payload.persistent === true || durationMs == null;
 
     const startTimer = useMemo(() => {
         return () => {

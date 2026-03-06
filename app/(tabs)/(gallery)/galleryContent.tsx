@@ -3,7 +3,7 @@ import React from "react";
 import { StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import DeleteGalleryModal from "@/components/gallery/DeleteGalleryModal";
+import ConfirmModal from "@/components/common/ConfirmModal";
 import DeleteImagesModal from "@/components/gallery/DeleteImagesModal";
 import GalleryControls from "@/components/gallery/GalleryControls";
 import GalleryEditControls from "@/components/gallery/GalleryEditControls";
@@ -85,10 +85,12 @@ const GalleryContent = () => {
                 />
             )}
             {isDeleteGalleryModalOpen && (
-                <DeleteGalleryModal
+                <ConfirmModal
                     isOpen={isDeleteGalleryModalOpen}
                     onClose={() => setIsDeleteGalleryModalOpen(false)}
-                    handleDeleteGallery={handleDeleteGallery}
+                    onConfirm={handleDeleteGallery}
+                    title="Are you sure?"
+                    message="Are you sure you want to delete this gallery?"
                 />
             )}
 

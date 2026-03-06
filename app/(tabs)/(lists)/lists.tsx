@@ -27,11 +27,9 @@ import { getDate } from "@/utils/home";
 
 const Lists = () => {
     const lists = useListStore((s) => s.lists);
-    const isLoadingLists = useListStore((s) => s.isLoadingLists);
     const fetchLists = useListStore((s) => s.fetchLists);
 
     const isDraftOpen = useListStore((s) => s.isDraftOpen);
-    const draft = useListStore((s) => s.draft);
     const openDraft = useListStore((s) => s.openDraft);
     const updateDraft = useListStore((s) => s.updateDraft);
     const closeDraft = useListStore((s) => s.closeDraft);
@@ -329,11 +327,6 @@ const styles = StyleSheet.create({
         fontSize: 24,
         color: Colors.darkGreenText,
     },
-    headerButton: {
-        backgroundColor: Colors.lightBlue,
-        padding: 10,
-        borderRadius: 15,
-    },
     headerDate: {
         fontSize: 12,
         color: Colors.darkGreenText,
@@ -445,8 +438,5 @@ const styles = StyleSheet.create({
         width: 100,
         height: 100,
         transform: [{ scaleX: -1 }],
-    },
-    keyboardAvoidingView: {
-        flex: 1,
     },
 });

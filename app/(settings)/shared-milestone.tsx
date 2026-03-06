@@ -1,23 +1,12 @@
-import DateTimePicker from "@react-native-community/datetimepicker";
 import { useEffect, useState } from "react";
-import {
-    Alert,
-    StyleSheet,
-    TextInput,
-    TouchableOpacity,
-    View,
-} from "react-native";
+import { Alert, View } from "react-native";
 
-import CustomText from "@/components/CustomText";
 import { GeneralButton } from "@/components/GeneralButton";
-import { SettingsField } from "@/components/settings/SettingsField";
-import { Colors } from "@/constants/colors";
+import { DisplayDatePickerField } from "@/components/settings/DisplayDatePickerField";
+import { settingsScreenStyles } from "@/components/settings/settingsScreenStyles";
+import { SettingsTextInputField } from "@/components/settings/SettingsTextInputField";
 import { useMilestoneStore } from "@/stores/MilestoneStore";
-import {
-    convertToDisplayDate,
-    dateToYYYYMMDD,
-    formatDate,
-} from "@/utils/settings";
+import { dateToYYYYMMDD, formatDate } from "@/utils/settings";
 
 export default function SharedMilestone() {
     const milestone = useMilestoneStore((s) => s.milestone);
@@ -25,7 +14,6 @@ export default function SharedMilestone() {
     const upsertMilestone = useMilestoneStore((s) => s.upsertMilestone);
 
     const [milestoneTitle, setMilestoneTitle] = useState<string>("");
-    const [showPicker, setShowPicker] = useState(false);
     const [date, setDate] = useState<Date>(new Date());
     const [displayedDate, setDisplayedDate] = useState<string>("");
 
@@ -67,60 +55,23 @@ export default function SharedMilestone() {
     };
 
     return (
-        <View style={styles.container}>
-            {showPicker && (
-                <DateTimePicker
-                    value={date ?? new Date()}
-                    mode="date"
-                    display="default"
-                    onChange={(_event, selectedDate) => {
-                        if (selectedDate) {
-                            setDate(selectedDate);
-                            setDisplayedDate(
-                                convertToDisplayDate(selectedDate)
-                            );
-                        }
-                        setShowPicker(false);
-                    }}
-                />
-            )}
+        <View style={settingsScreenStyles.container}>
+            <SettingsTextInputField
+                label="Name"
+                value={milestoneTitle}
+                onChangeText={setMilestoneTitle}
+                placeholder="Enter the name of your shared milestone!"
+            />
 
-            <CustomText weight="bold">Name</CustomText>
-            <TouchableOpacity style={styles.fieldContainer}>
-                <TextInput
-                    value={milestoneTitle}
-                    onChangeText={setMilestoneTitle}
-                    placeholder="Enter the name of your shared milestone!"
-                    style={styles.textInput}
-                />
-            </TouchableOpacity>
-
-            <SettingsField
+            <DisplayDatePickerField
                 label="Date"
-                value={displayedDate}
-                onPress={() => setShowPicker(true)}
+                date={date}
+                displayedDate={displayedDate}
+                setDate={setDate}
+                setDisplayedDate={setDisplayedDate}
             />
 
             <GeneralButton label="Save" onPress={handleSaveMilestone} />
         </View>
     );
 }
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        padding: "10%",
-    },
-    fieldContainer: {
-        marginTop: 8,
-        borderWidth: 1,
-        borderColor: Colors.black,
-        borderRadius: 12,
-        padding: "1%",
-        marginBottom: "5%",
-    },
-    textInput: {
-        fontSize: 16,
-        fontFamily: "Raleway-Regular",
-    },
-});

@@ -27,7 +27,7 @@ export default function SpaceManagementPage() {
     return (
         <View style={styles.container}>
             <CustomText weight="bold" style={{ fontSize: 24 }}>
-                Already have a Space? Enter your partner's invite code to join
+                Already have a Space? Enter your partner&apos;s invite code to join
                 them!
             </CustomText>
             <TextInput

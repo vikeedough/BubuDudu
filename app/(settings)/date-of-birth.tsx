@@ -1,15 +1,11 @@
-import DateTimePicker from "@react-native-community/datetimepicker";
 import { useEffect, useState } from "react";
-import { Alert, StyleSheet, View } from "react-native";
+import { Alert, View } from "react-native";
 
 import { GeneralButton } from "@/components/GeneralButton";
-import { SettingsField } from "@/components/settings/SettingsField";
+import { DisplayDatePickerField } from "@/components/settings/DisplayDatePickerField";
+import { settingsScreenStyles } from "@/components/settings/settingsScreenStyles";
 import { useAuthContext } from "@/hooks/useAuthContext";
-import {
-    convertToDisplayDate,
-    dateToYYYYMMDD,
-    formatDate,
-} from "@/utils/settings";
+import { dateToYYYYMMDD, formatDate } from "@/utils/settings";
 
 export default function DateOfBirth() {
     const { profile, updateProfile } = useAuthContext();
@@ -19,12 +15,16 @@ export default function DateOfBirth() {
     const [date, setDate] = useState<Date>(
         profile?.date_of_birth ? new Date(profile.date_of_birth) : new Date()
     );
-    const [showPicker, setShowPicker] = useState(false);
 
     useEffect(() => {
-        setDisplayedDate(
-            profile?.date_of_birth ? formatDate(profile.date_of_birth) : ""
-        );
+        if (profile?.date_of_birth) {
+            const nextDate = new Date(profile.date_of_birth);
+            setDate(nextDate);
+            setDisplayedDate(formatDate(profile.date_of_birth));
+            return;
+        }
+        setDate(new Date());
+        setDisplayedDate("");
     }, [profile]);
 
     const handleSaveDate = async (date: Date) => {
@@ -33,41 +33,22 @@ export default function DateOfBirth() {
             try {
                 await updateProfile({ date_of_birth: convertedDate });
                 Alert.alert("Date of Birth saved successfully.");
-            } catch (error) {
+            } catch {
                 Alert.alert("Failed to save Date of Birth.");
             }
         }
     };
 
     return (
-        <View style={styles.container}>
-            {showPicker && (
-                <DateTimePicker
-                    value={date ? date : new Date()}
-                    mode="date"
-                    display="default"
-                    onChange={(event, date) => {
-                        if (date) {
-                            setDate(date);
-                            setDisplayedDate(convertToDisplayDate(date));
-                            setShowPicker(false);
-                        }
-                    }}
-                />
-            )}
-            <SettingsField
+        <View style={settingsScreenStyles.container}>
+            <DisplayDatePickerField
                 label="Date of Birth"
-                value={displayedDate}
-                onPress={() => setShowPicker(true)}
+                date={date}
+                displayedDate={displayedDate}
+                setDate={setDate}
+                setDisplayedDate={setDisplayedDate}
             />
             <GeneralButton label="Save" onPress={() => handleSaveDate(date)} />
         </View>
     );
 }
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        padding: "10%",
-    },
-});
