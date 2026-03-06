@@ -25,6 +25,41 @@ describe("utils/space-management", () => {
     expect(Alert.alert).toHaveBeenCalled();
   });
 
+  it("createSpace alerts on auth error and returns early without user", async () => {
+    supabaseMock.auth.getUser.mockResolvedValueOnce({
+      data: { user: null },
+      error: { message: "auth failed" },
+    });
+
+    const result = await createSpace("BubuDudu");
+
+    expect(result).toBeUndefined();
+    expect(Alert.alert).toHaveBeenCalledWith("User Error", "auth failed");
+  });
+
+  it("createSpace alerts and returns when space insert fails", async () => {
+    supabaseMock.auth.getUser.mockResolvedValueOnce({
+      data: { user: { id: "user-1" } },
+      error: null,
+    });
+    supabaseMock.auth.getSession.mockResolvedValueOnce({
+      data: { session: { user: { id: "user-1" } } },
+      error: null,
+    });
+    queueFromSingle("spaces", "insert", {
+      data: null,
+      error: { message: "space insert failed" },
+    });
+
+    const result = await createSpace("BubuDudu");
+
+    expect(result).toBeUndefined();
+    expect(Alert.alert).toHaveBeenCalledWith(
+      "Space Creation Error",
+      "space insert failed",
+    );
+  });
+
   it("createSpace creates space, membership, invite and stores space id", async () => {
     supabaseMock.auth.getUser.mockResolvedValueOnce({
       data: { user: { id: "user-1" } },
@@ -77,6 +112,34 @@ describe("utils/space-management", () => {
     expect(supabaseMock.from).toHaveBeenCalledWith("space_invites");
   });
 
+  it("createSpace alerts when member insert fails but still proceeds", async () => {
+    supabaseMock.auth.getUser.mockResolvedValueOnce({
+      data: { user: { id: "user-1" } },
+      error: null,
+    });
+    supabaseMock.auth.getSession.mockResolvedValueOnce({
+      data: { session: { user: { id: "user-1" } } },
+      error: null,
+    });
+    queueFromSingle("spaces", "insert", {
+      data: { id: "space-1" },
+      error: null,
+    });
+    queueFrom("space_members", "insert", {
+      data: null,
+      error: { message: "member failed" },
+    });
+    queueFrom("space_invites", "insert", { data: null, error: null });
+
+    const result = await createSpace("BubuDudu");
+
+    expect(result?.spaceId).toBe("space-1");
+    expect(Alert.alert).toHaveBeenCalledWith(
+      "Member Addition Error",
+      "member failed",
+    );
+  });
+
   it("createSpace throws for non-duplicate invite errors", async () => {
     supabaseMock.auth.getUser.mockResolvedValueOnce({
       data: { user: { id: "user-1" } },
@@ -116,6 +179,33 @@ describe("utils/space-management", () => {
 
     expect(result).toBeUndefined();
     expect(Alert.alert).toHaveBeenCalledWith("Invite Error", "Invalid invite code.");
+  });
+
+  it("joinSpace alerts and returns when auth lookup fails", async () => {
+    supabaseMock.auth.getUser.mockResolvedValueOnce({
+      data: { user: null },
+      error: { message: "auth failed" },
+    });
+
+    const result = await joinSpace("CODE");
+
+    expect(result).toBeUndefined();
+    expect(Alert.alert).toHaveBeenCalledWith("User Error", "auth failed");
+  });
+
+  it("joinSpace returns early when user is missing", async () => {
+    supabaseMock.auth.getUser.mockResolvedValueOnce({
+      data: { user: null },
+      error: null,
+    });
+
+    const result = await joinSpace("CODE");
+
+    expect(result).toBeUndefined();
+    expect(Alert.alert).toHaveBeenCalledWith(
+      "User Error",
+      "No authenticated user found.",
+    );
   });
 
   it("joinSpace returns early when member insert fails", async () => {

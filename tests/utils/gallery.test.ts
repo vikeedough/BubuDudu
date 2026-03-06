@@ -13,6 +13,11 @@ import {
 describe("utils/gallery", () => {
   beforeEach(() => {
     jest.spyOn(Alert, "alert").mockImplementation(jest.fn());
+    (MediaLibrary.requestPermissionsAsync as jest.Mock).mockClear();
+    (MediaLibrary.createAssetAsync as jest.Mock).mockClear();
+    (MediaLibrary.getAlbumAsync as jest.Mock).mockClear();
+    (MediaLibrary.createAlbumAsync as jest.Mock).mockClear();
+    (MediaLibrary.addAssetsToAlbumAsync as jest.Mock).mockClear();
   });
 
   it("pickMultipleImages returns undefined when permission denied", async () => {
@@ -69,6 +74,21 @@ describe("utils/gallery", () => {
     expect(MediaLibrary.createAlbumAsync).toHaveBeenCalled();
   });
 
+  it("downloadAndSaveImage adds asset to existing album", async () => {
+    (MediaLibrary.requestPermissionsAsync as jest.Mock).mockResolvedValueOnce({
+      status: "granted",
+      canAskAgain: true,
+    });
+    (MediaLibrary.getAlbumAsync as jest.Mock).mockResolvedValueOnce({
+      id: "album-1",
+    });
+
+    await downloadAndSaveImage("i1", "https://example.com/a.jpg");
+
+    expect(MediaLibrary.addAssetsToAlbumAsync).toHaveBeenCalledTimes(1);
+    expect(MediaLibrary.createAlbumAsync).not.toHaveBeenCalled();
+  });
+
   it("multipleDownloadAndSaveImage alerts when permission denied", async () => {
     (MediaLibrary.requestPermissionsAsync as jest.Mock).mockResolvedValueOnce({
       status: "denied",
@@ -93,6 +113,22 @@ describe("utils/gallery", () => {
     ] as any);
 
     expect(MediaLibrary.createAssetAsync).toHaveBeenCalledTimes(2);
+  });
+
+  it("multipleDownloadAndSaveImage alerts when download throws", async () => {
+    (MediaLibrary.requestPermissionsAsync as jest.Mock).mockResolvedValue({
+      status: "granted",
+      canAskAgain: true,
+    });
+    (MediaLibrary.createAssetAsync as jest.Mock).mockRejectedValueOnce(
+      new Error("download failed"),
+    );
+
+    await multipleDownloadAndSaveImage([
+      { id: "1", url_orig: "https://x/a.jpg" },
+    ] as any);
+
+    expect(Alert.alert).toHaveBeenCalledWith("Error downloading images");
   });
 
   it("normalizeGalleries converts string dates to Date", () => {

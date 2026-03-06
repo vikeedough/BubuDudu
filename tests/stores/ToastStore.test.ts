@@ -45,6 +45,16 @@ describe("stores/ToastStore", () => {
     });
   });
 
+  it("update is a no-op for unknown toast id", () => {
+    const before = useToastStore.getState();
+
+    before.update("missing", { title: "X" });
+
+    const after = useToastStore.getState();
+    expect(after.order).toEqual([]);
+    expect(after.byId).toEqual({});
+  });
+
   it("dismiss removes toast from both maps", () => {
     const state = useToastStore.getState();
     state.show("one", { title: "One" });
@@ -56,6 +66,16 @@ describe("stores/ToastStore", () => {
     expect(next.order).toEqual(["two"]);
     expect(next.byId.one).toBeUndefined();
     expect(next.byId.two).toBeDefined();
+  });
+
+  it("dismiss is a no-op for unknown toast id", () => {
+    const state = useToastStore.getState();
+    state.show("one", { title: "One" });
+
+    state.dismiss("missing");
+
+    expect(useToastStore.getState().order).toEqual(["one"]);
+    expect(useToastStore.getState().byId.one).toBeDefined();
   });
 
   it("dismissAll clears all toasts", () => {

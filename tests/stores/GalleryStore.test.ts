@@ -195,6 +195,46 @@ describe("stores/GalleryStore", () => {
     expect(result.map((g) => g.id)).toEqual(["g1", "g2"]);
   });
 
+  it("loadMoreGalleries signs cover thumbs when signing succeeds", async () => {
+    const second = {
+      ...BASE_GALLERY,
+      id: "g2",
+      title: "Dinner",
+      date_date: "2026-02-28",
+      cover_image_thumb_path: "covers/g2-thumb.jpg",
+    };
+
+    secureStoreUtilsMock.getSpaceId.mockResolvedValueOnce("space-1");
+    useGalleryStore.setState({
+      galleries: [BASE_GALLERY],
+      galleriesPage: {
+        cursor: { date: "2026-03-01", id: "g1" },
+        hasMore: true,
+        isLoadingInitial: false,
+        isLoadingMore: false,
+      },
+    });
+    queueFrom("galleries", "select", {
+      data: [second],
+      error: null,
+    });
+    queueStorage("gallery-private", "createSignedUrl", {
+      data: { signedUrl: "https://signed/g2-thumb.jpg" },
+      error: null,
+    });
+
+    const result = await useGalleryStore.getState().loadMoreGalleries();
+
+    expect(result).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "g2",
+          cover_thumb_url: "https://signed/g2-thumb.jpg",
+        }),
+      ]),
+    );
+  });
+
   it("loadInitialGalleryImages falls back when signing fails", async () => {
     queueFrom("date_images", "select", { data: [BASE_IMAGE], error: null });
     queueFunction("sign-gallery-urls", {
@@ -208,6 +248,33 @@ describe("stores/GalleryStore", () => {
 
     expect(result).toEqual([BASE_IMAGE]);
     expect(useGalleryStore.getState().imagesByGalleryId.g1[0].url_orig).toBeUndefined();
+  });
+
+  it("loadInitialGalleryImages merges signed urls when signing succeeds", async () => {
+    queueFrom("date_images", "select", { data: [BASE_IMAGE], error: null });
+    queueFunction("sign-gallery-urls", {
+      data: {
+        i1: {
+          url_thumb: "thumb-signed",
+          url_grid: "grid-signed",
+          url_orig: "orig-signed",
+        },
+      },
+      error: null,
+    });
+
+    const result = await useGalleryStore
+      .getState()
+      .loadInitialGalleryImages("g1");
+
+    expect(result[0]).toEqual(
+      expect.objectContaining({
+        id: "i1",
+        url_thumb: "thumb-signed",
+        url_grid: "grid-signed",
+        url_orig: "orig-signed",
+      }),
+    );
   });
 
   it("loadMoreGalleryImages merges images without duplicates", async () => {

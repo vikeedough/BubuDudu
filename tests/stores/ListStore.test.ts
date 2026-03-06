@@ -96,6 +96,18 @@ describe("stores/ListStore", () => {
     );
   });
 
+  it("throws when addList insert fails", async () => {
+    secureStoreUtilsMock.getSpaceId.mockResolvedValueOnce("space-1");
+    queueFromSingle("lists", "insert", {
+      data: null,
+      error: { message: "insert failed" },
+    });
+
+    await expect(useListStore.getState().addList("Todo", "Buy milk")).rejects.toMatchObject({
+      message: "insert failed",
+    });
+  });
+
   it("updates and reorders an existing list", async () => {
     queueFrom("lists", "update", { data: null, error: null });
     useListStore.setState({

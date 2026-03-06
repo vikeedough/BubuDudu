@@ -97,6 +97,20 @@ describe("stores/WheelStore", () => {
     ).rejects.toThrow("No active spaceId");
   });
 
+  it("throws when addWheel insert fails", async () => {
+    secureStoreUtilsMock.getSpaceId.mockResolvedValueOnce("space-1");
+    queueFromSingle("wheel", "insert", {
+      data: null,
+      error: { message: "insert failed" },
+    });
+
+    await expect(
+      useWheelStore.getState().addWheel("Dinner", ["A", "B"]),
+    ).rejects.toMatchObject({
+      message: "insert failed",
+    });
+  });
+
   it("updates wheel title without changing item count", async () => {
     queueFrom("wheel", "update", { data: null, error: null });
     useWheelStore.setState({ wheels: [WHEEL_A] });

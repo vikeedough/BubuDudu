@@ -86,6 +86,19 @@ describe("hooks/useGalleryList", () => {
     });
   });
 
+  it("toggles sort direction from asc back to desc", () => {
+    mockGalleryStoreState.galleriesQuery.sortDir = "asc";
+    const { result } = renderHook(() => useGalleryList());
+
+    act(() => {
+      result.current.handleToggleSort();
+    });
+
+    expect(mockGalleryStoreState.setGalleriesQuery).toHaveBeenCalledWith({
+      sortDir: "desc",
+    });
+  });
+
   it("navigates to gallery content with normalized params", () => {
     const { result } = renderHook(() => useGalleryList());
 
