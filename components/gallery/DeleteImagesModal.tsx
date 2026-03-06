@@ -1,24 +1,22 @@
 import React, { useState } from "react";
 
 import ConfirmModal from "@/components/common/ConfirmModal";
-import { GalleryImage, useGalleryStore } from "@/stores/GalleryStore";
+import { useGalleryStore } from "@/stores/GalleryStore";
 
 interface DeleteImagesModalProps {
     isOpen: boolean;
     onClose: () => void;
-    selectedImages: GalleryImage[];
+    selectedImageIds: string[];
     galleryId: string;
-    setSelectedImages: (images: GalleryImage[]) => void;
-    setEditMode: (editMode: boolean) => void;
+    onCleared: () => void;
 }
 
 const DeleteImagesModal: React.FC<DeleteImagesModalProps> = ({
     isOpen,
     onClose,
-    selectedImages,
+    selectedImageIds,
     galleryId,
-    setSelectedImages,
-    setEditMode,
+    onCleared,
 }) => {
     const [isDeleting, setIsDeleting] = useState(false);
 
@@ -28,7 +26,7 @@ const DeleteImagesModal: React.FC<DeleteImagesModalProps> = ({
     );
 
     const handleDeleteImage = async () => {
-        if (!selectedImages.length) {
+        if (!selectedImageIds.length) {
             onClose();
             return;
         }
@@ -37,13 +35,12 @@ const DeleteImagesModal: React.FC<DeleteImagesModalProps> = ({
 
         const ok = await deleteMultipleGalleryImages(
             galleryId,
-            selectedImages.map((img) => img.id.toString()),
+            selectedImageIds,
         );
 
         if (ok) {
             await refreshGalleryImages(galleryId);
-            setSelectedImages([]);
-            setEditMode(false);
+            onCleared();
             onClose();
         } else {
             // keep modal open if you want, but current UX closes anyway

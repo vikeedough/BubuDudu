@@ -13,7 +13,7 @@ interface GalleryImageGridProps {
     isLoadingMore: boolean;
     onEndReached: () => void;
     editMode: boolean;
-    selectedImages: GalleryImage[];
+    selectedImageIds: ReadonlySet<string>;
     onImagePress: (image: GalleryImage) => void;
     onImageLongPress: (image: GalleryImage) => void;
     onImageSelect: (image: GalleryImage) => void;
@@ -40,16 +40,12 @@ const GalleryImageGrid: React.FC<GalleryImageGridProps> = ({
     isLoadingMore,
     onEndReached,
     editMode,
-    selectedImages,
+    selectedImageIds,
     onImagePress,
     onImageLongPress,
     onImageSelect,
 }) => {
     const rows = useMemo(() => groupIntoRows(images), [images]);
-    const selectedImageIds = useMemo(
-        () => new Set(selectedImages.map((img) => img.id)),
-        [selectedImages],
-    );
     const renderSeparator = useCallback(
         () => <View style={styles.separator} />,
         [],
