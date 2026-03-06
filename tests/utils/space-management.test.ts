@@ -60,6 +60,29 @@ describe("utils/space-management", () => {
     );
   });
 
+  it("createSpace alerts and returns when insert returns no space data", async () => {
+    supabaseMock.auth.getUser.mockResolvedValueOnce({
+      data: { user: { id: "user-1" } },
+      error: null,
+    });
+    supabaseMock.auth.getSession.mockResolvedValueOnce({
+      data: { session: { user: { id: "user-1" } } },
+      error: null,
+    });
+    queueFromSingle("spaces", "insert", {
+      data: null,
+      error: null,
+    });
+
+    const result = await createSpace("BubuDudu");
+
+    expect(result).toBeUndefined();
+    expect(Alert.alert).toHaveBeenCalledWith(
+      "Space Creation Error",
+      "No space data returned.",
+    );
+  });
+
   it("createSpace creates space, membership, invite and stores space id", async () => {
     supabaseMock.auth.getUser.mockResolvedValueOnce({
       data: { user: { id: "user-1" } },

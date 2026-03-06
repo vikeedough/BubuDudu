@@ -77,4 +77,34 @@ describe("utils/shrinkImage", () => {
       height: 60,
     });
   });
+
+  it("uses default options when opts are omitted", async () => {
+    const originalRef = makeImageRef(1200, 900, "file://original.jpg");
+    const compressedRef = makeImageRef(1200, 900, "file://compressed.jpg");
+
+    const ctx = {
+      renderAsync: jest
+        .fn()
+        .mockResolvedValueOnce(originalRef)
+        .mockResolvedValueOnce(compressedRef),
+      resize: jest.fn(),
+      reset: jest.fn(),
+      release: jest.fn(),
+    };
+
+    (ImageManipulator.manipulate as jest.Mock).mockReturnValueOnce(ctx);
+
+    const result = await shrinkImage("file://input.jpg");
+
+    expect(ctx.resize).not.toHaveBeenCalled();
+    expect(compressedRef.saveAsync).toHaveBeenCalledWith({
+      format: SaveFormat.JPEG,
+      compress: 0.65,
+    });
+    expect(result).toEqual({
+      uri: "file://compressed.jpg",
+      width: 1200,
+      height: 900,
+    });
+  });
 });

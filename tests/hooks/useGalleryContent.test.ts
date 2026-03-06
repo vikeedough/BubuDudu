@@ -192,6 +192,21 @@ describe("hooks/useGalleryContent", () => {
     expect(result.current.editMode).toBe(false);
   });
 
+  it("handleSelectImage removes one image but keeps edit mode when others remain", () => {
+    const { result } = renderHook(() => useGalleryContent({ galleryId: "g1" }));
+
+    act(() => {
+      result.current.setEditMode(true);
+      result.current.setSelectedImages([image1 as any, image2 as any]);
+    });
+    act(() => {
+      result.current.handleSelectImage(image1 as any);
+    });
+
+    expect(result.current.selectedImages.map((x) => x.id)).toEqual(["i2"]);
+    expect(result.current.editMode).toBe(true);
+  });
+
   it("handleSelectImage adds image when not currently selected", () => {
     const { result } = renderHook(() => useGalleryContent({ galleryId: "g1" }));
 

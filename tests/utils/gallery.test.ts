@@ -42,6 +42,18 @@ describe("utils/gallery", () => {
     expect(result).toEqual(["file://a.jpg", "file://b.jpg"]);
   });
 
+  it("pickMultipleImages returns undefined when picker is canceled", async () => {
+    (ImagePicker.requestMediaLibraryPermissionsAsync as jest.Mock).mockResolvedValueOnce({
+      granted: true,
+    });
+    (ImagePicker.launchImageLibraryAsync as jest.Mock).mockResolvedValueOnce({
+      canceled: true,
+      assets: [],
+    });
+
+    await expect(pickMultipleImages()).resolves.toBeUndefined();
+  });
+
   it("convertDate formats input date", () => {
     expect(convertDate("2026-03-06")).toBe("6 March 2026");
   });
@@ -58,6 +70,21 @@ describe("utils/gallery", () => {
       "Permission Required",
       expect.stringContaining("Please allow full access"),
       undefined,
+    );
+  });
+
+  it("downloadAndSaveImage alerts with settings hint when denied and cannot ask again", async () => {
+    (MediaLibrary.requestPermissionsAsync as jest.Mock).mockResolvedValueOnce({
+      status: "denied",
+      canAskAgain: false,
+    });
+
+    await downloadAndSaveImage("i1", "https://example.com/a.jpg");
+
+    expect(Alert.alert).toHaveBeenCalledWith(
+      "Permission Required",
+      expect.stringContaining("Please enable it in your device settings."),
+      [{ text: "OK" }],
     );
   });
 
