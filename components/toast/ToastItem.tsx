@@ -36,7 +36,6 @@ export const ToastItem: React.FC<Props> = ({ toast: t }) => {
     const showDeterminateBar = hasDeterminate; // keep upload progress bar
     // const showTimerBar = false; // disabled UI for timer-based dismissal
     const durationMs = payload.durationMs ?? null;
-    const persistent = payload.persistent === true || durationMs == null;
 
     const startTimer = useMemo(() => {
         return () => {

@@ -22,7 +22,7 @@ export default function Name() {
             try {
                 await updateProfile({ name });
                 Alert.alert("Name saved successfully.");
-            } catch (error) {
+            } catch {
                 Alert.alert("Failed to save name.");
             }
         }

@@ -36,7 +36,7 @@ export default function DateOfBirth() {
             try {
                 await updateProfile({ date_of_birth: convertedDate });
                 Alert.alert("Date of Birth saved successfully.");
-            } catch (error) {
+            } catch {
                 Alert.alert("Failed to save Date of Birth.");
             }
         }

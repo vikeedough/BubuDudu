@@ -1,12 +1,9 @@
-import { useRouter } from "expo-router";
 import { Button } from "react-native";
 
 import { supabase } from "@/api/clients/supabaseClient";
 import { deleteSpaceId } from "@/utils/secure-store";
 
 export default function SignOutButton() {
-    const router = useRouter();
-
     const handleSignOut = async () => {
         const { error } = await supabase.auth.signOut();
         await deleteSpaceId();
