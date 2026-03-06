@@ -20,6 +20,85 @@ interface SpinningWheelProps {
     selectedIndex: number;
 }
 
+interface WheelEdgeDotsProps {
+    centerX: number;
+    centerY: number;
+    radius: number;
+    strokeWidth: number;
+    dotRadius: number;
+    count?: number;
+}
+
+const WheelEdgeDots: React.FC<WheelEdgeDotsProps> = ({
+    centerX,
+    centerY,
+    radius,
+    strokeWidth,
+    dotRadius,
+    count = 8,
+}) => {
+    return (
+        <>
+            {Array.from({ length: count }).map((_, i) => {
+                const angle = (i * 360) / count;
+                const dotCircleRadius = radius + strokeWidth / 2 - dotRadius * 2;
+                const x =
+                    centerX + dotCircleRadius * Math.cos((angle * Math.PI) / 180);
+                const y =
+                    centerY + dotCircleRadius * Math.sin((angle * Math.PI) / 180);
+                return (
+                    <Circle key={`dot-${i}`} cx={x} cy={y} r={dotRadius} fill="white" />
+                );
+            })}
+        </>
+    );
+};
+
+interface SpinResultModalProps {
+    visible: boolean;
+    selectedResult: string;
+    onClose: () => void;
+}
+
+const SpinResultModal: React.FC<SpinResultModalProps> = ({
+    visible,
+    selectedResult,
+    onClose,
+}) => {
+    return (
+        <View style={{ zIndex: 1000 }}>
+            <Modal
+                visible={visible}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={onClose}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <DebonSpin style={styles.debonSpin} />
+                        <CustomText weight="bold" style={styles.modalTitle}>
+                            Debon picked!
+                        </CustomText>
+                        <View style={[styles.resultContainer]}>
+                            <CustomText weight="semibold" style={styles.resultText}>
+                                {selectedResult}
+                            </CustomText>
+                            <CustomText weight="regular" style={styles.debonText}>
+                                Debon&apos;s stomach agrees too.
+                            </CustomText>
+                        </View>
+                        <TouchableOpacity style={[styles.closeButton]} onPress={onClose}>
+                            <CustomText weight="semibold" style={styles.closeButtonText}>
+                                Yes
+                            </CustomText>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
+        </View>
+    );
+};
+
 const SpinningWheel: React.FC<SpinningWheelProps> = ({
     selectedChoices,
     selectedIndex,
@@ -91,6 +170,18 @@ const SpinningWheel: React.FC<SpinningWheelProps> = ({
     const animatedStyle = useAnimatedStyle(() => ({
         transform: [{ rotate: `${rotation.value}deg` }],
     }));
+    const wheelButtonStyle = {
+        position: "relative" as const,
+        shadowColor: "#000",
+        shadowOffset: {
+            width: 0,
+            height: 5,
+        },
+        shadowOpacity: 0.25,
+        shadowRadius: 4,
+        elevation: 5,
+    };
+    const closeResultModal = () => setShowResultModal(false);
 
     // Function to handle spinning completion
     const onSpinComplete = (result: string) => {
@@ -117,10 +208,6 @@ const SpinningWheel: React.FC<SpinningWheelProps> = ({
 
         // Calculate the angle to land on the randomly selected choice
         // The pointer is at the top, so we need the middle of the target segment to end up at the top
-        // Segments start at -90 degrees, so segment randomChoiceIndex middle is at:
-        const segmentMiddle =
-            randomChoiceIndex * segmentAngle - 90 + segmentAngle / 2;
-
         // To get this segment middle to the top (-90 degrees), we need to rotate by:
         // rotation = -90 - segmentMiddle = -90 - (randomChoiceIndex * segmentAngle - 90 + segmentAngle / 2)
         const targetRotation =
@@ -175,26 +262,13 @@ const SpinningWheel: React.FC<SpinningWheelProps> = ({
                         strokeWidth={strokeWidth}
                     />
                     {/* Dots around the edge */}
-                    {Array.from({ length: 8 }).map((_, i) => {
-                        const angle = (i * 360) / 8;
-                        const dotCircleRadius =
-                            radius + strokeWidth / 2 - dotRadius * 2;
-                        const x =
-                            centerX +
-                            dotCircleRadius * Math.cos((angle * Math.PI) / 180);
-                        const y =
-                            centerY +
-                            dotCircleRadius * Math.sin((angle * Math.PI) / 180);
-                        return (
-                            <Circle
-                                key={i}
-                                cx={x}
-                                cy={y}
-                                r={dotRadius}
-                                fill="white"
-                            />
-                        );
-                    })}
+                    <WheelEdgeDots
+                        centerX={centerX}
+                        centerY={centerY}
+                        radius={radius}
+                        strokeWidth={strokeWidth}
+                        dotRadius={dotRadius}
+                    />
                 </Svg>
                 <View style={styles.emptyTextContainer}>
                     <CustomText style={styles.emptyText}>
@@ -213,17 +287,7 @@ const SpinningWheel: React.FC<SpinningWheelProps> = ({
                     onPress={spinWheel}
                     disabled={isSpinning}
                     activeOpacity={1}
-                    style={{
-                        position: "relative",
-                        shadowColor: "#000",
-                        shadowOffset: {
-                            width: 0,
-                            height: 5,
-                        },
-                        shadowOpacity: 0.25,
-                        shadowRadius: 4,
-                        elevation: 5,
-                    }}
+                    style={wheelButtonStyle}
                 >
                     <Animated.View style={animatedStyle}>
                         <Svg
@@ -241,28 +305,13 @@ const SpinningWheel: React.FC<SpinningWheelProps> = ({
                                 strokeWidth={strokeWidth}
                             />
                             {/* Dots around the edge */}
-                            {Array.from({ length: 8 }).map((_, i) => {
-                                const angle = (i * 360) / 8;
-                                const dotCircleRadius =
-                                    radius + strokeWidth / 2 - dotRadius * 2;
-                                const x =
-                                    centerX +
-                                    dotCircleRadius *
-                                        Math.cos((angle * Math.PI) / 180);
-                                const y =
-                                    centerY +
-                                    dotCircleRadius *
-                                        Math.sin((angle * Math.PI) / 180);
-                                return (
-                                    <Circle
-                                        key={i}
-                                        cx={x}
-                                        cy={y}
-                                        r={dotRadius}
-                                        fill="white"
-                                    />
-                                );
-                            })}
+                            <WheelEdgeDots
+                                centerX={centerX}
+                                centerY={centerY}
+                                radius={radius}
+                                strokeWidth={strokeWidth}
+                                dotRadius={dotRadius}
+                            />
                             {/* Center text */}
                             <SvgText
                                 x={centerX}
@@ -288,52 +337,11 @@ const SpinningWheel: React.FC<SpinningWheelProps> = ({
                     ></Svg>
                 </TouchableOpacity>
 
-                {/* Result Modal */}
-                <View style={{ zIndex: 1000 }}>
-                    <Modal
-                        visible={showResultModal}
-                        transparent={true}
-                        animationType="fade"
-                        onRequestClose={() => setShowResultModal(false)}
-                    >
-                        <View style={styles.modalOverlay}>
-                            <View style={styles.modalContent}>
-                                <DebonSpin style={styles.debonSpin} />
-                                <CustomText
-                                    weight="bold"
-                                    style={styles.modalTitle}
-                                >
-                                    Debon picked!
-                                </CustomText>
-                                <View style={[styles.resultContainer]}>
-                                    <CustomText
-                                        weight="semibold"
-                                        style={styles.resultText}
-                                    >
-                                        {selectedResult}
-                                    </CustomText>
-                                    <CustomText
-                                        weight="regular"
-                                        style={styles.debonText}
-                                    >
-                                        Debon's stomach agrees too.
-                                    </CustomText>
-                                </View>
-                                <TouchableOpacity
-                                    style={[styles.closeButton]}
-                                    onPress={() => setShowResultModal(false)}
-                                >
-                                    <CustomText
-                                        weight="semibold"
-                                        style={styles.closeButtonText}
-                                    >
-                                        Yes
-                                    </CustomText>
-                                </TouchableOpacity>
-                            </View>
-                        </View>
-                    </Modal>
-                </View>
+                <SpinResultModal
+                    visible={showResultModal}
+                    selectedResult={selectedResult}
+                    onClose={closeResultModal}
+                />
             </View>
         );
     }
@@ -376,17 +384,7 @@ const SpinningWheel: React.FC<SpinningWheelProps> = ({
                 onPress={spinWheel}
                 disabled={isSpinning}
                 activeOpacity={1}
-                style={{
-                    position: "relative",
-                    shadowColor: "#000",
-                    shadowOffset: {
-                        width: 0,
-                        height: 5,
-                    },
-                    shadowOpacity: 0.25,
-                    shadowRadius: 4,
-                    elevation: 5,
-                }}
+                style={wheelButtonStyle}
             >
                 <Animated.View style={animatedStyle}>
                     <Svg
@@ -466,28 +464,13 @@ const SpinningWheel: React.FC<SpinningWheelProps> = ({
                         })}
 
                         {/* Dots around the edge */}
-                        {Array.from({ length: 8 }).map((_, i) => {
-                            const angle = (i * 360) / 8;
-                            const dotCircleRadius =
-                                radius + strokeWidth / 2 - dotRadius * 2;
-                            const x =
-                                centerX +
-                                dotCircleRadius *
-                                    Math.cos((angle * Math.PI) / 180);
-                            const y =
-                                centerY +
-                                dotCircleRadius *
-                                    Math.sin((angle * Math.PI) / 180);
-                            return (
-                                <Circle
-                                    key={`dot-${i}`}
-                                    cx={x}
-                                    cy={y}
-                                    r={dotRadius}
-                                    fill="white"
-                                />
-                            );
-                        })}
+                        <WheelEdgeDots
+                            centerX={centerX}
+                            centerY={centerY}
+                            radius={radius}
+                            strokeWidth={strokeWidth}
+                            dotRadius={dotRadius}
+                        />
                     </Svg>
                 </Animated.View>
 
@@ -516,54 +499,11 @@ const SpinningWheel: React.FC<SpinningWheelProps> = ({
                 </Svg>
             </TouchableOpacity>
 
-            {/* Result Modal */}
-            {showResultModal && (
-                <View style={{ zIndex: 1000 }}>
-                    <Modal
-                        visible={showResultModal}
-                        transparent={true}
-                        animationType="fade"
-                        onRequestClose={() => setShowResultModal(false)}
-                    >
-                        <View style={styles.modalOverlay}>
-                            <View style={styles.modalContent}>
-                                <DebonSpin style={styles.debonSpin} />
-                                <CustomText
-                                    weight="bold"
-                                    style={styles.modalTitle}
-                                >
-                                    Debon picked!
-                                </CustomText>
-                                <View style={[styles.resultContainer]}>
-                                    <CustomText
-                                        weight="semibold"
-                                        style={styles.resultText}
-                                    >
-                                        {selectedResult}
-                                    </CustomText>
-                                    <CustomText
-                                        weight="regular"
-                                        style={styles.debonText}
-                                    >
-                                        Debon's stomach agrees too.
-                                    </CustomText>
-                                </View>
-                                <TouchableOpacity
-                                    style={[styles.closeButton]}
-                                    onPress={() => setShowResultModal(false)}
-                                >
-                                    <CustomText
-                                        weight="semibold"
-                                        style={styles.closeButtonText}
-                                    >
-                                        Yes
-                                    </CustomText>
-                                </TouchableOpacity>
-                            </View>
-                        </View>
-                    </Modal>
-                </View>
-            )}
+            <SpinResultModal
+                visible={showResultModal}
+                selectedResult={selectedResult}
+                onClose={closeResultModal}
+            />
         </View>
     );
 };

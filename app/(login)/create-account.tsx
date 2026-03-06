@@ -1,11 +1,10 @@
-import DateTimePicker from "@react-native-community/datetimepicker";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { Button, StyleSheet, TextInput, View } from "react-native";
+import { Button, StyleSheet, View } from "react-native";
 
 import { signUpWithEmail } from "@/api/endpoints";
-import CustomText from "@/components/CustomText";
-import { SettingsField } from "@/components/settings/SettingsField";
+import AuthField from "@/components/auth/AuthField";
+import { DatePickerField } from "@/components/settings/DatePickerField";
 import { convertToDisplayDate, dateToYYYYMMDD } from "@/utils/settings";
 
 export default function NewLogin() {
@@ -15,19 +14,13 @@ export default function NewLogin() {
     const [password, setPassword] = useState<string>("");
     const [confirmPassword, setConfirmPassword] = useState<string>("");
     const [date, setDate] = useState<Date>(new Date());
-    const [selectedDate, setSelectedDate] = useState<string>(
-        dateToYYYYMMDD(new Date())
-    );
-    const [displayedDate, setDisplayedDate] = useState<string>(
-        convertToDisplayDate(new Date())
-    );
-    const [showPicker, setShowPicker] = useState(false);
 
     const handleSignUp = async () => {
         if (password.length === 0 || password !== confirmPassword) {
             alert("Passwords do not match");
             return;
         }
+        const selectedDate = dateToYYYYMMDD(date);
         const result = await signUpWithEmail(
             name,
             selectedDate,
@@ -42,12 +35,9 @@ export default function NewLogin() {
 
     return (
         <View style={styles.container}>
-            <CustomText weight="bold" style={styles.formEmail}>
-                Name
-            </CustomText>
-
-            <TextInput
-                style={styles.input}
+            <AuthField
+                label="Name"
+                labelStyle={styles.formEmail}
                 placeholder="Enter your name"
                 keyboardType="default"
                 autoCapitalize="words"
@@ -55,34 +45,16 @@ export default function NewLogin() {
                 onChangeText={setName}
             />
 
-            <SettingsField
+            <DatePickerField
                 label="Date of Birth"
-                value={displayedDate}
-                onPress={() => setShowPicker(true)}
+                value={convertToDisplayDate(date)}
+                date={date}
+                onDateChange={setDate}
             />
 
-            {showPicker && (
-                <DateTimePicker
-                    value={date ? date : new Date()}
-                    mode="date"
-                    display="default"
-                    onChange={(event, date) => {
-                        if (date) {
-                            setDate(date);
-                            setDisplayedDate(convertToDisplayDate(date));
-                            setSelectedDate(dateToYYYYMMDD(date));
-                            setShowPicker(false);
-                        }
-                    }}
-                />
-            )}
-
-            <CustomText weight="bold" style={styles.formPassword}>
-                Email
-            </CustomText>
-
-            <TextInput
-                style={styles.input}
+            <AuthField
+                label="Email"
+                labelStyle={styles.formPassword}
                 placeholder="Enter your email"
                 keyboardType="email-address"
                 autoCapitalize="none"
@@ -90,22 +62,18 @@ export default function NewLogin() {
                 onChangeText={setEmail}
             />
 
-            <CustomText weight="bold" style={styles.formPassword}>
-                Password
-            </CustomText>
-            <TextInput
-                style={styles.input}
+            <AuthField
+                label="Password"
+                labelStyle={styles.formPassword}
                 placeholder="Enter your password"
                 secureTextEntry
                 value={password}
                 onChangeText={setPassword}
             />
 
-            <CustomText weight="bold" style={styles.formPassword}>
-                Confirm Password
-            </CustomText>
-            <TextInput
-                style={styles.input}
+            <AuthField
+                label="Confirm Password"
+                labelStyle={styles.formPassword}
                 placeholder="Confirm your password"
                 secureTextEntry
                 value={confirmPassword}
@@ -128,15 +96,6 @@ const styles = StyleSheet.create({
         marginBottom: 20,
     },
     formPassword: {
-        fontSize: 24,
         marginTop: 20,
-        marginBottom: 20,
-    },
-    input: {
-        width: "80%",
-        height: 50,
-        borderColor: "gray",
-        borderWidth: 1,
-        paddingHorizontal: 10,
     },
 });

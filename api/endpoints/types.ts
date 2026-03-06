@@ -28,27 +28,6 @@ export interface List {
     space_id: string;
 }
 
-export interface Gallery {
-    id: string;
-    title: string;
-    date: string | Date;
-    created_at: string;
-    color: string;
-    location: string;
-    cover_image: string;
-    cover_image_blur_hash: string;
-    space_id: string;
-}
-
-export interface DateImage {
-    id: number;
-    gallery_id: string;
-    url: string;
-    created_at: string;
-    blur_hash: string;
-    storage_path: string;
-}
-
 export interface Wheel {
     id: string;
     title: string;

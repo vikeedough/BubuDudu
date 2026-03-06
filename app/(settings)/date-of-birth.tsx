@@ -1,9 +1,8 @@
-import DateTimePicker from "@react-native-community/datetimepicker";
 import { useEffect, useState } from "react";
 import { Alert, StyleSheet, View } from "react-native";
 
 import { GeneralButton } from "@/components/GeneralButton";
-import { SettingsField } from "@/components/settings/SettingsField";
+import { DatePickerField } from "@/components/settings/DatePickerField";
 import { useAuthContext } from "@/hooks/useAuthContext";
 import {
     convertToDisplayDate,
@@ -19,12 +18,16 @@ export default function DateOfBirth() {
     const [date, setDate] = useState<Date>(
         profile?.date_of_birth ? new Date(profile.date_of_birth) : new Date()
     );
-    const [showPicker, setShowPicker] = useState(false);
 
     useEffect(() => {
-        setDisplayedDate(
-            profile?.date_of_birth ? formatDate(profile.date_of_birth) : ""
-        );
+        if (profile?.date_of_birth) {
+            const nextDate = new Date(profile.date_of_birth);
+            setDate(nextDate);
+            setDisplayedDate(formatDate(profile.date_of_birth));
+            return;
+        }
+        setDate(new Date());
+        setDisplayedDate("");
     }, [profile]);
 
     const handleSaveDate = async (date: Date) => {
@@ -41,24 +44,14 @@ export default function DateOfBirth() {
 
     return (
         <View style={styles.container}>
-            {showPicker && (
-                <DateTimePicker
-                    value={date ? date : new Date()}
-                    mode="date"
-                    display="default"
-                    onChange={(event, date) => {
-                        if (date) {
-                            setDate(date);
-                            setDisplayedDate(convertToDisplayDate(date));
-                            setShowPicker(false);
-                        }
-                    }}
-                />
-            )}
-            <SettingsField
+            <DatePickerField
                 label="Date of Birth"
                 value={displayedDate}
-                onPress={() => setShowPicker(true)}
+                date={date}
+                onDateChange={(selectedDate) => {
+                    setDate(selectedDate);
+                    setDisplayedDate(convertToDisplayDate(selectedDate));
+                }}
             />
             <GeneralButton label="Save" onPress={() => handleSaveDate(date)} />
         </View>

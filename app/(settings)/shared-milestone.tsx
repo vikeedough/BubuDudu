@@ -1,17 +1,9 @@
-import DateTimePicker from "@react-native-community/datetimepicker";
 import { useEffect, useState } from "react";
-import {
-    Alert,
-    StyleSheet,
-    TextInput,
-    TouchableOpacity,
-    View,
-} from "react-native";
+import { Alert, StyleSheet, View } from "react-native";
 
-import CustomText from "@/components/CustomText";
 import { GeneralButton } from "@/components/GeneralButton";
-import { SettingsField } from "@/components/settings/SettingsField";
-import { Colors } from "@/constants/colors";
+import { DatePickerField } from "@/components/settings/DatePickerField";
+import { SettingsTextInputField } from "@/components/settings/SettingsTextInputField";
 import { useMilestoneStore } from "@/stores/MilestoneStore";
 import {
     convertToDisplayDate,
@@ -25,7 +17,6 @@ export default function SharedMilestone() {
     const upsertMilestone = useMilestoneStore((s) => s.upsertMilestone);
 
     const [milestoneTitle, setMilestoneTitle] = useState<string>("");
-    const [showPicker, setShowPicker] = useState(false);
     const [date, setDate] = useState<Date>(new Date());
     const [displayedDate, setDisplayedDate] = useState<string>("");
 
@@ -68,37 +59,21 @@ export default function SharedMilestone() {
 
     return (
         <View style={styles.container}>
-            {showPicker && (
-                <DateTimePicker
-                    value={date ?? new Date()}
-                    mode="date"
-                    display="default"
-                    onChange={(_event, selectedDate) => {
-                        if (selectedDate) {
-                            setDate(selectedDate);
-                            setDisplayedDate(
-                                convertToDisplayDate(selectedDate)
-                            );
-                        }
-                        setShowPicker(false);
-                    }}
-                />
-            )}
+            <SettingsTextInputField
+                label="Name"
+                value={milestoneTitle}
+                onChangeText={setMilestoneTitle}
+                placeholder="Enter the name of your shared milestone!"
+            />
 
-            <CustomText weight="bold">Name</CustomText>
-            <TouchableOpacity style={styles.fieldContainer}>
-                <TextInput
-                    value={milestoneTitle}
-                    onChangeText={setMilestoneTitle}
-                    placeholder="Enter the name of your shared milestone!"
-                    style={styles.textInput}
-                />
-            </TouchableOpacity>
-
-            <SettingsField
+            <DatePickerField
                 label="Date"
                 value={displayedDate}
-                onPress={() => setShowPicker(true)}
+                date={date}
+                onDateChange={(selectedDate) => {
+                    setDate(selectedDate);
+                    setDisplayedDate(convertToDisplayDate(selectedDate));
+                }}
             />
 
             <GeneralButton label="Save" onPress={handleSaveMilestone} />
@@ -110,17 +85,5 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         padding: "10%",
-    },
-    fieldContainer: {
-        marginTop: 8,
-        borderWidth: 1,
-        borderColor: Colors.black,
-        borderRadius: 12,
-        padding: "1%",
-        marginBottom: "5%",
-    },
-    textInput: {
-        fontSize: 16,
-        fontFamily: "Raleway-Regular",
     },
 });
