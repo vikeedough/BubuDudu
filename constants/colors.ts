@@ -18,15 +18,6 @@ const Colors = {
     darkGreenText: "#505739",
 };
 
-const ListColors = {
-    red: "#F04770",
-    orange: "#F78C6A",
-    yellow: "#FFD167",
-    green: "#06D7A0",
-    blue: "#108AB1",
-    darkBlue: "#073A4B",
-};
-
 const listColorsArray = [
     "#F04770",
     "#F78C6A",
@@ -36,4 +27,4 @@ const listColorsArray = [
     "#073A4B",
 ];
 
-export { Colors, ListColors, listColorsArray };
+export { Colors, listColorsArray };

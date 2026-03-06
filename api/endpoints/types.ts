@@ -20,14 +20,6 @@ export interface Profile {
     date_of_birth: string | null;
 }
 
-export interface User {
-    id: number;
-    name: string;
-    avatar_url: string;
-    note: string;
-    note_updated_at: string;
-}
-
 export interface List {
     id: string;
     type: string;
@@ -63,10 +55,6 @@ export interface Wheel {
     choices: string[];
     created_at: string;
     space_id: string;
-}
-
-export interface Choice {
-    choice: string;
 }
 
 export interface SpaceInvite {
