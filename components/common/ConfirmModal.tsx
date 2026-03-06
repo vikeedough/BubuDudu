@@ -1,14 +1,8 @@
 import React from "react";
-import {
-    ActivityIndicator,
-    Modal,
-    StyleSheet,
-    TouchableOpacity,
-    View,
-} from "react-native";
+import { Modal, StyleSheet, View } from "react-native";
 
+import ModalActionButtons from "@/components/common/ModalActionButtons";
 import CustomText from "@/components/CustomText";
-import { Colors } from "@/constants/colors";
 
 interface ConfirmModalProps {
     isOpen: boolean;
@@ -46,39 +40,13 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
                     <CustomText weight="regular" style={styles.modalText}>
                         {message}
                     </CustomText>
-                    <View style={styles.modalButtons}>
-                        <TouchableOpacity
-                            style={styles.yesButton}
-                            onPress={onConfirm}
-                            disabled={isConfirming}
-                        >
-                            {isConfirming ? (
-                                <ActivityIndicator
-                                    size="small"
-                                    color={Colors.white}
-                                />
-                            ) : (
-                                <CustomText
-                                    weight="semibold"
-                                    style={styles.modalButtonText}
-                                >
-                                    {confirmLabel}
-                                </CustomText>
-                            )}
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={styles.noButton}
-                            onPress={onClose}
-                            disabled={isConfirming}
-                        >
-                            <CustomText
-                                weight="semibold"
-                                style={styles.modalButtonText}
-                            >
-                                {cancelLabel}
-                            </CustomText>
-                        </TouchableOpacity>
-                    </View>
+                    <ModalActionButtons
+                        onConfirm={onConfirm}
+                        onCancel={onClose}
+                        confirmLabel={confirmLabel}
+                        cancelLabel={cancelLabel}
+                        isConfirming={isConfirming}
+                    />
                 </View>
             </View>
         </Modal>
@@ -119,30 +87,5 @@ const styles = StyleSheet.create({
         fontSize: 13,
         textAlign: "center",
         marginBottom: 20,
-    },
-    modalButtons: {
-        flexDirection: "row",
-        gap: 25,
-        justifyContent: "center",
-    },
-    yesButton: {
-        backgroundColor: "#FFCC7D",
-        borderRadius: 15,
-        padding: 10,
-        width: 83,
-        justifyContent: "center",
-        alignItems: "center",
-    },
-    noButton: {
-        backgroundColor: "#AFAFAF",
-        borderRadius: 15,
-        padding: 10,
-        width: 83,
-        justifyContent: "center",
-        alignItems: "center",
-    },
-    modalButtonText: {
-        color: Colors.brownText,
-        fontSize: 14,
     },
 });

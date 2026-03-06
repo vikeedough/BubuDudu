@@ -1,10 +1,13 @@
-import { useToastStore } from "@/stores/ToastStore";
-import type { ToastId } from "@/toast/types";
 import React, { useMemo } from "react";
 import { Platform, StyleSheet, View } from "react-native";
 import Animated, { LinearTransition } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+import { useToastStore } from "@/stores/ToastStore";
+
 import { ToastItem } from "./ToastItem";
+
+import type { ToastId } from "@/toast/types";
 
 export const ToastViewport: React.FC = () => {
     const insets = useSafeAreaInsets();

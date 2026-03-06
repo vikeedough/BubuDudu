@@ -12,6 +12,7 @@ import {
 } from "react-native";
 
 import { Wheel } from "@/api/endpoints/types";
+import ModalActionButtons from "@/components/common/ModalActionButtons";
 import { Colors } from "@/constants/colors";
 import { useWheelStore } from "@/stores/WheelStore";
 
@@ -144,30 +145,13 @@ const EditChoicesModal: React.FC<EditChoicesModalProps> = ({
                                 </View>
                             </ScrollView>
                         </ScrollView>
-                        <View style={styles.modalButtons}>
-                            <TouchableOpacity
-                                style={styles.yesButton}
-                                onPress={handleSaveChoicesAndClose}
-                            >
-                                <CustomText
-                                    weight="semibold"
-                                    style={styles.modalButtonText}
-                                >
-                                    Save
-                                </CustomText>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={styles.noButton}
-                                onPress={onClose}
-                            >
-                                <CustomText
-                                    weight="semibold"
-                                    style={styles.modalButtonText}
-                                >
-                                    Cancel
-                                </CustomText>
-                            </TouchableOpacity>
-                        </View>
+                        <ModalActionButtons
+                            onConfirm={handleSaveChoicesAndClose}
+                            onCancel={onClose}
+                            confirmLabel="Save"
+                            cancelLabel="Cancel"
+                            containerStyle={styles.modalButtons}
+                        />
                     </View>
                 </KeyboardAvoidingView>
             </View>
@@ -212,29 +196,6 @@ const styles = StyleSheet.create({
     },
     modalButtons: {
         paddingTop: 12,
-        flexDirection: "row",
-        gap: 25,
-        justifyContent: "center",
-    },
-    yesButton: {
-        backgroundColor: "#FFCC7D",
-        borderRadius: 15,
-        padding: 10,
-        width: 83,
-        justifyContent: "center",
-        alignItems: "center",
-    },
-    noButton: {
-        backgroundColor: "#AFAFAF",
-        borderRadius: 15,
-        padding: 10,
-        width: 83,
-        justifyContent: "center",
-        alignItems: "center",
-    },
-    modalButtonText: {
-        color: Colors.brownText,
-        fontSize: 14,
     },
     choicesList: {
         flexDirection: "row",

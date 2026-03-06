@@ -11,8 +11,8 @@ import {
 } from "react-native";
 
 import { Colors } from "@/constants/colors";
-
 import { toast } from "@/toast/api";
+
 import CustomText from "../CustomText";
 
 interface NoteModalProps {
