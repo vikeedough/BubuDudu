@@ -1006,20 +1006,57 @@ describe("stores/GalleryStore", () => {
     expect(deleteOneSpy).toHaveBeenNthCalledWith(2, "g1", "i2");
   });
 
-  it("deleteGallery fetches images when cache is missing", async () => {
-    const fetchSpy = jest
-      .spyOn(useGalleryStore.getState(), "fetchGalleryImages")
-      .mockResolvedValue([BASE_IMAGE]);
-    const deleteMultiSpy = jest
-      .spyOn(useGalleryStore.getState(), "deleteMultipleGalleryImages")
-      .mockResolvedValue(true);
+  it("deleteGallery queries image rows and deletes a small set before gallery row", async () => {
+    queueFrom("date_images", "select", {
+      data: [BASE_IMAGE],
+      error: null,
+    });
+    queueFromSingle("galleries", "select", {
+      data: {
+        cover_image_path: "cover/grid.jpg",
+        cover_image_thumb_path: "cover/thumb.jpg",
+      },
+      error: null,
+    });
+    queueFromSingle("date_images", "select", {
+      data: {
+        storage_path_thumb: "thumb.jpg",
+        storage_path_grid: "grid.jpg",
+        storage_path_orig: "orig.jpg",
+      },
+      error: null,
+    });
+    queueStorage("gallery-private", "remove", { data: [], error: null });
+    queueFrom("date_images", "delete", { data: null, error: null });
     queueFrom("galleries", "delete", { data: null, error: null });
 
     const ok = await useGalleryStore.getState().deleteGallery("g1");
 
     expect(ok).toBe(true);
-    expect(fetchSpy).toHaveBeenCalledWith("g1");
-    expect(deleteMultiSpy).toHaveBeenCalledWith("g1", ["i1"]);
+    expect(supabaseMock.from).toHaveBeenCalledWith("date_images");
+  });
+
+  it("deleteGallery uses bulk deletion path for large image sets", async () => {
+    const rows = Array.from({ length: 10 }, (_, idx) => ({
+      id: `i${idx + 1}`,
+      storage_path_thumb: `thumb-${idx + 1}.jpg`,
+      storage_path_grid: `grid-${idx + 1}.jpg`,
+      storage_path_orig: `orig-${idx + 1}.jpg`,
+    }));
+
+    queueFrom("date_images", "select", { data: rows, error: null });
+    queueStorage("gallery-private", "remove", { data: [], error: null });
+    queueFrom("date_images", "delete", { data: null, error: null });
+    queueFrom("galleries", "delete", { data: null, error: null });
+
+    const ok = await useGalleryStore.getState().deleteGallery("g1");
+    const galleriesCalls = supabaseMock.from.mock.calls.filter(
+      ([table]) => table === "galleries",
+    );
+
+    expect(ok).toBe(true);
+    expect(galleriesCalls).toHaveLength(1);
+    expect(supabaseMock.storage.from).toHaveBeenCalledWith("gallery-private");
   });
 
   it("loadInitialGalleries keeps null cover url when signing thumbnail fails", async () => {

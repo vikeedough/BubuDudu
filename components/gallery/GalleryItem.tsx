@@ -9,7 +9,7 @@ import CustomText from "../CustomText";
 
 interface GalleryItemProps {
     gallery: GalleryType;
-    onPress: () => void;
+    onPress: (gallery: GalleryType) => void;
 }
 
 const GalleryItem: React.FC<GalleryItemProps> = ({ gallery, onPress }) => {
@@ -20,7 +20,7 @@ const GalleryItem: React.FC<GalleryItemProps> = ({ gallery, onPress }) => {
                     styles.container,
                     { backgroundColor: `${gallery.color}40` },
                 ]}
-                onPress={onPress}
+                onPress={() => onPress(gallery)}
             >
                 <View>
                     <Image
@@ -59,7 +59,7 @@ const GalleryItem: React.FC<GalleryItemProps> = ({ gallery, onPress }) => {
     );
 };
 
-export default GalleryItem;
+export default React.memo(GalleryItem);
 
 const styles = StyleSheet.create({
     shadowContainer: {

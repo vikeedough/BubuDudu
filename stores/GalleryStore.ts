@@ -10,6 +10,8 @@ const GALLERY_BUCKET = "gallery-private";
 const SIGN_TTL_SECONDS = 60 * 60;
 const GALLERIES_PAGE_SIZE = 10;
 const IMAGES_PAGE_SIZE = 20;
+const BULK_DELETE_THRESHOLD = 10;
+const STORAGE_REMOVE_CHUNK_SIZE = 100;
 
 function mergeUniqueById<T extends { id: string }>(prev: T[], next: T[]): T[] {
     if (next.length === 0) return prev;
@@ -23,6 +25,19 @@ function mergeUniqueById<T extends { id: string }>(prev: T[], next: T[]): T[] {
         merged.push(item);
     }
     return merged;
+}
+
+function chunk<T>(items: T[], size: number): T[][] {
+    if (items.length === 0) return [];
+    const out: T[][] = [];
+    for (let i = 0; i < items.length; i += size) {
+        out.push(items.slice(i, i + size));
+    }
+    return out;
+}
+
+function isNonEmptyString(value: unknown): value is string {
+    return typeof value === "string" && value.length > 0;
 }
 
 export type Gallery = {
@@ -1109,13 +1124,70 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
     deleteGallery: async (galleryId: string) => {
         set({ error: null });
 
-        // Ensure we have images in store or fetch
-        const existing = get().imagesByGalleryId[galleryId];
-        const images = existing ?? (await get().fetchGalleryImages(galleryId));
-        const imageIds = images.map((img) => img.id.toString());
+        const { data: imageRows, error: imageRowsErr } = await supabase
+            .from("date_images")
+            .select("id, storage_path_thumb, storage_path_grid, storage_path_orig")
+            .eq("gallery_id", galleryId);
 
-        // Delete images (DB + storage) first
-        await get().deleteMultipleGalleryImages(galleryId, imageIds);
+        if (imageRowsErr) {
+            console.error("Error fetching gallery images for deletion:", imageRowsErr);
+            set({ error: imageRowsErr.message });
+            return false;
+        }
+
+        const rows =
+            (imageRows as
+                | Array<
+                      Pick<
+                          GalleryImage,
+                          | "id"
+                          | "storage_path_thumb"
+                          | "storage_path_grid"
+                          | "storage_path_orig"
+                      >
+                  >
+                | null) ?? [];
+
+        if (rows.length >= BULK_DELETE_THRESHOLD) {
+            const storagePaths = Array.from(
+                new Set(
+                    rows
+                        .flatMap((row) => [
+                            row.storage_path_thumb,
+                            row.storage_path_grid,
+                            row.storage_path_orig,
+                        ])
+                        .filter(isNonEmptyString),
+                ),
+            );
+
+            for (const pathChunk of chunk(storagePaths, STORAGE_REMOVE_CHUNK_SIZE)) {
+                const { error: storageErr } = await supabase.storage
+                    .from(GALLERY_BUCKET)
+                    .remove(pathChunk);
+
+                if (storageErr) {
+                    console.error(
+                        "Error deleting gallery image paths from storage:",
+                        storageErr,
+                    );
+                }
+            }
+
+            const { error: delImagesErr } = await supabase
+                .from("date_images")
+                .delete()
+                .eq("gallery_id", galleryId);
+
+            if (delImagesErr) {
+                console.error("Error deleting gallery image rows:", delImagesErr);
+            }
+        } else if (rows.length > 0) {
+            await get().deleteMultipleGalleryImages(
+                galleryId,
+                rows.map((img) => String(img.id)),
+            );
+        }
 
         // Delete gallery row
         const { error: delGalleryErr } = await supabase

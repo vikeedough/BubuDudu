@@ -9,9 +9,9 @@ interface GalleryImageItemProps {
     image: GalleryImage;
     editMode: boolean;
     isSelected: boolean;
-    onPress: () => void;
-    onLongPress: () => void;
-    onSelect: () => void;
+    onPress: (image: GalleryImage) => void;
+    onLongPress: (image: GalleryImage) => void;
+    onSelect: (image: GalleryImage) => void;
 }
 
 const SIZE = (Dimensions.get("window").width - 110) / 2;
@@ -25,7 +25,10 @@ const GalleryImageItem: React.FC<GalleryImageItemProps> = ({
     onSelect,
 }) => {
     return (
-        <TouchableOpacity onPress={onPress} onLongPress={onLongPress}>
+        <TouchableOpacity
+            onPress={() => onPress(image)}
+            onLongPress={() => onLongPress(image)}
+        >
             <View style={styles.container}>
                 {editMode && (
                     <TouchableOpacity
@@ -37,7 +40,7 @@ const GalleryImageItem: React.FC<GalleryImageItemProps> = ({
                                     : "transparent",
                             },
                         ]}
-                        onPress={onSelect}
+                        onPress={() => onSelect(image)}
                     />
                 )}
 
@@ -81,4 +84,4 @@ const styles = StyleSheet.create({
     },
 });
 
-export default GalleryImageItem;
+export default React.memo(GalleryImageItem);
