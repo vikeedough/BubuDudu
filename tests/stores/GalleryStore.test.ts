@@ -389,6 +389,13 @@ describe("stores/GalleryStore", () => {
     });
 
     expect(result).toEqual(BASE_GALLERY);
+    const builder = (supabaseMock.from as jest.Mock).mock.results[0].value;
+    expect(builder.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        date: "2026-03-06",
+        date_date: "2026-03-06",
+      }),
+    );
   });
 
   it("uploadGalleryImages handles gallery fetch failure and resets loading", async () => {
@@ -1276,7 +1283,7 @@ describe("stores/GalleryStore", () => {
     const builder = (supabaseMock.from as jest.Mock).mock.results[0].value;
     expect(builder.ilike).toHaveBeenCalledWith("title", "%Trip%");
     expect(builder.or).toHaveBeenCalledWith(
-      expect.stringContaining("date_date.gt.2026-03-01"),
+      expect.stringContaining('date.gt."2026-03-01"'),
     );
   });
 
