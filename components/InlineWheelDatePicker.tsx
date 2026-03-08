@@ -40,7 +40,7 @@ function dateOnly(d: Date) {
     return new Date(d.getFullYear(), d.getMonth(), d.getDate());
 }
 
-const ITEM_H = 44;
+const ITEM_H = 30;
 const VISIBLE_ROWS = 3;
 const WHEEL_H = ITEM_H * VISIBLE_ROWS;
 const PAD = ITEM_H;
@@ -385,6 +385,6 @@ const styles = StyleSheet.create({
         backgroundColor: "rgba(0,0,0,0.12)",
     },
     itemText: {
-        fontSize: 16,
+        fontSize: 14,
     },
 });

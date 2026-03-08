@@ -231,6 +231,7 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
                                     placeholderTextColor={Colors.gray}
                                     value={dateName}
                                     onChangeText={setDateName}
+                                    allowFontScaling={false}
                                 />
 
                                 <CustomText
@@ -245,34 +246,12 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
                                     placeholderTextColor={Colors.gray}
                                     value={location}
                                     onChangeText={setLocation}
+                                    allowFontScaling={false}
                                 />
 
                                 <CustomText
                                     weight="semibold"
                                     style={styles.formTitle}
-                                >
-                                    Date
-                                </CustomText>
-                                <InlineWheelDatePicker
-                                    value={date}
-                                    onChange={setDate}
-                                    minYear={1900}
-                                    maxYear={new Date().getFullYear() + 20}
-                                    nestedScrollEnabled
-                                    parentScrollRef={formScrollRef}
-                                    onInteractionStart={() => {
-                                        if (formScrollEnabled)
-                                            setFormScrollEnabled(false);
-                                    }}
-                                    onInteractionEnd={() => {
-                                        if (!formScrollEnabled)
-                                            setFormScrollEnabled(true);
-                                    }}
-                                />
-
-                                <CustomText
-                                    weight="semibold"
-                                    style={[styles.formTitle, { marginTop: 5 }]}
                                 >
                                     Colour
                                 </CustomText>
@@ -294,6 +273,32 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
                                         />
                                     ))}
                                 </View>
+
+                                <CustomText
+                                    weight="semibold"
+                                    style={[
+                                        styles.formTitle,
+                                        { marginTop: 12 },
+                                    ]}
+                                >
+                                    Date
+                                </CustomText>
+                                <InlineWheelDatePicker
+                                    value={date}
+                                    onChange={setDate}
+                                    minYear={1900}
+                                    maxYear={new Date().getFullYear() + 20}
+                                    nestedScrollEnabled
+                                    parentScrollRef={formScrollRef}
+                                    onInteractionStart={() => {
+                                        if (formScrollEnabled)
+                                            setFormScrollEnabled(false);
+                                    }}
+                                    onInteractionEnd={() => {
+                                        if (!formScrollEnabled)
+                                            setFormScrollEnabled(true);
+                                    }}
+                                />
                             </View>
 
                             <View style={styles.footer}>
