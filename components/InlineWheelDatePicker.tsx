@@ -374,8 +374,6 @@ const styles = StyleSheet.create({
         top: 10 + ITEM_H,
         height: ITEM_H,
         borderRadius: 10,
-        borderWidth: 1,
-        borderColor: "rgba(255,255,255,0.65)",
     },
     highlightShadow: {
         position: "absolute",
