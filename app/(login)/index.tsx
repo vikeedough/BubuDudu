@@ -1,5 +1,6 @@
 import { router } from "expo-router";
-import { StyleSheet, TouchableOpacity, View } from "react-native";
+import { StyleSheet, TouchableOpacity } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import DebonSpin from "@/assets/svgs/debon-spin.svg";
 import CustomText from "@/components/CustomText";
@@ -7,7 +8,7 @@ import { Colors } from "@/constants/colors";
 
 const Index = () => {
     return (
-        <View style={styles.container}>
+        <SafeAreaView style={styles.container}>
             <CustomText weight="bold" style={styles.title}>
                 Hello!
             </CustomText>
@@ -28,7 +29,7 @@ const Index = () => {
                     Create Account
                 </CustomText>
             </TouchableOpacity>
-        </View>
+        </SafeAreaView>
     );
 };
 

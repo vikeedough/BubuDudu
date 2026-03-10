@@ -1,6 +1,7 @@
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { Button, View } from "react-native";
+import { Button } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import { signUpWithEmail } from "@/api/endpoints";
 import AuthCredentialsFields from "@/components/auth/AuthCredentialsFields";
@@ -36,7 +37,7 @@ export default function NewLogin() {
     };
 
     return (
-        <View style={authScreenStyles.container}>
+        <SafeAreaView style={authScreenStyles.container}>
             <AuthField
                 label="Name"
                 placeholder="Enter your name"
@@ -65,6 +66,6 @@ export default function NewLogin() {
             />
 
             <Button title="Create Account" onPress={handleSignUp} />
-        </View>
+        </SafeAreaView>
     );
 }

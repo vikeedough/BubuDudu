@@ -1,6 +1,7 @@
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { Button, StyleSheet, TextInput, View } from "react-native";
+import { Button, StyleSheet, TextInput } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import CustomText from "@/components/CustomText";
 import { getSpaceId } from "@/utils/secure-store";
@@ -25,7 +26,7 @@ export default function SpaceManagementPage() {
     };
 
     return (
-        <View style={styles.container}>
+        <SafeAreaView style={styles.container}>
             <CustomText weight="bold" style={{ fontSize: 24 }}>
                 Already have a Space? Enter your partner&apos;s invite code to join
                 them!
@@ -59,7 +60,7 @@ export default function SpaceManagementPage() {
                     alert(`Current space ID: ${spaceId}`);
                 }}
             />
-        </View>
+        </SafeAreaView>
     );
 }
 

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Alert, View } from "react-native";
+import { Alert } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import { GeneralButton } from "@/components/GeneralButton";
 import { DisplayDatePickerField } from "@/components/settings/DisplayDatePickerField";
@@ -55,7 +56,7 @@ export default function SharedMilestone() {
     };
 
     return (
-        <View style={settingsScreenStyles.container}>
+        <SafeAreaView style={settingsScreenStyles.container}>
             <SettingsTextInputField
                 label="Name"
                 value={milestoneTitle}
@@ -72,6 +73,6 @@ export default function SharedMilestone() {
             />
 
             <GeneralButton label="Save" onPress={handleSaveMilestone} />
-        </View>
+        </SafeAreaView>
     );
 }

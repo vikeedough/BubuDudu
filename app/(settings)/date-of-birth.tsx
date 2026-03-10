@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Alert, View } from "react-native";
+import { Alert } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import { GeneralButton } from "@/components/GeneralButton";
 import { DisplayDatePickerField } from "@/components/settings/DisplayDatePickerField";
@@ -40,7 +41,7 @@ export default function DateOfBirth() {
     };
 
     return (
-        <View style={settingsScreenStyles.container}>
+        <SafeAreaView style={settingsScreenStyles.container}>
             <DisplayDatePickerField
                 label="Date of Birth"
                 date={date}
@@ -49,6 +50,6 @@ export default function DateOfBirth() {
                 setDisplayedDate={setDisplayedDate}
             />
             <GeneralButton label="Save" onPress={() => handleSaveDate(date)} />
-        </View>
+        </SafeAreaView>
     );
 }
