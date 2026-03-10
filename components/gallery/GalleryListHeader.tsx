@@ -26,7 +26,6 @@ const GalleryListHeader: React.FC<GalleryListHeaderProps> = ({
 const styles = StyleSheet.create({
     header: {
         marginBottom: 20,
-        marginLeft: 15,
     },
     headerTitle: {
         fontSize: 24,

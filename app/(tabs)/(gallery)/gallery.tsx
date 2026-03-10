@@ -9,10 +9,10 @@ import GalleryListGrid from "@/components/gallery/GalleryListGrid";
 import GalleryListHeader from "@/components/gallery/GalleryListHeader";
 import { Colors } from "@/constants/colors";
 import { useGalleryList } from "@/hooks/useGalleryList";
-import { getDate } from "@/utils/home";
+import { getToday } from "@/utils/home";
 
 const Gallery = () => {
-    const date = getDate();
+    const date = getToday();
 
     const {
         filteredGalleries,
@@ -59,7 +59,8 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: Colors.backgroundPink,
-        paddingVertical: 25,
+        paddingTop: 20,
+        paddingBottom: 25,
         paddingHorizontal: 25,
     },
     galleryContainer: {

@@ -23,7 +23,6 @@ const WheelHeader: React.FC<WheelHeaderProps> = ({ currentDate }) => {
 
 const styles = StyleSheet.create({
     header: {
-        marginLeft: 15,
         paddingHorizontal: 25,
     },
     headerTitle: {
