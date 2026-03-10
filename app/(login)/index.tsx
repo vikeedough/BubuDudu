@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import { StyleSheet, TouchableOpacity } from "react-native";
+import { StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import DebonSpin from "@/assets/svgs/debon-spin.svg";
@@ -12,7 +12,7 @@ const Index = () => {
             <CustomText weight="bold" style={styles.title}>
                 Hello!
             </CustomText>
-            <DebonSpin style={styles.debonSpin} width={200} height={200} />
+            <DebonSpin style={styles.debonSpin} width={250} height={280} />
             <TouchableOpacity
                 style={styles.button}
                 onPress={() => router.push("/new-login")}
@@ -21,14 +21,21 @@ const Index = () => {
                     Login
                 </CustomText>
             </TouchableOpacity>
-            <TouchableOpacity
-                style={[styles.button, { marginTop: 20 }]}
-                onPress={() => router.push("/create-account")}
-            >
-                <CustomText weight="bold" style={styles.buttonText}>
-                    Create Account
+            <View style={styles.createAccountContainer}>
+                <CustomText weight="medium" style={styles.createAccountText}>
+                    Don't have an account?
                 </CustomText>
-            </TouchableOpacity>
+                <TouchableOpacity
+                    onPress={() => router.push("/create-account")}
+                >
+                    <CustomText
+                        weight="bold"
+                        style={styles.createAccountButtonText}
+                    >
+                        Sign Up
+                    </CustomText>
+                </TouchableOpacity>
+            </View>
         </SafeAreaView>
     );
 };
@@ -46,7 +53,7 @@ const styles = StyleSheet.create({
         color: Colors.black,
     },
     button: {
-        marginTop: -10,
+        marginTop: -25,
         justifyContent: "center",
         alignItems: "center",
         backgroundColor: "#FFCC7D",
@@ -63,8 +70,24 @@ const styles = StyleSheet.create({
     },
     buttonText: {
         color: Colors.brownText,
+        fontSize: 20,
     },
     debonSpin: {
         zIndex: 1000,
+    },
+    createAccountContainer: {
+        flexDirection: "row",
+        alignItems: "center",
+        marginTop: 20,
+    },
+    createAccountText: {
+        color: Colors.gray,
+        marginRight: 10,
+        fontSize: 16,
+    },
+    createAccountButtonText: {
+        color: Colors.gray,
+        textDecorationLine: "underline",
+        fontSize: 16,
     },
 });
