@@ -35,8 +35,10 @@ const AuthCredentialsFields: React.FC<AuthCredentialsFieldsProps> = ({
             <AuthField
                 label="Email"
                 labelStyle={emailLabelStyle}
-                placeholder="Enter your email"
+                placeholder="Enter Email"
+                placeholderTextColor="#AFAFAF"
                 keyboardType="email-address"
+                allowFontScaling={false}
                 autoCapitalize="none"
                 value={email}
                 onChangeText={onEmailChange}
@@ -45,7 +47,9 @@ const AuthCredentialsFields: React.FC<AuthCredentialsFieldsProps> = ({
             <AuthField
                 label="Password"
                 labelStyle={passwordLabelStyle}
-                placeholder="Enter your password"
+                placeholder="Password"
+                placeholderTextColor="#AFAFAF"
+                allowFontScaling={false}
                 secureTextEntry
                 value={password}
                 onChangeText={onPasswordChange}

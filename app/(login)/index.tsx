@@ -5,6 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import DebonSpin from "@/assets/svgs/debon-spin.svg";
 import CustomText from "@/components/CustomText";
 import { Colors } from "@/constants/colors";
+import { shadowStyle } from "@/constants/shadows";
 
 const Index = () => {
     return (
@@ -14,7 +15,7 @@ const Index = () => {
             </CustomText>
             <DebonSpin style={styles.debonSpin} width={250} height={280} />
             <TouchableOpacity
-                style={styles.button}
+                style={[styles.button, shadowStyle]}
                 onPress={() => router.push("/new-login")}
             >
                 <CustomText weight="bold" style={styles.buttonText}>
@@ -50,7 +51,7 @@ const styles = StyleSheet.create({
     },
     title: {
         fontSize: 32,
-        color: Colors.black,
+        color: "#505739",
     },
     button: {
         marginTop: -25,
@@ -60,13 +61,6 @@ const styles = StyleSheet.create({
         width: 220,
         paddingVertical: 12,
         borderRadius: 15,
-        shadowColor: "#000",
-        shadowOffset: {
-            width: 0,
-            height: 2,
-        },
-        shadowOpacity: 0.25,
-        shadowRadius: 4,
     },
     buttonText: {
         color: Colors.brownText,
