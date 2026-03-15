@@ -195,6 +195,57 @@ describe("stores/GalleryStore", () => {
     expect(result[0].cover_thumb_url).toBe("https://signed/fallback-thumb.jpg");
   });
 
+  it("loadInitialGalleries falls back only for unresolved paths when batch signer returns partial data", async () => {
+    const galleryWithBatchHit = {
+      ...BASE_GALLERY,
+      id: "g-batch",
+      cover_image_thumb_path: "covers/shared-thumb.jpg",
+    };
+    const galleryWithFallback = {
+      ...BASE_GALLERY,
+      id: "g-fallback",
+      cover_image_thumb_path: "covers/fallback-thumb.jpg",
+    };
+    const galleryWithDuplicateThumb = {
+      ...BASE_GALLERY,
+      id: "g-duplicate",
+      cover_image_thumb_path: "covers/shared-thumb.jpg",
+    };
+
+    secureStoreUtilsMock.getSpaceId.mockResolvedValueOnce("space-1");
+    queueFrom("galleries", "select", {
+      data: [galleryWithBatchHit, galleryWithFallback, galleryWithDuplicateThumb],
+      error: null,
+    });
+    queueFunction("sign-gallery-cover-urls", {
+      data: {
+        "covers/shared-thumb.jpg": "https://signed/shared.jpg",
+      },
+      error: null,
+    });
+    queueStorage("gallery-private", "createSignedUrl", {
+      data: { signedUrl: "https://signed/fallback.jpg" },
+      error: null,
+    });
+
+    const result = await useGalleryStore.getState().loadInitialGalleries();
+
+    expect(supabaseMock.functions.invoke).toHaveBeenCalledWith(
+      "sign-gallery-cover-urls",
+      { body: { paths: ["covers/shared-thumb.jpg", "covers/fallback-thumb.jpg"] } },
+    );
+    expect(supabaseMock.storage.from).toHaveBeenCalledTimes(1);
+    expect(result.find((g) => g.id === "g-batch")?.cover_thumb_url).toBe(
+      "https://signed/shared.jpg",
+    );
+    expect(result.find((g) => g.id === "g-fallback")?.cover_thumb_url).toBe(
+      "https://signed/fallback.jpg",
+    );
+    expect(result.find((g) => g.id === "g-duplicate")?.cover_thumb_url).toBe(
+      "https://signed/shared.jpg",
+    );
+  });
+
   it("loadMoreGalleries returns early without cursor", async () => {
     useGalleryStore.setState({
       galleries: [BASE_GALLERY],
