@@ -319,6 +319,17 @@ describe("hooks/useGalleryContent", () => {
     expect(result.current.editMode).toBe(false);
   });
 
+  it("applySelectedImageIds updates selected ids while selectedImages keeps only known images", () => {
+    const { result } = renderHook(() => useGalleryContent({ galleryId: "g1" }));
+
+    act(() => {
+      result.current.applySelectedImageIds(["i1", "missing-id"]);
+    });
+
+    expect(result.current.selectedImageIdList).toEqual(["i1", "missing-id"]);
+    expect(result.current.selectedImages.map((x) => x.id)).toEqual(["i1"]);
+  });
+
   it("navigates back via handleBack", () => {
     const { result } = renderHook(() => useGalleryContent({ galleryId: "g1" }));
 
