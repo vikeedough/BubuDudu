@@ -14,6 +14,7 @@ export interface Profile {
     id: string;
     name: string | null;
     avatar_url: string | null;
+    avatar_border_color: string | null;
     created_at: string;
     note: string | null;
     note_updated_at: string | null;

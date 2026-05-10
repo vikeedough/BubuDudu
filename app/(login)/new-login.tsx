@@ -1,13 +1,18 @@
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { StyleSheet, TouchableOpacity, View } from "react-native";
+import {
+    KeyboardAvoidingView,
+    Platform,
+    StyleSheet,
+    TouchableOpacity,
+    View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { signInWithEmail } from "@/api/endpoints/auth";
+import DebonSpin from "@/assets/svgs/debon-spin.svg";
 import AuthCredentialsFields from "@/components/auth/AuthCredentialsFields";
 import { authScreenStyles } from "@/components/auth/authScreenStyles";
-
-import DebonSpin from "@/assets/svgs/debon-spin.svg";
 import CustomText from "@/components/CustomText";
 import { Colors } from "@/constants/colors";
 import { shadowStyle } from "@/constants/shadows";
@@ -25,56 +30,66 @@ export default function NewLogin() {
     };
 
     return (
-        <SafeAreaView style={authScreenStyles.container}>
-            <CustomText weight="bold" style={styles.title}>
-                Hello!
-            </CustomText>
-            <DebonSpin width={250} height={280} />
-
-            <View style={[styles.credentialsContainer, shadowStyle]}>
-                <CustomText weight="bold" style={styles.sectionTitle}>
-                    Welcome Back!
-                </CustomText>
-                <AuthCredentialsFields
-                    email={email}
-                    password={password}
-                    onEmailChange={setEmail}
-                    onPasswordChange={setPassword}
-                />
-
-                <View style={styles.forgotPasswordContainer}>
-                    <CustomText
-                        weight="medium"
-                        style={styles.forgotPasswordText}
-                    >
-                        Forgot password?
-                    </CustomText>
-                    <TouchableOpacity
-                    // onPress={() => router.push("/reset-password")}
-                    >
-                        <CustomText
-                            weight="bold"
-                            style={styles.forgotPasswordButtonText}
-                        >
-                            Reset
-                        </CustomText>
-                    </TouchableOpacity>
-                </View>
-            </View>
-
-            <TouchableOpacity
-                style={[styles.button, shadowStyle]}
-                onPress={handleLogin}
+        <SafeAreaView style={styles.safeArea}>
+            <KeyboardAvoidingView
+                style={authScreenStyles.container}
+                behavior={Platform.OS === "ios" ? "padding" : "height"}
             >
-                <CustomText weight="bold" style={styles.buttonText}>
-                    Login
+                <CustomText weight="bold" style={styles.title}>
+                    Hello!
                 </CustomText>
-            </TouchableOpacity>
+                <DebonSpin width={250} height={280} />
+
+                <View style={[styles.credentialsContainer, shadowStyle]}>
+                    <CustomText weight="bold" style={styles.sectionTitle}>
+                        Welcome Back!
+                    </CustomText>
+                    <AuthCredentialsFields
+                        email={email}
+                        password={password}
+                        onEmailChange={setEmail}
+                        onPasswordChange={setPassword}
+                    />
+
+                    <View style={styles.forgotPasswordContainer}>
+                        <CustomText
+                            weight="medium"
+                            style={styles.forgotPasswordText}
+                        >
+                            Forgot password?
+                        </CustomText>
+                        <TouchableOpacity
+                            onPress={() =>
+                                router.push("/(login)/forgot-password")
+                            }
+                        >
+                            <CustomText
+                                weight="bold"
+                                style={styles.forgotPasswordButtonText}
+                            >
+                                Reset
+                            </CustomText>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+
+                <TouchableOpacity
+                    style={[styles.button, shadowStyle]}
+                    onPress={handleLogin}
+                >
+                    <CustomText weight="bold" style={styles.buttonText}>
+                        Login
+                    </CustomText>
+                </TouchableOpacity>
+            </KeyboardAvoidingView>
         </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
+    safeArea: {
+        flex: 1,
+    },
     title: {
         fontSize: 26,
         color: "#505739",

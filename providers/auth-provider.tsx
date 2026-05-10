@@ -70,19 +70,31 @@ export default function AuthProvider({ children }: PropsWithChildren) {
         async (patch: Partial<Profile>) => {
             if (!session) throw new Error("No session");
 
-            const { data, error } = await supabase
+            const { data: updatedRow, error: updateError } = await supabase
                 .from("profiles")
                 .update(patch)
                 .eq("id", session.user.id)
-                .select("*")
-                .single();
+                .select("id")
+                .maybeSingle();
 
-            if (error) throw error;
+            if (updateError) throw updateError;
 
-            setProfile(data as Profile);
-            return data as Profile;
+            if (!updatedRow) {
+                const { error: insertError } = await supabase
+                    .from("profiles")
+                    .insert({ id: session.user.id, ...patch });
+
+                if (insertError) throw insertError;
+            }
+
+            const refreshedProfile = await refreshProfile();
+            if (!refreshedProfile) {
+                throw new Error("Profile row not found after update.");
+            }
+
+            return refreshedProfile;
         },
-        [session]
+        [refreshProfile, session]
     );
 
     return (
@@ -91,7 +103,7 @@ export default function AuthProvider({ children }: PropsWithChildren) {
                 session,
                 isLoading,
                 profile,
-                isLoggedIn: session != undefined,
+                isLoggedIn: !!session,
                 refreshProfile,
                 updateProfile,
             }}

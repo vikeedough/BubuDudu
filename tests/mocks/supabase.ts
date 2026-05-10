@@ -101,6 +101,8 @@ function makeBuilder(table: string) {
 const auth = {
   signInWithPassword: jest.fn(),
   signUp: jest.fn(),
+  resetPasswordForEmail: jest.fn(),
+  updateUser: jest.fn(),
   setSession: jest.fn(),
   getSession: jest.fn(),
   getUser: jest.fn(),
@@ -193,6 +195,8 @@ export function resetSupabaseMock() {
 
   auth.signInWithPassword.mockReset();
   auth.signUp.mockReset();
+  auth.resetPasswordForEmail.mockReset();
+  auth.updateUser.mockReset();
   auth.setSession.mockReset();
   auth.getSession.mockReset();
   auth.getUser.mockReset();
@@ -201,6 +205,8 @@ export function resetSupabaseMock() {
 
   auth.signInWithPassword.mockResolvedValue({ data: null, error: null });
   auth.signUp.mockResolvedValue({ data: null, error: null });
+  auth.resetPasswordForEmail.mockResolvedValue({ data: null, error: null });
+  auth.updateUser.mockResolvedValue({ data: null, error: null });
   auth.setSession.mockResolvedValue({ data: null, error: null });
   auth.getSession.mockResolvedValue({ data: { session: null }, error: null });
   auth.getUser.mockResolvedValue({ data: { user: null }, error: null });
