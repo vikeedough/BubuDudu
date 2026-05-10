@@ -1,7 +1,9 @@
 import React, { useState } from "react";
+import { Alert } from "react-native";
 
 import ConfirmModal from "@/components/common/ConfirmModal";
 import { useGalleryStore } from "@/stores/GalleryStore";
+import { useSyncStore } from "@/stores/SyncStore";
 
 interface DeleteImagesModalProps {
     isOpen: boolean;
@@ -24,8 +26,15 @@ const DeleteImagesModal: React.FC<DeleteImagesModalProps> = ({
     const deleteMultipleGalleryImages = useGalleryStore(
         (s) => s.deleteMultipleGalleryImages,
     );
+    const isOnline = useSyncStore((s) => s.isOnline);
 
     const handleDeleteImage = async () => {
+        if (!isOnline) {
+            Alert.alert("Offline", "Gallery changes are unavailable offline.");
+            onClose();
+            return;
+        }
+
         if (!selectedImageIds.length) {
             onClose();
             return;

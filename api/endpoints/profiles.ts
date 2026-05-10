@@ -1,6 +1,16 @@
 import { decode } from "base64-arraybuffer";
 import * as FileSystem from "expo-file-system";
 import { Alert } from "react-native";
+import {
+    enqueueOutbox,
+    getCachedProfiles,
+    replaceCachedProfiles,
+    updateCachedProfileNote,
+} from "@/utils/offline/local-db";
+import { createLocalId } from "@/utils/offline/id";
+import { getIsOnline } from "@/utils/offline/network";
+import { refreshPendingSyncCount } from "@/utils/offline/sync";
+import { getSpaceId } from "@/utils/secure-store";
 import { supabase } from "../clients/supabaseClient";
 import { Profile } from "./types";
 
@@ -42,6 +52,12 @@ const upsertProfileFields = async (
 };
 
 export const fetchProfiles = async (spaceId: string): Promise<Profile[]> => {
+    const cached = await getCachedProfiles(spaceId);
+
+    if (!getIsOnline()) {
+        return cached;
+    }
+
     const { data, error } = await supabase
         .from("space_members")
         .select(
@@ -50,12 +66,18 @@ export const fetchProfiles = async (spaceId: string): Promise<Profile[]> => {
         .eq("space_id", spaceId);
 
     if (error) {
+        if (cached.length > 0) return cached;
         Alert.alert("Error fetching profiles:", error.message);
         return [];
     }
 
     const rows = (data ?? []) as unknown as SpaceMemberWithProfile[];
-    return rows.map((r) => r.profiles).filter((p): p is Profile => Boolean(p));
+    const profiles = rows
+        .map((r) => r.profiles)
+        .filter((p): p is Profile => Boolean(p));
+
+    await replaceCachedProfiles(spaceId, profiles);
+    return profiles;
 };
 
 export const updateProfileName = async (name: string) => {
@@ -76,6 +98,40 @@ export const updateProfileName = async (name: string) => {
 };
 
 export const updateProfileNote = async (note: string) => {
+    if (!getIsOnline()) {
+        const [{ data: sessionData }, spaceId] = await Promise.all([
+            supabase.auth.getSession(),
+            getSpaceId(),
+        ]);
+        const userId = sessionData.session?.user?.id;
+        if (!spaceId || !userId) {
+            console.error("Error updating note: missing offline session or space");
+            return false;
+        }
+
+        const noteUpdatedAt = new Date().toISOString();
+        await updateCachedProfileNote({
+            spaceId,
+            userId,
+            note,
+            noteUpdatedAt,
+        });
+        await enqueueOutbox({
+            id: createLocalId(),
+            entity: "profile_note",
+            entity_id: userId,
+            operation: "update",
+            payload_json: JSON.stringify({
+                userId,
+                note,
+                note_updated_at: noteUpdatedAt,
+            }),
+            created_at: noteUpdatedAt,
+        });
+        await refreshPendingSyncCount();
+        return true;
+    }
+
     const { data: userRes, error: userErr } = await supabase.auth.getUser();
     if (userErr || !userRes.user) {
         console.error("Error getting user:", userErr?.message);
@@ -83,13 +139,24 @@ export const updateProfileNote = async (note: string) => {
     }
 
     const userId = userRes.user.id;
+    const noteUpdatedAt = new Date().toISOString();
     const saved = await upsertProfileFields(userId, {
         note,
-        note_updated_at: new Date().toISOString(),
+        note_updated_at: noteUpdatedAt,
     });
     if (!saved) {
         console.error("Error updating note");
         return false;
+    }
+
+    const spaceId = await getSpaceId();
+    if (spaceId) {
+        await updateCachedProfileNote({
+            spaceId,
+            userId,
+            note,
+            noteUpdatedAt,
+        });
     }
 
     return true;

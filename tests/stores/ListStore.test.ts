@@ -2,6 +2,7 @@ import { useListStore } from "@/stores/ListStore";
 import { resetAllStores } from "@/tests/helpers/resetStores";
 import { secureStoreUtilsMock } from "@/tests/mocks/secureStore";
 import { queueFrom, queueFromSingle, supabaseMock } from "@/tests/mocks/supabase";
+import { setIsOnline } from "@/utils/offline/network";
 
 const LIST_A = {
   id: "l1",
@@ -86,6 +87,21 @@ describe("stores/ListStore", () => {
     expect(useListStore.getState().lists[0]).toEqual(LIST_A);
     expect(useListStore.getState().isDraftOpen).toBe(false);
     expect(useListStore.getState().draft).toBeNull();
+  });
+
+  it("adds a list locally while offline", async () => {
+    setIsOnline(false);
+    secureStoreUtilsMock.getSpaceId.mockResolvedValueOnce("space-1");
+
+    const created = await useListStore.getState().addList("Todo", "Buy milk");
+
+    expect(supabaseMock.from).not.toHaveBeenCalled();
+    expect(created).toMatchObject({
+      type: "Todo",
+      content: "Buy milk",
+      space_id: "space-1",
+    });
+    expect(useListStore.getState().lists[0]).toEqual(created);
   });
 
   it("throws when adding list without active space", async () => {

@@ -6,7 +6,9 @@ import {
     pickMultipleImages,
 } from "@/utils/gallery";
 import { router } from "expo-router";
+import { Alert } from "react-native";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSyncStore } from "@/stores/SyncStore";
 
 const EMPTY_IMAGES: GalleryImage[] = [];
 
@@ -22,6 +24,7 @@ export const useGalleryContent = ({ galleryId }: { galleryId: string }) => {
     const refreshGalleries = useGalleryStore((s) => s.refreshGalleries);
     const deleteGallery = useGalleryStore((s) => s.deleteGallery);
     const uploadGalleryImages = useGalleryStore((s) => s.uploadGalleryImages);
+    const isOnline = useSyncStore((s) => s.isOnline);
 
     const imagesPage = useGalleryStore(
         (s) => s.imagesPageByGalleryId[galleryId],
@@ -62,6 +65,14 @@ export const useGalleryContent = ({ galleryId }: { galleryId: string }) => {
                     : b.created_at.localeCompare(a.created_at),
             );
     }, [canonicalImages, sortingByAscending]);
+    const visibleImages = useMemo(() => {
+        if (isOnline) return sortedImages;
+        return sortedImages.filter((img) => img.url_thumb || img.url_grid || img.url_orig);
+    }, [isOnline, sortedImages]);
+    const visibleCanonicalImages = useMemo(() => {
+        if (isOnline) return canonicalImages;
+        return canonicalImages.filter((img) => img.url_thumb || img.url_grid || img.url_orig);
+    }, [canonicalImages, isOnline]);
     const imageById = useMemo(() => {
         const map = new Map<string, GalleryImage>();
         for (const image of canonicalImages) {
@@ -82,6 +93,11 @@ export const useGalleryContent = ({ galleryId }: { galleryId: string }) => {
     );
 
     const handleAddImages = useCallback(async () => {
+        if (!isOnline) {
+            Alert.alert("Offline", "Gallery uploads are unavailable offline.");
+            return;
+        }
+
         const newImages = await pickMultipleImages();
         if (!newImages?.length) return;
 
@@ -89,9 +105,14 @@ export const useGalleryContent = ({ galleryId }: { galleryId: string }) => {
         if (ok) {
             await refreshGalleries();
         }
-    }, [galleryId, refreshGalleries, uploadGalleryImages]);
+    }, [galleryId, isOnline, refreshGalleries, uploadGalleryImages]);
 
     const handleDeleteGallery = useCallback(async () => {
+        if (!isOnline) {
+            Alert.alert("Offline", "Gallery changes are unavailable offline.");
+            return;
+        }
+
         setIsDeleting(true);
         await deleteGallery(galleryId);
         setIsDeleting(false);
@@ -99,7 +120,7 @@ export const useGalleryContent = ({ galleryId }: { galleryId: string }) => {
         setIsDeleteGalleryModalOpen(false);
         router.back();
         await refreshGalleries();
-    }, [deleteGallery, galleryId, refreshGalleries]);
+    }, [deleteGallery, galleryId, isOnline, refreshGalleries]);
 
     const handleImagePress = useCallback((image: GalleryImage) => {
         if (editMode) {
@@ -119,6 +140,8 @@ export const useGalleryContent = ({ galleryId }: { galleryId: string }) => {
     }, [editMode]);
 
     const handleSelectImage = useCallback((image: GalleryImage) => {
+        if (!isOnline) return;
+
         setSelectedImageIds((prev) => {
             const next = new Set(prev);
             if (next.has(image.id)) {
@@ -131,16 +154,26 @@ export const useGalleryContent = ({ galleryId }: { galleryId: string }) => {
             }
             return next;
         });
-    }, []);
+    }, [isOnline]);
 
     const handleImageLongPress = useCallback((image: GalleryImage) => {
+        if (!isOnline) {
+            Alert.alert("Offline", "Gallery changes are unavailable offline.");
+            return;
+        }
+
         if (!editMode) {
             setEditMode(true);
             setSelectedImageIds(new Set([image.id]));
         }
-    }, [editMode]);
+    }, [editMode, isOnline]);
 
     const handleDownloadImages = useCallback(async () => {
+        if (!isOnline) {
+            Alert.alert("Offline", "Image downloads are unavailable offline.");
+            return;
+        }
+
         setIsDownloading(true);
         try {
             const selectedSnapshot = selectedImages;
@@ -171,7 +204,7 @@ export const useGalleryContent = ({ galleryId }: { galleryId: string }) => {
             setEditMode(false);
             setIsDownloading(false);
         }
-    }, [galleryId, selectedImages]);
+    }, [galleryId, isOnline, selectedImages]);
 
     const handleClearSelection = useCallback(() => {
         setSelectedImageIds(new Set());
@@ -192,13 +225,13 @@ export const useGalleryContent = ({ galleryId }: { galleryId: string }) => {
         loadMoreGalleryImages,
         refreshGalleryImages,
 
-        canonicalImages,
+        canonicalImages: visibleCanonicalImages,
         isViewerOpen,
         viewerInitialImageId,
 
         isDownloading,
         isDeleting,
-        images: sortedImages,
+        images: visibleImages,
         isDeleteImagesModalOpen,
         isDeleteGalleryModalOpen,
         editMode,

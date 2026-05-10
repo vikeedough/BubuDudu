@@ -4,7 +4,9 @@ import { secureStoreUtilsMock } from "@/tests/mocks/secureStore";
 import {
   queueFromMaybeSingle,
   queueFromSingle,
+  supabaseMock,
 } from "@/tests/mocks/supabase";
+import { setIsOnline } from "@/utils/offline/network";
 
 const MILESTONE = {
   id: 1,
@@ -68,6 +70,22 @@ describe("stores/MilestoneStore", () => {
     expect(result).toEqual(MILESTONE);
     expect(useMilestoneStore.getState().milestone).toEqual(MILESTONE);
     expect(useMilestoneStore.getState().isLoading).toBe(false);
+  });
+
+  it("upserts milestone locally while offline", async () => {
+    setIsOnline(false);
+    secureStoreUtilsMock.getSpaceId.mockResolvedValueOnce("space-1");
+
+    const result = await useMilestoneStore
+      .getState()
+      .upsertMilestone("Anniversary", "2026-06-01");
+
+    expect(supabaseMock.from).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      title: "Anniversary",
+      date: "2026-06-01",
+    });
+    expect(useMilestoneStore.getState().milestone).toEqual(result);
   });
 
   it("throws when no space id during upsert", async () => {

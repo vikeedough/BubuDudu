@@ -23,17 +23,17 @@ const GalleryItem: React.FC<GalleryItemProps> = ({ gallery, onPress }) => {
                 onPress={() => onPress(gallery)}
             >
                 <View>
-                    <Image
-                        source={
-                            gallery.cover_thumb_url
-                                ? { uri: gallery.cover_thumb_url }
-                                : undefined
-                        }
-                        placeholder={gallery.cover_image_blur_hash ?? undefined}
-                        transition={200}
-                        style={styles.image}
-                        cachePolicy="memory-disk"
-                    />
+                    {gallery.cover_thumb_url ? (
+                        <Image
+                            source={{ uri: gallery.cover_thumb_url }}
+                            placeholder={
+                                gallery.cover_image_blur_hash ?? undefined
+                            }
+                            transition={200}
+                            style={styles.image}
+                            cachePolicy="memory-disk"
+                        />
+                    ) : null}
                     <View style={styles.locationContainer}>
                         <CustomText
                             weight="semibold"

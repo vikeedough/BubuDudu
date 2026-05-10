@@ -1,6 +1,14 @@
 import { supabase } from "@/api/clients/supabaseClient";
 import { Milestone } from "@/api/endpoints/types";
 import { getSpaceId } from "@/utils/secure-store";
+import { createLocalId } from "@/utils/offline/id";
+import {
+    enqueueOutbox,
+    getCachedMilestone,
+    upsertCachedMilestone,
+} from "@/utils/offline/local-db";
+import { getIsOnline } from "@/utils/offline/network";
+import { flushOutbox, refreshPendingSyncCount } from "@/utils/offline/sync";
 import { create } from "zustand";
 
 type MilestoneState = {
@@ -12,6 +20,21 @@ type MilestoneState = {
     upsertMilestone: (title: string, date: string) => Promise<Milestone>;
     clearMilestone: () => void;
 };
+
+async function enqueueMilestoneUpsert(
+    spaceId: string,
+    payload: Record<string, unknown>,
+) {
+    await enqueueOutbox({
+        id: createLocalId(),
+        entity: "milestones",
+        entity_id: spaceId,
+        operation: "upsert",
+        payload_json: JSON.stringify(payload),
+        created_at: new Date().toISOString(),
+    });
+    await refreshPendingSyncCount();
+}
 
 export const useMilestoneStore = create<MilestoneState>((set) => ({
     milestone: null,
@@ -30,6 +53,18 @@ export const useMilestoneStore = create<MilestoneState>((set) => ({
             return null;
         }
 
+        const cached = await getCachedMilestone(spaceId);
+        if (cached) {
+            set({ milestone: cached, isLoading: false });
+        }
+
+        if (!getIsOnline()) {
+            set({ isLoading: false });
+            return cached;
+        }
+
+        await flushOutbox();
+
         const { data, error } = await supabase
             .from("milestones")
             .select("*")
@@ -41,7 +76,12 @@ export const useMilestoneStore = create<MilestoneState>((set) => ({
             return null;
         }
 
-        set({ milestone: (data as Milestone) ?? null, isLoading: false });
+        const milestone = (data as Milestone) ?? null;
+        if (milestone) {
+            await upsertCachedMilestone(spaceId, milestone);
+        }
+
+        set({ milestone, isLoading: false });
         return (data as Milestone) ?? null;
     },
 
@@ -53,6 +93,27 @@ export const useMilestoneStore = create<MilestoneState>((set) => ({
             const msg = "No spaceId found";
             set({ error: msg, isLoading: false });
             throw new Error(msg);
+        }
+
+        if (!getIsOnline()) {
+            const offlineMilestone: Milestone = {
+                id: 0,
+                title,
+                date,
+            };
+
+            await upsertCachedMilestone(spaceId, {
+                ...offlineMilestone,
+                updated_at: new Date().toISOString(),
+            });
+            await enqueueMilestoneUpsert(spaceId, {
+                space_id: spaceId,
+                title,
+                date,
+            });
+
+            set({ milestone: offlineMilestone, isLoading: false });
+            return offlineMilestone;
         }
 
         const { data, error } = await supabase
@@ -69,7 +130,10 @@ export const useMilestoneStore = create<MilestoneState>((set) => ({
             throw error;
         }
 
-        set({ milestone: data as Milestone, isLoading: false });
-        return data as Milestone;
+        const milestone = data as Milestone;
+        await upsertCachedMilestone(spaceId, milestone);
+
+        set({ milestone, isLoading: false });
+        return milestone;
     },
 }));

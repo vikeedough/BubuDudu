@@ -1,6 +1,9 @@
 import { supabase } from "@/api/clients/supabaseClient";
 import { Profile } from "@/api/endpoints/types";
 import { AuthContext } from "@/hooks/useAuthContext";
+import { getCachedProfile, upsertCachedProfile } from "@/utils/offline/local-db";
+import { getIsOnline } from "@/utils/offline/network";
+import { getSpaceId } from "@/utils/secure-store";
 import type { Session } from "@supabase/supabase-js";
 import { PropsWithChildren, useCallback, useEffect, useState } from "react";
 
@@ -46,16 +49,37 @@ export default function AuthProvider({ children }: PropsWithChildren) {
             return null;
         }
 
+        const spaceId = await getSpaceId();
+        const cached = spaceId
+            ? await getCachedProfile(spaceId, session.user.id)
+            : null;
+
+        if (cached) {
+            setProfile(cached);
+        }
+
+        if (!getIsOnline()) {
+            return cached;
+        }
+
         const { data, error } = await supabase
             .from("profiles")
             .select("*")
             .eq("id", session.user.id)
             .maybeSingle();
 
-        if (error) throw error;
+        if (error) {
+            if (cached) return cached;
+            throw error;
+        }
 
-        setProfile(data as Profile);
-        return data as Profile;
+        const profile = data as Profile;
+        if (spaceId && profile) {
+            await upsertCachedProfile(spaceId, profile);
+        }
+
+        setProfile(profile);
+        return profile;
     }, [session]);
 
     // Fetch profile when session changes

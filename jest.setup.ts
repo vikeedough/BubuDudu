@@ -14,6 +14,31 @@ jest.mock("@/utils/secure-store", () => {
   return secureStoreUtilsMock;
 });
 
+jest.mock("@react-native-community/netinfo", () => ({
+  fetch: jest.fn().mockResolvedValue({
+    isConnected: true,
+    isInternetReachable: true,
+  }),
+  addEventListener: jest.fn(() => jest.fn()),
+}));
+
+jest.mock("expo-sqlite", () => ({
+  openDatabaseAsync: jest.fn(async () => ({
+    execAsync: jest.fn().mockResolvedValue(undefined),
+    runAsync: jest.fn().mockResolvedValue({ changes: 1 }),
+    getAllAsync: jest.fn().mockResolvedValue([]),
+    getFirstAsync: jest.fn(async (sql: string) => {
+      if (sql.includes("PRAGMA user_version")) {
+        return { user_version: 1 };
+      }
+      if (sql.includes("COUNT(*)")) {
+        return { count: 0 };
+      }
+      return null;
+    }),
+  })),
+}));
+
 jest.mock("expo-image-picker", () => ({
   requestMediaLibraryPermissionsAsync: jest
     .fn()

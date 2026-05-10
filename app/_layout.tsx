@@ -5,6 +5,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import { ToastRoot } from "@/components/toast/ToastRoot";
 import AuthProvider from "@/providers/auth-provider";
+import { OfflineProvider } from "@/providers/offline-provider";
 
 export default function RootLayout() {
     const [fontsLoaded] = useFonts({
@@ -33,31 +34,33 @@ export default function RootLayout() {
 
     return (
         <GestureHandlerRootView style={{ flex: 1 }}>
-            <AuthProvider>
-                <Stack screenOptions={{ headerShown: false }}>
-                    <Stack.Screen
-                        name="index"
-                        options={{ headerShown: false }}
-                    />
-                    <Stack.Screen
-                        name="(login)"
-                        options={{ headerShown: false }}
-                    />
-                    <Stack.Screen
-                        name="(onboarding)"
-                        options={{ headerShown: false }}
-                    />
-                    <Stack.Screen
-                        name="(tabs)"
-                        options={{ headerShown: false }}
-                    />
-                    <Stack.Screen
-                        name="(settings)"
-                        options={{ headerShown: false }}
-                    />
-                </Stack>
-                <ToastRoot />
-            </AuthProvider>
+            <OfflineProvider>
+                <AuthProvider>
+                    <Stack screenOptions={{ headerShown: false }}>
+                        <Stack.Screen
+                            name="index"
+                            options={{ headerShown: false }}
+                        />
+                        <Stack.Screen
+                            name="(login)"
+                            options={{ headerShown: false }}
+                        />
+                        <Stack.Screen
+                            name="(onboarding)"
+                            options={{ headerShown: false }}
+                        />
+                        <Stack.Screen
+                            name="(tabs)"
+                            options={{ headerShown: false }}
+                        />
+                        <Stack.Screen
+                            name="(settings)"
+                            options={{ headerShown: false }}
+                        />
+                    </Stack>
+                    <ToastRoot />
+                </AuthProvider>
+            </OfflineProvider>
         </GestureHandlerRootView>
     );
 }

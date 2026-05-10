@@ -22,6 +22,7 @@ import QuoteContainer from "@/components/home/QuoteContainer";
 import { Colors } from "@/constants/colors";
 import { useAuthContext } from "@/hooks/useAuthContext";
 import { useMilestoneStore } from "@/stores/MilestoneStore";
+import { useSyncStore } from "@/stores/SyncStore";
 import { toast } from "@/toast/api";
 import { getToday, pickAndUploadAvatar } from "@/utils/home";
 import { getSpaceId } from "@/utils/secure-store";
@@ -34,6 +35,7 @@ const Home = () => {
     const [spaceId, setSpaceId] = useState<string | null>(null);
     const [userProfiles, setUserProfiles] = useState<Profile[]>([]);
     const [isLoadingEverything, setIsLoadingEverything] = useState(true);
+    const isOnline = useSyncStore((s) => s.isOnline);
 
     const milestone = useMilestoneStore((s) => s.milestone);
     const fetchMilestone = useMilestoneStore((s) => s.fetchMilestone);
@@ -49,6 +51,7 @@ const Home = () => {
             const fetchedSpaceId = await getSpaceId();
 
             if (!fetchedSpaceId || !sessionUserId) {
+                setIsLoadingEverything(false);
                 return;
             }
 
@@ -65,7 +68,7 @@ const Home = () => {
         };
 
         loadData();
-    }, [sessionUserId]);
+    }, [sessionUserId, isOnline]);
 
     const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
 

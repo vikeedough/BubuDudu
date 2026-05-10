@@ -19,6 +19,7 @@ import { ScrollView } from "react-native-gesture-handler";
 import CustomText from "@/components/CustomText";
 import { Colors, listColorsArray } from "@/constants/colors";
 import { useGalleryStore } from "@/stores/GalleryStore";
+import { useSyncStore } from "@/stores/SyncStore";
 import { pickMultipleImages } from "@/utils/gallery";
 
 import InlineWheelDatePicker from "../InlineWheelDatePicker";
@@ -38,6 +39,7 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
     const addNewGallery = useGalleryStore((s) => s.addNewGallery);
     const uploadGalleryImages = useGalleryStore((s) => s.uploadGalleryImages);
     const refreshGalleries = useGalleryStore((s) => s.refreshGalleries);
+    const isOnline = useSyncStore((s) => s.isOnline);
 
     const [dateName, setDateName] = useState("");
     const [location, setLocation] = useState("");
@@ -88,6 +90,11 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
     };
 
     const handleAddGallery = async () => {
+        if (!isOnline) {
+            Alert.alert("Offline", "Gallery uploads are unavailable offline.");
+            return;
+        }
+
         if (
             dateName.trim() === "" ||
             location.trim() === "" ||
