@@ -1,5 +1,7 @@
-import { deleteSpaceId, setSpaceId } from "@/utils/secure-store";
 import { Alert } from "react-native";
+
+import { deleteSpaceId, setSpaceId } from "@/utils/secure-store";
+
 import { supabase } from "../clients/supabaseClient";
 
 export async function signInWithEmail(email: string, password: string) {
@@ -80,7 +82,67 @@ export async function signUpWithEmail(
         return null;
     }
 
-    const userId = s.session.user.id;
+    return data;
+}
+
+export async function signUpWithCredentials(email: string, password: string) {
+    const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+    });
+
+    if (error) {
+        Alert.alert("Sign Up Error", error.message);
+        return null;
+    }
+
+    if (!data.user) {
+        Alert.alert("Sign Up Error", "User missing after signup");
+        return null;
+    }
+
+    if (data.session) {
+        await supabase.auth.setSession({
+            access_token: data.session.access_token,
+            refresh_token: data.session.refresh_token,
+        });
+    }
+
+    const { data: s } = await supabase.auth.getSession();
+    if (!s.session?.user?.id) {
+        Alert.alert("Auth Error", "Session not active after signup");
+        return null;
+    }
 
     return data;
+}
+
+export async function sendPasswordResetLink(
+    email: string,
+    redirectTo?: string
+) {
+    const request = redirectTo
+        ? supabase.auth.resetPasswordForEmail(email, { redirectTo })
+        : supabase.auth.resetPasswordForEmail(email);
+    const { error } = await request;
+
+    if (error) {
+        Alert.alert("Reset Error", error.message);
+        return false;
+    }
+
+    return true;
+}
+
+export async function updatePassword(newPassword: string) {
+    const { error } = await supabase.auth.updateUser({
+        password: newPassword,
+    });
+
+    if (error) {
+        Alert.alert("Password Update Error", error.message);
+        return false;
+    }
+
+    return true;
 }

@@ -1,6 +1,7 @@
 import { useRouter } from "expo-router";
 import { useEffect, useMemo } from "react";
-import { StyleSheet, View } from "react-native";
+import { StyleSheet } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import SignOutButton from "@/components/auth/sign-out-button";
 import CustomText from "@/components/CustomText";
@@ -34,7 +35,7 @@ export default function Settings() {
     }, [milestone]);
 
     return (
-        <View style={styles.container}>
+        <SafeAreaView style={styles.container}>
             <CustomText weight="bold">Settings</CustomText>
 
             <SettingsField
@@ -58,7 +59,7 @@ export default function Settings() {
             <InviteCode />
 
             <SignOutButton />
-        </View>
+        </SafeAreaView>
     );
 }
 

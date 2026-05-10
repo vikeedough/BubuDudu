@@ -1,6 +1,11 @@
 import { Alert } from "react-native";
 
-import { signInWithEmail, signUpWithEmail } from "@/api/endpoints/auth";
+import {
+  sendPasswordResetLink,
+  signInWithEmail,
+  signUpWithEmail,
+  updatePassword,
+} from "@/api/endpoints/auth";
 import { secureStoreUtilsMock } from "@/tests/mocks/secureStore";
 import {
   queueFromMaybeSingle,
@@ -204,5 +209,77 @@ describe("api/endpoints/auth", () => {
 
     expect(result).toEqual(signUpData);
     expect(supabaseMock.auth.setSession).not.toHaveBeenCalled();
+  });
+
+  it("returns false and alerts when sending reset link fails", async () => {
+    const alertSpy = jest.spyOn(Alert, "alert").mockImplementation(jest.fn());
+    supabaseMock.auth.resetPasswordForEmail.mockResolvedValueOnce({
+      data: null,
+      error: { message: "reset failed" },
+    });
+
+    const result = await sendPasswordResetLink("x@test.com");
+
+    expect(result).toBe(false);
+    expect(alertSpy).toHaveBeenCalled();
+  });
+
+  it("returns true when sending reset link succeeds", async () => {
+    supabaseMock.auth.resetPasswordForEmail.mockResolvedValueOnce({
+      data: null,
+      error: null,
+    });
+
+    const result = await sendPasswordResetLink("x@test.com");
+
+    expect(result).toBe(true);
+    expect(supabaseMock.auth.resetPasswordForEmail).toHaveBeenCalledWith(
+      "x@test.com",
+    );
+  });
+
+  it("passes redirectTo when sending reset link with explicit redirect", async () => {
+    supabaseMock.auth.resetPasswordForEmail.mockResolvedValueOnce({
+      data: null,
+      error: null,
+    });
+
+    const result = await sendPasswordResetLink(
+      "x@test.com",
+      "bubududu://reset-password",
+    );
+
+    expect(result).toBe(true);
+    expect(supabaseMock.auth.resetPasswordForEmail).toHaveBeenCalledWith(
+      "x@test.com",
+      { redirectTo: "bubududu://reset-password" },
+    );
+  });
+
+  it("returns false and alerts when password update fails", async () => {
+    const alertSpy = jest.spyOn(Alert, "alert").mockImplementation(jest.fn());
+    supabaseMock.auth.updateUser.mockResolvedValueOnce({
+      data: null,
+      error: { message: "password update failed" },
+    });
+
+    const result = await updatePassword("new-password");
+
+    expect(result).toBe(false);
+    expect(alertSpy).toHaveBeenCalled();
+  });
+
+  it("returns true when password update succeeds", async () => {
+    supabaseMock.auth.updateUser.mockResolvedValueOnce({
+      data: null,
+      error: null,
+    });
+
+    const result = await updatePassword("new-password");
+
+    expect(result).toBe(true);
+    expect(supabaseMock.auth.updateUser).toHaveBeenCalledWith({
+      password: "new-password",
+    });
   });
 });

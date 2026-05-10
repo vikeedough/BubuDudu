@@ -41,6 +41,24 @@ function isNonEmptyString(value: unknown): value is string {
     return typeof value === "string" && value.length > 0;
 }
 
+function extractDateOnly(value: string): string | null {
+    const isoDatePrefix = /^(\d{4}-\d{2}-\d{2})/.exec(value)?.[1];
+    if (isoDatePrefix) return isoDatePrefix;
+
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return null;
+    return parsed.toISOString().slice(0, 10);
+}
+
+function getGallerySortDate(value: string | Date | null | undefined): string | null {
+    if (value instanceof Date) return value.toISOString();
+    return isNonEmptyString(value) ? value : null;
+}
+
+function quotePostgrest(value: string): string {
+    return `"${value.replace(/"/g, '\\"')}"`;
+}
+
 export type Gallery = {
     id: string;
     space_id: string;
@@ -504,7 +522,7 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
             }
 
             query = query
-                .order("date_date", { ascending })
+                .order("date", { ascending })
                 .order("id", { ascending })
                 .limit(GALLERIES_PAGE_SIZE);
 
@@ -520,8 +538,9 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
             );
 
             const last = signed[signed.length - 1];
-            const cursor = last?.date_date
-                ? { date: String(last.date_date), id: String(last.id) }
+            const cursorDate = getGallerySortDate(last?.date);
+            const cursor = cursorDate
+                ? { date: cursorDate, id: String(last.id) }
                 : null;
 
             set({
@@ -570,6 +589,8 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
             const ascending = sortDir === "asc";
             const cursor = get().galleriesPage.cursor;
             if (!cursor) return get().galleries;
+            const quotedCursorDate = quotePostgrest(cursor.date);
+            const quotedCursorId = quotePostgrest(cursor.id);
 
             let query = supabase
                 .from("galleries")
@@ -582,16 +603,16 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
 
             if (sortDir === "desc") {
                 query = query.or(
-                    `date_date.lt.${cursor.date},and(date_date.eq.${cursor.date},id.lt.${cursor.id})`,
+                    `date.lt.${quotedCursorDate},and(date.eq.${quotedCursorDate},id.lt.${quotedCursorId})`,
                 );
             } else {
                 query = query.or(
-                    `date_date.gt.${cursor.date},and(date_date.eq.${cursor.date},id.gt.${cursor.id})`,
+                    `date.gt.${quotedCursorDate},and(date.eq.${quotedCursorDate},id.gt.${quotedCursorId})`,
                 );
             }
 
             query = query
-                .order("date_date", { ascending })
+                .order("date", { ascending })
                 .order("id", { ascending })
                 .limit(GALLERIES_PAGE_SIZE);
 
@@ -607,9 +628,10 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
             );
 
             const lastFetched = signed[signed.length - 1];
-            const nextCursor = lastFetched?.date_date
+            const lastFetchedCursorDate = getGallerySortDate(lastFetched?.date);
+            const nextCursor = lastFetchedCursorDate
                 ? {
-                      date: String(lastFetched.date_date),
+                      date: lastFetchedCursorDate,
                       id: String(lastFetched.id),
                   }
                 : get().galleriesPage.cursor;
@@ -976,6 +998,7 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
                 space_id: spaceId,
                 title,
                 date,
+                date_date: extractDateOnly(date),
                 color,
                 location,
             })

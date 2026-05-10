@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Alert, StyleSheet, View } from "react-native";
+import { Alert, StyleSheet } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import { GeneralButton } from "@/components/GeneralButton";
 import { SettingsTextInputField } from "@/components/settings/SettingsTextInputField";
@@ -29,7 +30,7 @@ export default function Name() {
     };
 
     return (
-        <View style={styles.container}>
+        <SafeAreaView style={styles.container}>
             <SettingsTextInputField
                 label="Name"
                 value={name}
@@ -41,7 +42,7 @@ export default function Name() {
                 onPress={handleSave}
                 disabled={name.trim() === "" || name === profile?.name}
             />
-        </View>
+        </SafeAreaView>
     );
 }
 

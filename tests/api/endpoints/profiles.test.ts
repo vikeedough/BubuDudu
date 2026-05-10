@@ -2,6 +2,7 @@ import { Alert } from "react-native";
 
 import {
   fetchProfiles,
+  updateProfileAvatarBorderColor,
   updateProfileName,
   updateProfileNote,
   uploadAvatarAndUpdateUser,
@@ -16,6 +17,7 @@ const PROFILE = {
   id: "user-1",
   name: "Alex",
   avatar_url: null,
+  avatar_border_color: "#F04770",
   created_at: "2026-03-06T00:00:00.000Z",
   note: null,
   note_updated_at: null,
@@ -135,6 +137,44 @@ describe("api/endpoints/profiles", () => {
     expect(result).toBe(false);
   });
 
+  it("updates avatar border color", async () => {
+    supabaseMock.auth.getUser.mockResolvedValueOnce({
+      data: { user: { id: "user-1" } },
+      error: null,
+    });
+    queueFrom("profiles", "update", { data: null, error: null });
+
+    const result = await updateProfileAvatarBorderColor("#F04770");
+
+    expect(result).toBe(true);
+  });
+
+  it("returns false when avatar border color cannot resolve user", async () => {
+    supabaseMock.auth.getUser.mockResolvedValueOnce({
+      data: { user: null },
+      error: { message: "auth failed" },
+    });
+
+    const result = await updateProfileAvatarBorderColor("#F04770");
+
+    expect(result).toBe(false);
+  });
+
+  it("returns false when avatar border color update fails", async () => {
+    supabaseMock.auth.getUser.mockResolvedValueOnce({
+      data: { user: { id: "user-1" } },
+      error: null,
+    });
+    queueFrom("profiles", "update", {
+      data: null,
+      error: { message: "update color failed" },
+    });
+
+    const result = await updateProfileAvatarBorderColor("#F04770");
+
+    expect(result).toBe(false);
+  });
+
   it("uploads avatar and updates profile", async () => {
     supabaseMock.auth.getUser.mockResolvedValueOnce({
       data: { user: { id: "user-1" } },
@@ -207,3 +247,5 @@ describe("api/endpoints/profiles", () => {
     expect(result).toBeNull();
   });
 });
+
+

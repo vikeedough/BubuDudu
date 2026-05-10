@@ -198,7 +198,9 @@ const Home = () => {
                         <TouchableOpacity onPress={handlePickAndUploadAvatar}>
                             <AvatarDisplay
                                 image={me.avatar_url}
-                                borderColor={Colors.darkBlue}
+                                borderColor={
+                                    me.avatar_border_color ?? Colors.darkBlue
+                                }
                             />
                         </TouchableOpacity>
                         <View style={styles.bubbleWrapper}>
@@ -222,7 +224,9 @@ const Home = () => {
                 <View style={styles.avatarContainer}>
                     <AvatarDisplay
                         image={partner ? partner.avatar_url : null}
-                        borderColor={Colors.hotPink}
+                        borderColor={
+                            partner?.avatar_border_color ?? Colors.hotPink
+                        }
                     />
                     <View style={styles.bubbleWrapper}>
                         <View style={styles.messageBubble}>

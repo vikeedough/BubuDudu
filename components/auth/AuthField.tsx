@@ -8,6 +8,7 @@ import {
 } from "react-native";
 
 import CustomText from "@/components/CustomText";
+import { Colors } from "@/constants/colors";
 
 interface AuthFieldProps extends TextInputProps {
     label: string;
@@ -22,10 +23,14 @@ const AuthField: React.FC<AuthFieldProps> = ({
 }) => {
     return (
         <>
-            <CustomText weight="bold" style={[styles.label, labelStyle]}>
+            <CustomText weight="medium" style={[styles.label, labelStyle]}>
                 {label}
             </CustomText>
-            <TextInput style={[styles.input, style]} {...props} />
+            <TextInput
+                style={[styles.input, style]}
+                allowFontScaling={false}
+                {...props}
+            />
         </>
     );
 };
@@ -34,14 +39,19 @@ export default AuthField;
 
 const styles = StyleSheet.create({
     label: {
-        fontSize: 24,
-        marginBottom: 20,
+        fontSize: 14,
+        marginBottom: 5,
+        color: "#797878",
+        paddingHorizontal: 10,
     },
     input: {
-        width: "80%",
-        height: 50,
-        borderColor: "gray",
-        borderWidth: 1,
-        paddingHorizontal: 10,
+        width: "100%",
+        height: 40,
+        paddingHorizontal: 20,
+        backgroundColor: Colors.white,
+        borderRadius: 38,
+        fontFamily: "Raleway-Regular",
+        color: "#AFAFAF",
+        fontSize: 14,
     },
 });

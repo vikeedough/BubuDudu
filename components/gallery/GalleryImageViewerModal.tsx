@@ -162,10 +162,7 @@ const GalleryImageViewerModal: React.FC<GalleryImageViewerModalProps> = ({
     );
     const renderGalleryItem = useCallback(
         (item: GalleryImage, _index: number) => {
-            const img = item as unknown as
-                | GalleryImage
-                | null
-                | undefined;
+            const img = item as unknown as GalleryImage | null | undefined;
             if (!img) {
                 return <View style={emptyPageStyle} />;
             }
@@ -264,6 +261,7 @@ const styles = StyleSheet.create({
     },
     topBar: {
         width: "100%",
+        marginTop: 15,
         paddingHorizontal: 20,
         paddingTop: 10,
         paddingBottom: 10,

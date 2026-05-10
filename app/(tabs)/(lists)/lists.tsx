@@ -23,7 +23,7 @@ import DeleteListModal from "@/components/lists/DeleteListModal";
 import { Colors, listColorsArray } from "@/constants/colors";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { useListStore } from "@/stores/ListStore";
-import { getDate } from "@/utils/home";
+import { getToday } from "@/utils/home";
 
 interface ListLabelItemProps {
     list: List;
@@ -81,7 +81,7 @@ const Lists = () => {
     const addList = useListStore((s) => s.addList);
     const updateList = useListStore((s) => s.updateList);
 
-    const date = getDate();
+    const date = getToday();
     const [selectedList, setSelectedList] = useState<List | null>(null);
     const [noteTitle, setNoteTitle] = useState("");
     const [noteContent, setNoteContent] = useState("");
@@ -337,7 +337,7 @@ const styles = StyleSheet.create({
     },
     header: {
         marginBottom: 20,
-        marginLeft: 15,
+        marginLeft: 10,
     },
     headerTitle: {
         fontSize: 24,
