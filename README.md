@@ -25,6 +25,10 @@ In the output, you'll find options to open the app in a
 
 You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
 
+## Project notes
+
+- [Offline-first architecture](docs/offline-first.md): local SQLite cache, sync outbox, Supabase SQL, and the pattern to use for future features such as expense tracking.
+
 ## Get a fresh project
 
 When you're ready, run:
