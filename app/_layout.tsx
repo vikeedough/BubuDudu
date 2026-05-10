@@ -3,7 +3,6 @@ import { Stack } from "expo-router";
 import { ActivityIndicator, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
-import { SyncIndicator } from "@/components/offline/SyncIndicator";
 import { ToastRoot } from "@/components/toast/ToastRoot";
 import AuthProvider from "@/providers/auth-provider";
 import { OfflineProvider } from "@/providers/offline-provider";
@@ -59,7 +58,6 @@ export default function RootLayout() {
                             options={{ headerShown: false }}
                         />
                     </Stack>
-                    <SyncIndicator />
                     <ToastRoot />
                 </AuthProvider>
             </OfflineProvider>
