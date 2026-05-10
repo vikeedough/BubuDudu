@@ -2,6 +2,13 @@ import { supabase } from "@/api/clients/supabaseClient";
 import { toast } from "@/toast/api";
 import { generateBlurhash } from "@/utils/generateBlurhash";
 import { generateVariants } from "@/utils/generateImageVariants";
+import {
+    getCachedGalleries,
+    getCachedGalleryImages,
+    replaceCachedGalleries,
+    replaceCachedGalleryImages,
+} from "@/utils/offline/local-db";
+import { getIsOnline } from "@/utils/offline/network";
 import { runWithConcurrency } from "@/utils/runWithConcurrency";
 import { getSpaceId } from "@/utils/secure-store";
 import { create } from "zustand";
@@ -511,31 +518,70 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
 
             const { searchText, sortDir } = get().galleriesQuery;
             const ascending = sortDir === "asc";
+            const online = getIsOnline();
 
-            let query = supabase
-                .from("galleries")
-                .select("*")
-                .eq("space_id", spaceId);
+            let query: any = null;
+            if (online) {
+                query = supabase
+                    .from("galleries")
+                    .select("*")
+                    .eq("space_id", spaceId);
 
-            if (searchText.trim().length > 0) {
-                query = query.ilike("title", `%${searchText}%`);
+                if (searchText.trim().length > 0) {
+                    query = query.ilike("title", `%${searchText}%`);
+                }
+
+                query = query
+                    .order("date", { ascending })
+                    .order("id", { ascending })
+                    .limit(GALLERIES_PAGE_SIZE);
             }
 
-            query = query
-                .order("date", { ascending })
-                .order("id", { ascending })
-                .limit(GALLERIES_PAGE_SIZE);
+            const cached = await getCachedGalleries(spaceId);
+            const cachedForQuery = cached
+                .filter((gallery) =>
+                    searchText.trim().length === 0
+                        ? true
+                        : gallery.title
+                              .toLowerCase()
+                              .includes(searchText.trim().toLowerCase()),
+                )
+                .sort((a, b) => {
+                    const aDate = getGallerySortDate(a.date) ?? "";
+                    const bDate = getGallerySortDate(b.date) ?? "";
+                    return ascending
+                        ? aDate.localeCompare(bDate)
+                        : bDate.localeCompare(aDate);
+                });
+
+            if (cachedForQuery.length > 0) {
+                set({
+                    galleries: cachedForQuery,
+                    galleriesPage: {
+                        cursor: null,
+                        hasMore: false,
+                        isLoadingInitial: false,
+                        isLoadingMore: false,
+                    },
+                });
+            }
+
+            if (!online) {
+                return cachedForQuery;
+            }
 
             const { data, error } = await query;
             if (error) {
                 console.error("Error loading initial galleries:", error);
                 set({ error: error.message });
-                return [];
+                return cachedForQuery;
             }
 
             const signed = await attachSignedCoverThumbUrls(
                 (data as Gallery[]) ?? [],
             );
+
+            await replaceCachedGalleries(spaceId, signed);
 
             const last = signed[signed.length - 1];
             const cursorDate = getGallerySortDate(last?.date);
@@ -584,6 +630,7 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
         try {
             const spaceId = await getSpaceId();
             if (!spaceId) return get().galleries;
+            if (!getIsOnline()) return get().galleries;
 
             const { searchText, sortDir } = get().galleriesQuery;
             const ascending = sortDir === "asc";
@@ -646,6 +693,8 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
                 },
             }));
 
+            await replaceCachedGalleries(spaceId, get().galleries);
+
             return get().galleries;
         } finally {
             set((state) => ({
@@ -684,6 +733,29 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
         }));
 
         try {
+            const cached = await getCachedGalleryImages(galleryId);
+            if (cached.length > 0) {
+                set((state) => ({
+                    imagesByGalleryId: {
+                        ...state.imagesByGalleryId,
+                        [galleryId]: cached,
+                    },
+                    imagesPageByGalleryId: {
+                        ...state.imagesPageByGalleryId,
+                        [galleryId]: {
+                            cursor: null,
+                            hasMore: false,
+                            isLoadingInitial: false,
+                            isLoadingMore: false,
+                        },
+                    },
+                }));
+            }
+
+            if (!getIsOnline()) {
+                return cached;
+            }
+
             let query = supabase
                 .from("date_images")
                 .select("*")
@@ -696,7 +768,7 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
             if (error) {
                 console.error("Error loading initial gallery images:", error);
                 set({ error: error.message });
-                return [];
+                return cached;
             }
 
             const rows = (data as GalleryImage[]) ?? [];
@@ -744,6 +816,8 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
                     },
                 },
             }));
+
+            await replaceCachedGalleryImages(galleryId, merged);
 
             return merged;
         } finally {
@@ -797,6 +871,10 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
         }));
 
         try {
+            if (!getIsOnline()) {
+                return get().imagesByGalleryId[galleryId] ?? [];
+            }
+
             const cursor = get().imagesPageByGalleryId[galleryId]?.cursor;
             if (!cursor) return get().imagesByGalleryId[galleryId] ?? [];
 
@@ -869,6 +947,11 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
                 },
             }));
 
+            await replaceCachedGalleryImages(
+                galleryId,
+                get().imagesByGalleryId[galleryId] ?? [],
+            );
+
             return get().imagesByGalleryId[galleryId] ?? [];
         } finally {
             set((state) => ({
@@ -906,6 +989,26 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
             error: null,
         }));
 
+        const cached = await getCachedGalleryImages(galleryId);
+        if (cached.length > 0) {
+            set((state) => ({
+                imagesByGalleryId: {
+                    ...state.imagesByGalleryId,
+                    [galleryId]: cached,
+                },
+            }));
+        }
+
+        if (!getIsOnline()) {
+            set((state) => ({
+                isLoadingImagesByGalleryId: {
+                    ...state.isLoadingImagesByGalleryId,
+                    [galleryId]: false,
+                },
+            }));
+            return cached;
+        }
+
         const { data, error } = await supabase
             .from("date_images")
             .select("*")
@@ -927,6 +1030,7 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
         const rows = (data as GalleryImage[]) ?? [];
 
         if (rows.length === 0) {
+            await replaceCachedGalleryImages(galleryId, []);
             set((state) => ({
                 imagesByGalleryId: {
                     ...state.imagesByGalleryId,
@@ -949,6 +1053,7 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
 
         if (signErr) {
             console.warn("Signing failed, returning unsigned rows", signErr);
+            await replaceCachedGalleryImages(galleryId, rows);
             set((state) => ({
                 imagesByGalleryId: {
                     ...state.imagesByGalleryId,
@@ -968,6 +1073,8 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
             url_grid: signedMap?.[String(r.id)]?.url_grid,
             url_orig: signedMap?.[String(r.id)]?.url_orig,
         }));
+
+        await replaceCachedGalleryImages(galleryId, merged);
 
         set((state) => ({
             imagesByGalleryId: {
@@ -989,6 +1096,11 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
         const spaceId = await getSpaceId();
         if (!spaceId) {
             set({ error: "No spaceId found" });
+            return null;
+        }
+
+        if (!getIsOnline()) {
+            set({ error: "Gallery changes are unavailable offline." });
             return null;
         }
 
@@ -1016,6 +1128,11 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
     },
 
     uploadGalleryImages: async (galleryId: string, images: string[]) => {
+        if (!getIsOnline()) {
+            set({ error: "Gallery uploads are unavailable offline." });
+            return false;
+        }
+
         set((state) => ({
             isUploadingByGalleryId: {
                 ...state.isUploadingByGalleryId,
@@ -1091,6 +1208,11 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
     },
 
     deleteOneGalleryImage: async (galleryId: string, imageId: string) => {
+        if (!getIsOnline()) {
+            set({ error: "Gallery changes are unavailable offline." });
+            return false;
+        }
+
         set({ error: null });
 
         // Fetch gallery cover
@@ -1217,6 +1339,11 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
         galleryId: string,
         imageIds: string[],
     ) => {
+        if (!getIsOnline()) {
+            set({ error: "Gallery changes are unavailable offline." });
+            return false;
+        }
+
         if (imageIds.length === 0) return true;
 
         await runWithConcurrency(
@@ -1231,6 +1358,11 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
     },
 
     deleteGallery: async (galleryId: string) => {
+        if (!getIsOnline()) {
+            set({ error: "Gallery changes are unavailable offline." });
+            return false;
+        }
+
         set({ error: null });
 
         const finalizeDelete = () => {

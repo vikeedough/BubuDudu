@@ -16,6 +16,7 @@ import { supabase } from "@/api/clients/supabaseClient";
 import CustomText from "@/components/CustomText";
 import { Colors } from "@/constants/colors";
 import { shadowStyle } from "@/constants/shadows";
+import { clearOfflineData } from "@/utils/offline/local-db";
 import { deleteSpaceId } from "@/utils/secure-store";
 import { createSpace, joinSpace } from "@/utils/space-management";
 
@@ -79,6 +80,7 @@ export default function SpaceManagementPage() {
         } catch (error) {
             console.error("Emergency sign-out failed:", error);
         } finally {
+            await clearOfflineData();
             await deleteSpaceId();
             router.replace("/(login)");
         }

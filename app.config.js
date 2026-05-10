@@ -4,6 +4,7 @@ export default ({ config }) => {
 
     return {
         ...config,
+        plugins: [...(config.plugins ?? []), "expo-sqlite"],
         name: isDev ? "BubuDudu (Dev)" : "BubuDudu",
         scheme: isDev ? "bubududu-dev" : "bubududu",
         android: {

@@ -2,6 +2,7 @@ import { useWheelStore } from "@/stores/WheelStore";
 import { resetAllStores } from "@/tests/helpers/resetStores";
 import { secureStoreUtilsMock } from "@/tests/mocks/secureStore";
 import { queueFrom, queueFromSingle, supabaseMock } from "@/tests/mocks/supabase";
+import { setIsOnline } from "@/utils/offline/network";
 
 const WHEEL_A = {
   id: "w1",
@@ -87,6 +88,23 @@ describe("stores/WheelStore", () => {
     expect(useWheelStore.getState().wheels[0]).toEqual(WHEEL_A);
     expect(useWheelStore.getState().isDraftOpen).toBe(false);
     expect(useWheelStore.getState().draft).toBeNull();
+  });
+
+  it("adds a wheel locally while offline", async () => {
+    setIsOnline(false);
+    secureStoreUtilsMock.getSpaceId.mockResolvedValueOnce("space-1");
+
+    const created = await useWheelStore
+      .getState()
+      .addWheel("Dinner", ["Pasta", "Sushi"]);
+
+    expect(supabaseMock.from).not.toHaveBeenCalled();
+    expect(created).toMatchObject({
+      title: "Dinner",
+      choices: ["Pasta", "Sushi"],
+      space_id: "space-1",
+    });
+    expect(useWheelStore.getState().wheels[0]).toEqual(created);
   });
 
   it("throws when adding wheel without active space", async () => {

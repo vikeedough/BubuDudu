@@ -1,6 +1,16 @@
 import { supabase } from "@/api/clients/supabaseClient";
 import type { Wheel } from "@/api/endpoints/types";
 import { getSpaceId } from "@/utils/secure-store";
+import { createLocalId } from "@/utils/offline/id";
+import {
+    enqueueOutbox,
+    getCachedWheels,
+    markCachedWheelDeleted,
+    replaceCachedWheels,
+    upsertCachedWheel,
+} from "@/utils/offline/local-db";
+import { getIsOnline } from "@/utils/offline/network";
+import { flushOutbox, refreshPendingSyncCount } from "@/utils/offline/sync";
 import { create } from "zustand";
 
 type WheelDraft = { title: string; choices: string[] };
@@ -24,6 +34,23 @@ type WheelStore = {
     deleteWheel: (wheelId: string) => Promise<void>;
 };
 
+async function enqueueWheelOperation(
+    operation: "insert" | "update" | "delete",
+    wheelId: string,
+    payload: unknown,
+) {
+    const now = new Date().toISOString();
+    await enqueueOutbox({
+        id: createLocalId(),
+        entity: "wheel",
+        entity_id: wheelId,
+        operation,
+        payload_json: JSON.stringify(payload),
+        created_at: now,
+    });
+    await refreshPendingSyncCount();
+}
+
 export const useWheelStore = create<WheelStore>((set, get) => ({
     wheels: [],
     isLoadingWheels: false,
@@ -39,15 +66,32 @@ export const useWheelStore = create<WheelStore>((set, get) => ({
 
         set({ isLoadingWheels: true });
         try {
+            const cached = await getCachedWheels(spaceId);
+            if (cached.length > 0) {
+                set({ wheels: cached });
+            }
+
+            if (!getIsOnline()) return;
+
+            await flushOutbox();
+
             const { data, error } = await supabase
                 .from("wheel")
                 .select("*")
                 .eq("space_id", spaceId)
                 .order("created_at", { ascending: false });
 
-            if (error) throw error;
+            if (error) {
+                if (cached.length > 0) return;
+                throw error;
+            }
 
-            set({ wheels: (data ?? []) as Wheel[] });
+            const wheels = ((data ?? []) as Array<
+                Wheel & { deleted_at?: string | null }
+            >).filter((wheel) => !wheel.deleted_at);
+
+            await replaceCachedWheels(spaceId, wheels);
+            set({ wheels });
         } finally {
             set({ isLoadingWheels: false });
         }
@@ -69,6 +113,27 @@ export const useWheelStore = create<WheelStore>((set, get) => ({
 
         const now = new Date().toISOString();
 
+        if (!getIsOnline()) {
+            const newWheel: Wheel = {
+                id: createLocalId(),
+                space_id: spaceId,
+                title,
+                choices,
+                created_at: now,
+            };
+
+            await upsertCachedWheel(newWheel);
+            await enqueueWheelOperation("insert", newWheel.id, newWheel);
+
+            set((s) => ({
+                wheels: [newWheel, ...s.wheels],
+                isDraftOpen: false,
+                draft: null,
+            }));
+
+            return newWheel;
+        }
+
         const { data, error } = await supabase
             .from("wheel")
             .insert({
@@ -84,6 +149,8 @@ export const useWheelStore = create<WheelStore>((set, get) => ({
 
         const newWheel = data as Wheel;
 
+        await upsertCachedWheel(newWheel);
+
         set((s) => ({
             wheels: [newWheel, ...s.wheels],
             isDraftOpen: false,
@@ -94,6 +161,26 @@ export const useWheelStore = create<WheelStore>((set, get) => ({
     },
 
     updateWheelTitle: async (wheelId, title) => {
+        if (!getIsOnline()) {
+            const existing = get().wheels.find((w) => w.id === wheelId);
+            const updatedWheel = existing ? { ...existing, title } : null;
+
+            if (updatedWheel) {
+                set((s) => ({
+                    wheels: s.wheels.map((w) =>
+                        w.id === wheelId ? updatedWheel : w,
+                    ),
+                }));
+                await upsertCachedWheel({
+                    ...updatedWheel,
+                    updated_at: new Date().toISOString(),
+                });
+            }
+
+            await enqueueWheelOperation("update", wheelId, { id: wheelId, title });
+            return;
+        }
+
         const { error } = await supabase
             .from("wheel")
             .update({ title })
@@ -108,9 +195,40 @@ export const useWheelStore = create<WheelStore>((set, get) => ({
                 w.id === wheelId ? { ...w, title } : w
             ),
         }));
+
+        const updated = get().wheels.find((w) => w.id === wheelId);
+        if (updated) {
+            await upsertCachedWheel({
+                ...updated,
+                updated_at: new Date().toISOString(),
+            });
+        }
     },
 
     updateWheelChoices: async (wheelId, choices) => {
+        if (!getIsOnline()) {
+            const existing = get().wheels.find((w) => w.id === wheelId);
+            const updatedWheel = existing ? { ...existing, choices } : null;
+
+            if (updatedWheel) {
+                set((s) => ({
+                    wheels: s.wheels.map((w) =>
+                        w.id === wheelId ? updatedWheel : w,
+                    ),
+                }));
+                await upsertCachedWheel({
+                    ...updatedWheel,
+                    updated_at: new Date().toISOString(),
+                });
+            }
+
+            await enqueueWheelOperation("update", wheelId, {
+                id: wheelId,
+                choices,
+            });
+            return;
+        }
+
         const { error } = await supabase
             .from("wheel")
             .update({ choices })
@@ -123,14 +241,35 @@ export const useWheelStore = create<WheelStore>((set, get) => ({
                 w.id === wheelId ? { ...w, choices } : w
             ),
         }));
+
+        const updated = get().wheels.find((w) => w.id === wheelId);
+        if (updated) {
+            await upsertCachedWheel({
+                ...updated,
+                updated_at: new Date().toISOString(),
+            });
+        }
     },
 
     deleteWheel: async (wheelId) => {
+        if (!getIsOnline()) {
+            const now = new Date().toISOString();
+            await markCachedWheelDeleted(wheelId, now);
+            await enqueueWheelOperation("delete", wheelId, { id: wheelId });
+
+            set((s) => ({
+                wheels: s.wheels.filter((w) => w.id !== wheelId),
+            }));
+            return;
+        }
+
         const { error } = await supabase
             .from("wheel")
             .delete()
             .eq("id", wheelId);
         if (error) throw error;
+
+        await markCachedWheelDeleted(wheelId, new Date().toISOString());
 
         set((s) => ({
             wheels: s.wheels.filter((w) => w.id !== wheelId),
