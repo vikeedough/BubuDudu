@@ -2,6 +2,12 @@
 
 This document explains the offline-first layer added to BubuDudu and how to build future features, especially expense tracking, on top of it.
 
+Related docs:
+
+- `docs/features.md` describes how each feature uses the offline layer.
+- `docs/backend-data-model.md` maps the Supabase tables, storage buckets, Edge Functions, and local SQLite cache.
+- `docs/supabase-introspection.sql` can be run in Supabase to verify live RLS policies, triggers, indexes, and storage settings.
+
 ## Goals
 
 - The app can open offline after the user has logged in once and joined or created a space.
@@ -92,15 +98,25 @@ The user is notified by toast when:
 - Shared milestone
 - Profile note/status
 
+These writes update SQLite and Zustand immediately, then enqueue a `sync_outbox` row.
+
 ### Cached for offline reading
 
 - Current/partner profiles
 - Quotes
+- Lists
+- Wheels
+- Shared milestone
 - Gallery metadata
 - Gallery image rows and signed URLs, when previously fetched
 
 ### Offline blocked
 
+- Auth actions
+- Space creation/join
+- Invite-code fetch
+- Avatar upload
+- Profile name/date/avatar color edits
 - Gallery creation
 - Gallery uploads
 - Gallery image deletes
@@ -132,6 +148,19 @@ It adds:
 - sync indexes
 
 Important caveat: the local schema is ready for soft deletes, but the current outbox flush still performs real Supabase deletes for lists and wheels. If we want full tombstone-based sync later, switch those delete handlers in `utils/offline/sync.ts` to update `deleted_at` instead of calling `.delete()`.
+
+Live introspection pasted on 2026-05-11 confirmed the sync columns, sync indexes, and `set_updated_at` triggers exist for `lists`, `wheel`, `milestones`, and `profiles`. It also confirmed that RLS is enabled on all public app tables and that member-scoped policies allow the current offline sync writes for lists, wheels, milestones, and profile notes.
+
+Re-run `docs/supabase-introspection.sql` when touching sync behavior. The app depends on RLS policies allowing space members to read/write only their own space data, and on Storage policies allowing signed private gallery URLs through the authenticated user.
+
+## Implementation Notes
+
+- `OfflineProvider` owns startup initialization, connectivity transitions, outbox flushing, post-sync store refresh, and sync/offline toasts.
+- `utils/offline/network.ts` is an in-memory online/offline singleton. Stores read it synchronously to decide whether to use Supabase or queue local writes.
+- `utils/offline/id.ts` creates UUID-like IDs for offline-created rows so they can sync without waiting for Supabase IDs.
+- `flushOutbox()` serializes concurrent sync attempts with a module-level `syncPromise`.
+- Failed outbox items stay queued and record `attempts` plus `last_error`.
+- The current conflict strategy is simple last queued write wins; there is no field-level merge.
 
 ## Testing Offline Behavior
 

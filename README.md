@@ -1,54 +1,40 @@
-# Welcome to your Expo app 👋
+# BubuDudu
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+BubuDudu is an Expo React Native app for a shared couple space. It uses Supabase for auth, Postgres, Storage, and Edge Functions, plus local SQLite and Zustand for offline-first app state.
 
-## Get started
+## Documentation
 
-1. Install dependencies
+Start future codebase-reading chats with:
 
-   ```bash
-   npm install
-   ```
+- `docs/README.md` - documentation index and reading order.
+- `docs/codebase-overview.md` - architecture, routes, folders, state, and tests.
+- `docs/features.md` - every current app feature and where it lives.
+- `docs/backend-data-model.md` - Supabase tables, storage, Edge Functions, and local SQLite cache.
+- `docs/offline-first.md` - detailed offline-first behavior and extension pattern.
+- `docs/supabase-introspection.sql` - read-only SQL for live Supabase policies, buckets, triggers, indexes, grants, and counts.
 
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Project notes
-
-- [Offline-first architecture](docs/offline-first.md): local SQLite cache, sync outbox, Supabase SQL, and the pattern to use for future features such as expense tracking.
-
-## Get a fresh project
-
-When you're ready, run:
+## Setup
 
 ```bash
-npm run reset-project
+npm install
+npm run start
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+Common scripts:
 
-## Learn more
+```bash
+npm run android
+npm run android:dev
+npm run android:prod
+npm run ios
+npm run web
+npm run lint
+npm test
+npm run test:coverage
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+## Supabase
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+The app currently targets the Supabase project configured in `api/clients/supabaseClient.ts`.
 
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Run `supabase/sql/offline-first-sync.sql` in Supabase before relying on production offline sync. When live backend context is needed, paste `docs/supabase-introspection.sql` into the Supabase SQL editor and share the results with the next chat.
