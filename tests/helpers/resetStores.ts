@@ -1,4 +1,5 @@
 import { useGalleryStore } from "@/stores/GalleryStore";
+import { useExpenseStore } from "@/stores/ExpenseStore";
 import { useListStore } from "@/stores/ListStore";
 import { useMilestoneStore } from "@/stores/MilestoneStore";
 import { useSyncStore } from "@/stores/SyncStore";
@@ -37,5 +38,6 @@ export function resetAllStores() {
     error: null,
   });
 
+  useExpenseStore.getState().clear();
   useGalleryStore.getState().clear();
 }

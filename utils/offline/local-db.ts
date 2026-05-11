@@ -1,13 +1,30 @@
-import type { List, Milestone, Profile, Quote, Wheel } from "@/api/endpoints/types";
-import type { Gallery, GalleryImage } from "@/stores/GalleryStore";
 import * as SQLite from "expo-sqlite";
 
+import type {
+    Expense,
+    ExpenseBudget,
+    ExpenseCategory,
+    List,
+    Milestone,
+    Profile,
+    Quote,
+    Wheel,
+} from "@/api/endpoints/types";
+import type { Gallery, GalleryImage } from "@/stores/GalleryStore";
+
 const DB_NAME = "bubududu-offline.db";
-const DB_VERSION = 1;
+const DB_VERSION = 4;
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
-export type OutboxEntity = "lists" | "wheel" | "milestones" | "profile_note";
+export type OutboxEntity =
+    | "lists"
+    | "wheel"
+    | "milestones"
+    | "profile_note"
+    | "expenses"
+    | "expense_categories"
+    | "expense_budgets";
 export type OutboxOperation = "insert" | "update" | "delete" | "upsert";
 
 export type OutboxItem = {
@@ -57,6 +74,35 @@ type CachedGalleryRow = Omit<Gallery, "date"> & {
 
 type CachedGalleryImageRow = GalleryImage;
 
+type CachedExpenseCategoryRow = Omit<ExpenseCategory, "is_default"> & {
+    is_default: number;
+};
+
+type CachedExpenseRow = Omit<
+    Expense,
+    | "amount"
+    | "base_amount"
+    | "exchange_rate"
+    | "paid_by"
+> & {
+    paid_by?: string | null;
+    amount: number | string;
+    base_amount: number | string | null;
+    exchange_rate: number | string | null;
+};
+
+type CachedExpenseBudgetRow = Omit<ExpenseBudget, "amount"> & {
+    amount: number | string;
+};
+
+export type CachedExchangeRate = {
+    from_currency: string;
+    to_currency: string;
+    rate: number;
+    rate_date: string;
+    fetched_at: string;
+};
+
 function normalizeTimestamp(value: string | null | undefined): string {
     return value ?? new Date(0).toISOString();
 }
@@ -77,6 +123,28 @@ function milestoneUpdatedAt(
 
 function profileUpdatedAt(profile: Partial<Profile> & { updated_at?: string | null }) {
     return normalizeTimestamp(profile.updated_at ?? profile.note_updated_at ?? profile.created_at);
+}
+
+function expenseCategoryUpdatedAt(
+    category: Partial<ExpenseCategory> & { updated_at?: string | null },
+) {
+    return normalizeTimestamp(category.updated_at ?? category.created_at);
+}
+
+function expenseUpdatedAt(expense: Partial<Expense> & { updated_at?: string | null }) {
+    return normalizeTimestamp(expense.updated_at ?? expense.created_at ?? expense.paid_at);
+}
+
+function expenseBudgetUpdatedAt(
+    budget: Partial<ExpenseBudget> & { updated_at?: string | null },
+) {
+    return normalizeTimestamp(budget.updated_at ?? budget.created_at);
+}
+
+function toNumber(value: number | string | null | undefined): number | null {
+    if (value === null || value === undefined) return null;
+    const parsed = typeof value === "number" ? value : Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
 }
 
 function parseChoices(value: string | null | undefined): string[] {
@@ -200,6 +268,78 @@ async function migrate(db: SQLite.SQLiteDatabase) {
         CREATE INDEX IF NOT EXISTS gallery_images_cache_gallery_idx
             ON gallery_images_cache (gallery_id, created_at);
 
+        CREATE TABLE IF NOT EXISTS expense_categories_cache (
+            id TEXT PRIMARY KEY NOT NULL,
+            space_id TEXT NOT NULL,
+            created_by TEXT,
+            name TEXT NOT NULL,
+            color TEXT NOT NULL,
+            sort_order INTEGER NOT NULL DEFAULT 0,
+            is_default INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            deleted_at TEXT
+        );
+        CREATE INDEX IF NOT EXISTS expense_categories_cache_space_idx
+            ON expense_categories_cache (space_id, updated_at, deleted_at);
+
+        CREATE TABLE IF NOT EXISTS expenses_cache (
+            id TEXT PRIMARY KEY NOT NULL,
+            space_id TEXT NOT NULL,
+            created_by TEXT NOT NULL,
+            paid_by TEXT NOT NULL,
+            category_id TEXT,
+            category_name TEXT NOT NULL,
+            category_color TEXT NOT NULL,
+            title TEXT NOT NULL,
+            description TEXT,
+            amount REAL NOT NULL,
+            currency TEXT NOT NULL,
+            base_amount REAL,
+            base_currency TEXT NOT NULL,
+            exchange_rate REAL,
+            exchange_rate_date TEXT,
+            conversion_status TEXT NOT NULL,
+            paid_at TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            deleted_at TEXT
+        );
+        CREATE INDEX IF NOT EXISTS expenses_cache_space_paid_at_idx
+            ON expenses_cache (space_id, paid_at);
+        CREATE INDEX IF NOT EXISTS expenses_cache_space_sync_idx
+            ON expenses_cache (space_id, updated_at, deleted_at);
+
+        CREATE TABLE IF NOT EXISTS expense_exchange_rates_cache (
+            from_currency TEXT NOT NULL,
+            to_currency TEXT NOT NULL,
+            rate REAL NOT NULL,
+            rate_date TEXT NOT NULL,
+            fetched_at TEXT NOT NULL,
+            PRIMARY KEY (from_currency, to_currency)
+        );
+
+        CREATE TABLE IF NOT EXISTS expense_budgets_cache (
+            id TEXT PRIMARY KEY NOT NULL,
+            space_id TEXT NOT NULL,
+            created_by TEXT NOT NULL,
+            scope TEXT NOT NULL,
+            owner_user_id TEXT,
+            category_id TEXT NOT NULL,
+            category_name TEXT NOT NULL,
+            category_color TEXT NOT NULL,
+            month TEXT NOT NULL,
+            amount REAL NOT NULL,
+            currency TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            deleted_at TEXT
+        );
+        CREATE INDEX IF NOT EXISTS expense_budgets_cache_space_month_idx
+            ON expense_budgets_cache (space_id, month, deleted_at);
+        CREATE INDEX IF NOT EXISTS expense_budgets_cache_space_sync_idx
+            ON expense_budgets_cache (space_id, updated_at, deleted_at);
+
         CREATE TABLE IF NOT EXISTS sync_outbox (
             id TEXT PRIMARY KEY NOT NULL,
             entity TEXT NOT NULL,
@@ -215,6 +355,25 @@ async function migrate(db: SQLite.SQLiteDatabase) {
 
         PRAGMA user_version = ${DB_VERSION};
     `);
+
+    const expenseColumns = await db.getAllAsync<{ name: string }>(
+        "PRAGMA table_info(expenses_cache)",
+    );
+    const hasPaidBy = expenseColumns.some((column) => column.name === "paid_by");
+    if (!hasPaidBy) {
+        await db.runAsync("ALTER TABLE expenses_cache ADD COLUMN paid_by TEXT");
+        await db.runAsync(
+            "UPDATE expenses_cache SET paid_by = created_by WHERE paid_by IS NULL",
+        );
+    }
+
+    await db.runAsync(
+        "UPDATE expenses_cache SET paid_by = created_by WHERE paid_by IS NULL",
+    );
+    await db.runAsync(
+        `CREATE INDEX IF NOT EXISTS expenses_cache_space_paid_by_paid_at_idx
+         ON expenses_cache (space_id, paid_by, paid_at)`,
+    );
 }
 
 export async function getOfflineDb() {
@@ -231,6 +390,10 @@ export async function clearOfflineData() {
     const db = await getOfflineDb();
     await db.execAsync(`
         DELETE FROM sync_outbox;
+        DELETE FROM expense_budgets_cache;
+        DELETE FROM expense_exchange_rates_cache;
+        DELETE FROM expenses_cache;
+        DELETE FROM expense_categories_cache;
         DELETE FROM gallery_images_cache;
         DELETE FROM galleries_cache;
         DELETE FROM quotes_cache;
@@ -591,6 +754,271 @@ export async function replaceCachedGalleryImages(
             image.url_orig ?? null,
         );
     }
+}
+
+export async function getCachedExpenseCategories(
+    spaceId: string,
+): Promise<ExpenseCategory[]> {
+    const db = await getOfflineDb();
+    const rows = await db.getAllAsync<CachedExpenseCategoryRow>(
+        `SELECT * FROM expense_categories_cache
+         WHERE space_id = ? AND deleted_at IS NULL
+         ORDER BY sort_order ASC, name ASC`,
+        spaceId,
+    );
+
+    return rows.map((row) => ({
+        ...row,
+        is_default: Boolean(row.is_default),
+    }));
+}
+
+export async function replaceCachedExpenseCategories(
+    spaceId: string,
+    categories: ExpenseCategory[],
+) {
+    const db = await getOfflineDb();
+    await db.runAsync(
+        "DELETE FROM expense_categories_cache WHERE space_id = ?",
+        spaceId,
+    );
+    for (const category of categories) {
+        await upsertCachedExpenseCategory(category);
+    }
+}
+
+export async function upsertCachedExpenseCategory(
+    category: ExpenseCategory & {
+        updated_at?: string | null;
+        deleted_at?: string | null;
+    },
+) {
+    const db = await getOfflineDb();
+    const updatedAt = expenseCategoryUpdatedAt(category);
+    await db.runAsync(
+        `INSERT OR REPLACE INTO expense_categories_cache
+            (
+                id, space_id, created_by, name, color, sort_order, is_default,
+                created_at, updated_at, deleted_at
+            )
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        category.id,
+        category.space_id,
+        category.created_by ?? null,
+        category.name,
+        category.color,
+        category.sort_order ?? 0,
+        category.is_default ? 1 : 0,
+        category.created_at,
+        updatedAt,
+        category.deleted_at ?? null,
+    );
+}
+
+export async function markCachedExpenseCategoryDeleted(
+    categoryId: string,
+    deletedAt: string,
+) {
+    const db = await getOfflineDb();
+    await db.runAsync(
+        `UPDATE expense_categories_cache
+         SET deleted_at = ?, updated_at = ?
+         WHERE id = ?`,
+        deletedAt,
+        deletedAt,
+        categoryId,
+    );
+}
+
+function normalizeCachedExpense(row: CachedExpenseRow): Expense {
+    return {
+        ...row,
+        paid_by: row.paid_by ?? row.created_by,
+        amount: toNumber(row.amount) ?? 0,
+        base_amount: toNumber(row.base_amount),
+        exchange_rate: toNumber(row.exchange_rate),
+    };
+}
+
+export async function getCachedExpenses(spaceId: string): Promise<Expense[]> {
+    const db = await getOfflineDb();
+    const rows = await db.getAllAsync<CachedExpenseRow>(
+        `SELECT * FROM expenses_cache
+         WHERE space_id = ? AND deleted_at IS NULL
+         ORDER BY paid_at DESC, created_at DESC`,
+        spaceId,
+    );
+    return rows.map(normalizeCachedExpense);
+}
+
+export async function replaceCachedExpenses(
+    spaceId: string,
+    expenses: Expense[],
+) {
+    const db = await getOfflineDb();
+    await db.runAsync("DELETE FROM expenses_cache WHERE space_id = ?", spaceId);
+    for (const expense of expenses) {
+        await upsertCachedExpense(expense);
+    }
+}
+
+export async function upsertCachedExpense(
+    expense: Expense & { updated_at?: string | null; deleted_at?: string | null },
+) {
+    const db = await getOfflineDb();
+    const updatedAt = expenseUpdatedAt(expense);
+    await db.runAsync(
+        `INSERT OR REPLACE INTO expenses_cache
+            (
+                id, space_id, created_by, paid_by, category_id, category_name,
+                category_color, title, description, amount, currency,
+                base_amount, base_currency, exchange_rate, exchange_rate_date,
+                conversion_status, paid_at, created_at, updated_at, deleted_at
+            )
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        expense.id,
+        expense.space_id,
+        expense.created_by,
+        expense.paid_by,
+        expense.category_id ?? null,
+        expense.category_name,
+        expense.category_color,
+        expense.title,
+        expense.description ?? null,
+        expense.amount,
+        expense.currency,
+        expense.base_amount ?? null,
+        expense.base_currency,
+        expense.exchange_rate ?? null,
+        expense.exchange_rate_date ?? null,
+        expense.conversion_status,
+        expense.paid_at,
+        expense.created_at,
+        updatedAt,
+        expense.deleted_at ?? null,
+    );
+}
+
+export async function markCachedExpenseDeleted(
+    expenseId: string,
+    deletedAt: string,
+) {
+    const db = await getOfflineDb();
+    await db.runAsync(
+        `UPDATE expenses_cache
+         SET deleted_at = ?, updated_at = ?
+         WHERE id = ?`,
+        deletedAt,
+        deletedAt,
+        expenseId,
+    );
+}
+
+function normalizeCachedExpenseBudget(row: CachedExpenseBudgetRow): ExpenseBudget {
+    return {
+        ...row,
+        amount: toNumber(row.amount) ?? 0,
+    };
+}
+
+export async function getCachedExpenseBudgets(
+    spaceId: string,
+): Promise<ExpenseBudget[]> {
+    const db = await getOfflineDb();
+    const rows = await db.getAllAsync<CachedExpenseBudgetRow>(
+        `SELECT * FROM expense_budgets_cache
+         WHERE space_id = ? AND deleted_at IS NULL
+         ORDER BY month DESC, category_name ASC`,
+        spaceId,
+    );
+    return rows.map(normalizeCachedExpenseBudget);
+}
+
+export async function replaceCachedExpenseBudgets(
+    spaceId: string,
+    budgets: ExpenseBudget[],
+) {
+    const db = await getOfflineDb();
+    await db.runAsync(
+        "DELETE FROM expense_budgets_cache WHERE space_id = ?",
+        spaceId,
+    );
+    for (const budget of budgets) {
+        await upsertCachedExpenseBudget(budget);
+    }
+}
+
+export async function upsertCachedExpenseBudget(
+    budget: ExpenseBudget & { updated_at?: string | null; deleted_at?: string | null },
+) {
+    const db = await getOfflineDb();
+    const updatedAt = expenseBudgetUpdatedAt(budget);
+    await db.runAsync(
+        `INSERT OR REPLACE INTO expense_budgets_cache
+            (
+                id, space_id, created_by, scope, owner_user_id, category_id,
+                category_name, category_color, month, amount, currency,
+                created_at, updated_at, deleted_at
+            )
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        budget.id,
+        budget.space_id,
+        budget.created_by,
+        budget.scope,
+        budget.owner_user_id ?? null,
+        budget.category_id,
+        budget.category_name,
+        budget.category_color,
+        budget.month,
+        budget.amount,
+        budget.currency,
+        budget.created_at,
+        updatedAt,
+        budget.deleted_at ?? null,
+    );
+}
+
+export async function markCachedExpenseBudgetDeleted(
+    budgetId: string,
+    deletedAt: string,
+) {
+    const db = await getOfflineDb();
+    await db.runAsync(
+        `UPDATE expense_budgets_cache
+         SET deleted_at = ?, updated_at = ?
+         WHERE id = ?`,
+        deletedAt,
+        deletedAt,
+        budgetId,
+    );
+}
+
+export async function getCachedExchangeRate(
+    fromCurrency: string,
+    toCurrency: string,
+): Promise<CachedExchangeRate | null> {
+    const db = await getOfflineDb();
+    return await db.getFirstAsync<CachedExchangeRate>(
+        `SELECT * FROM expense_exchange_rates_cache
+         WHERE from_currency = ? AND to_currency = ?
+         LIMIT 1`,
+        fromCurrency,
+        toCurrency,
+    );
+}
+
+export async function upsertCachedExchangeRate(rate: CachedExchangeRate) {
+    const db = await getOfflineDb();
+    await db.runAsync(
+        `INSERT OR REPLACE INTO expense_exchange_rates_cache
+            (from_currency, to_currency, rate, rate_date, fetched_at)
+         VALUES (?, ?, ?, ?, ?)`,
+        rate.from_currency,
+        rate.to_currency,
+        rate.rate,
+        rate.rate_date,
+        rate.fetched_at,
+    );
 }
 
 export async function enqueueOutbox(item: Omit<OutboxItem, "attempts" | "last_error">) {

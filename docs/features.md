@@ -212,6 +212,63 @@ Offline behavior:
 - Reconnect flushes queued inserts, updates, and deletes to Supabase.
 - Current sync deletes list rows in Supabase rather than soft-deleting them, even though `deleted_at` exists.
 
+## Expense Tracker
+
+Route:
+
+- `app/(tabs)/(expenses)/expenses.tsx`
+
+Components:
+
+- `components/expenses/ExpenseModal.tsx`
+- `components/expenses/CategoryManagerModal.tsx`
+- `components/expenses/ExpenseRow.tsx`
+- `components/expenses/ExpenseBreakdownView.tsx`
+- `components/expenses/ExpenseBudgetView.tsx`
+- `components/expenses/BudgetModal.tsx`
+
+Store:
+
+- `stores/ExpenseStore.ts`
+
+Backend:
+
+- `expense_categories`
+- `expenses`
+- `expense_budgets`
+
+Behavior:
+
+- The Expenses tab is the third tab in the bottom bar.
+- The tracker logs expenses and monthly category budgets only. It does not model income, transfers, splitting, or settlement.
+- Expenses include amount, currency, title, category, paid date, and optional description.
+- Expenses store both the creator and the payer. The payer can be the current user or partner.
+- The log can show both partners together or only the current user's expenses.
+- The log can switch between day, week, and month views, with previous/next period navigation.
+- Descriptions are shown in the expense detail/edit modal, not inline in the list.
+- Default categories are Food, Health, Medical, Bills, and Transport.
+- Categories can be added, renamed, recolored, and deleted. Deletes are soft deletes; existing expenses keep category snapshots.
+- Breakdown view supports daily, weekly, monthly, and yearly periods, with previous/next period navigation. Weekly periods start on Monday.
+- Breakdown metrics include total spend, change vs previous period, daily average, top category, largest expense, transaction count, and conversion-pending count.
+- Budget view supports monthly budgets per category, with shared Both budgets and private Me budgets.
+- Budget rows show spent amount, budget amount, remaining or over amount, percentage used, and a progress bar.
+- If a selected month has no budgets for the active scope, the app copies the previous month's budgets for that same scope.
+
+Currency behavior:
+
+- Default currency is SGD.
+- Popular travel currencies are available when adding an expense.
+- Foreign-currency expenses store original amount/currency plus a converted SGD snapshot.
+- Exchange rates are fetched from Frankfurter and cached locally.
+- If a foreign-currency expense is created offline without a cached rate, it is saved with pending conversion and retried when online.
+
+Offline behavior:
+
+- Expense, budget, and category create, update, and delete are offline-writeable.
+- Offline writes update SQLite and Zustand immediately, then enqueue `expenses`, `expense_budgets`, or `expense_categories` operations in `sync_outbox`.
+- Expense, budget, and category deletes use `deleted_at` soft deletes in local cache and Supabase.
+- Cached exchange rates are reused offline when available.
+
 ## Decision Wheel
 
 Route:

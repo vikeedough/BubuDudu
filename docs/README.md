@@ -12,7 +12,9 @@ Start here when a future chat needs to understand the project quickly.
    - Supabase tables, storage buckets, Edge Functions, local SQLite cache, and data flow.
 4. `docs/offline-first.md`
    - Detailed offline-first behavior, sync outbox, cache lifecycle, and how to add future offline features.
-5. `docs/supabase-introspection.sql`
+5. `docs/expense-tracker.md`
+   - Expense tracker behavior, currency conversion, local cache tables, and sync model.
+6. `docs/supabase-introspection.sql`
    - Read-only SQL to paste into the Supabase SQL editor when live backend details are needed.
 
 ## Current App Shape
@@ -26,9 +28,10 @@ The main feature areas are:
 - Home dashboard with quotes, birthday countdowns, shared milestone, avatars, and status notes.
 - Settings for profile details, shared milestone, invite code, and sign out.
 - Notes/lists with offline create, edit, and delete.
+- Expense tracking with offline create/edit/delete, category management, currency conversion, and breakdown metrics.
 - Decision wheel with offline wheel/title/choice changes and animated spin results.
 - Gallery with private images, generated variants, signed URLs, pagination, image viewer, downloads, and deletes.
-- Offline cache and sync outbox for lists, wheels, shared milestone, and profile notes.
+- Offline cache and sync outbox for lists, wheels, expenses, shared milestone, and profile notes.
 
 ## Backend Knowledge
 

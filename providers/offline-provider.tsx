@@ -1,6 +1,7 @@
 import NetInfo from "@react-native-community/netinfo";
 import { PropsWithChildren, useEffect, useRef } from "react";
 
+import { useExpenseStore } from "@/stores/ExpenseStore";
 import { useGalleryStore } from "@/stores/GalleryStore";
 import { useListStore } from "@/stores/ListStore";
 import { useMilestoneStore } from "@/stores/MilestoneStore";
@@ -18,6 +19,7 @@ async function refreshStoresAfterSync() {
     await Promise.allSettled([
         useListStore.getState().fetchLists(),
         useWheelStore.getState().fetchWheels(),
+        useExpenseStore.getState().refreshAll(),
         useMilestoneStore.getState().fetchMilestone(),
         useGalleryStore.getState().refreshGalleries(),
     ]);

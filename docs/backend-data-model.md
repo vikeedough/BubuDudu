@@ -51,6 +51,9 @@ erDiagram
     AUTH_USERS ||--o{ SPACE_INVITES : creates
     SPACES ||--o{ QUOTES : has
     SPACES ||--o{ LISTS : has
+    SPACES ||--o{ EXPENSE_CATEGORIES : has
+    SPACES ||--o{ EXPENSES : has
+    EXPENSE_CATEGORIES ||--o{ EXPENSES : categorizes
     SPACES ||--o{ WHEEL : has
     SPACES ||--|| MILESTONES : has_one
     SPACES ||--o{ GALLERIES : has
@@ -282,6 +285,145 @@ Notes:
 - Current outbox sync performs physical Supabase deletes, not server-side soft deletes.
 - Live RLS allows space members to select, insert, update, and delete list rows.
 
+### `expense_categories`
+
+Purpose:
+
+- Stores space-scoped expense categories for the expense tracker.
+
+Primary key:
+
+- `id uuid`
+
+Foreign keys:
+
+- `space_id` to `spaces(id)` with delete cascade.
+- `created_by` to `auth.users(id)` with delete set null.
+
+Used fields:
+
+- `name`
+- `color`
+- `sort_order`
+- `is_default`
+- `created_at`
+- `updated_at`
+- `deleted_at`
+
+Code paths:
+
+- `stores/ExpenseStore.ts`
+- `components/expenses/CategoryManagerModal.tsx`
+- `app/(tabs)/(expenses)/expenses.tsx`
+
+Notes:
+
+- Default categories are Food, Health, Medical, Bills, and Transport.
+- Categories can be added, renamed, recolored, and soft-deleted.
+- Deleting a category does not delete historical expenses; expense rows keep `category_name` and `category_color` snapshots.
+- RLS should allow space members to select, insert, and update category rows for their space.
+
+### `expenses`
+
+Purpose:
+
+- Stores expense-only tracking rows for a shared space.
+
+Primary key:
+
+- `id uuid`
+
+Foreign keys:
+
+- `space_id` to `spaces(id)` with delete cascade.
+- `created_by` to `auth.users(id)` with delete cascade.
+- `paid_by` to `auth.users(id)` with delete cascade.
+- `category_id` to `expense_categories(id)` with delete set null.
+
+Used fields:
+
+- `title`
+- `description`
+- `amount`
+- `currency`
+- `base_amount`
+- `base_currency`
+- `exchange_rate`
+- `exchange_rate_date`
+- `conversion_status`
+- `category_id`
+- `category_name`
+- `category_color`
+- `paid_at`
+- `created_by`
+- `paid_by`
+- `created_at`
+- `updated_at`
+- `deleted_at`
+
+Code paths:
+
+- `stores/ExpenseStore.ts`
+- `components/expenses/ExpenseModal.tsx`
+- `components/expenses/ExpenseRow.tsx`
+- `components/expenses/ExpenseBreakdownView.tsx`
+- `utils/expenses.ts`
+
+Notes:
+
+- The creator records who logged the row. `paid_by` records whether the current user or partner paid.
+- Default base currency is SGD.
+- Foreign-currency expenses store original amount/currency plus a converted SGD snapshot.
+- Rows can be saved with `conversion_status = 'pending'` while offline without a cached exchange rate.
+- Expense deletes are soft deletes via `deleted_at`.
+- Breakdown supports both-partners and current-user scopes. Current-user scope filters by `paid_by`.
+- RLS should allow space members to select, insert, update, and delete expense rows for their space.
+
+### `expense_budgets`
+
+Purpose:
+
+- Stores monthly SGD category budgets for the expense tracker.
+
+Primary key:
+
+- `id uuid`
+
+Foreign keys:
+
+- `space_id` to `spaces(id)` with delete cascade.
+- `created_by` to `auth.users(id)` with delete cascade.
+- `owner_user_id` to `auth.users(id)` with delete cascade.
+- `category_id` to `expense_categories(id)` with delete cascade.
+
+Used fields:
+
+- `scope` as `space` for shared budgets or `user` for personal budgets.
+- `owner_user_id`, null for shared budgets and set to the current user for personal budgets.
+- `category_id`
+- `category_name`
+- `category_color`
+- `month`, stored as the first day of the month.
+- `amount`
+- `currency`, fixed to SGD.
+- `created_at`
+- `updated_at`
+- `deleted_at`
+
+Code paths:
+
+- `stores/ExpenseStore.ts`
+- `components/expenses/ExpenseBudgetView.tsx`
+- `components/expenses/BudgetModal.tsx`
+- `utils/expenses.ts`
+
+Notes:
+
+- Budget view is monthly only and uses the same Both/Me scope toggle as expenses.
+- Both/shared budgets are visible to space members. Me/personal budgets are visible only to the owning user.
+- If a selected month has no budgets for the active scope, the app copies the previous month's budgets for that same scope.
+- Budget deletes are soft deletes via `deleted_at`.
+
 ### `wheel`
 
 Purpose:
@@ -472,6 +614,9 @@ Current live RLS shape:
 | `quotes` | Public select access. |
 | `milestones` | Space members can select, insert, and update. |
 | `lists` | Space members can select, insert, update, and delete. |
+| `expense_categories` | Space members can select, insert, and update; app deletes use soft-delete updates. |
+| `expenses` | Space members can select, insert, update, and delete; app deletes use soft-delete updates. |
+| `expense_budgets` | Space members can read/write shared budgets; users can read/write only their own personal budgets. |
 | `wheel` | Space members can select, insert, update, and delete. |
 | `galleries` | Space members can select, insert, update, and delete. |
 | `date_images` | Members of the parent gallery's space can select, insert, update, and delete. |
@@ -561,7 +706,7 @@ Database:
 
 Version:
 
-- `PRAGMA user_version = 1`
+- `PRAGMA user_version = 3`
 
 Tables:
 
@@ -572,6 +717,10 @@ Tables:
 - `quotes_cache`
 - `galleries_cache`
 - `gallery_images_cache`
+- `expense_categories_cache`
+- `expense_budgets_cache`
+- `expenses_cache`
+- `expense_exchange_rates_cache`
 - `sync_outbox`
 
 Outbox entities:
@@ -580,6 +729,9 @@ Outbox entities:
 - `wheel`
 - `milestones`
 - `profile_note`
+- `expense_categories`
+- `expense_budgets`
+- `expenses`
 
 Outbox operations:
 
@@ -611,6 +763,7 @@ Behavior:
 Important caveats:
 
 - Lists and wheels have `deleted_at` columns, but current remote sync uses `.delete()`.
+- Expenses and expense categories use `deleted_at` soft-delete updates during sync.
 - Conflict behavior is effectively last queued write wins.
 - There is no field-level merge logic.
 

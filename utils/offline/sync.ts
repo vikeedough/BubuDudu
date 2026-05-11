@@ -112,6 +112,108 @@ async function syncProfileNoteItem(item: OutboxItem) {
     if (insertError) throw insertError;
 }
 
+async function syncExpenseItem(item: OutboxItem) {
+    const payload = parsePayload<Record<string, unknown>>(item);
+
+    if (item.operation === "insert" || item.operation === "upsert") {
+        const { error } = await supabase
+            .from("expenses")
+            .upsert(payload, { onConflict: "id" });
+        if (error) throw error;
+        return;
+    }
+
+    if (item.operation === "update") {
+        const { id: _id, ...patch } = payload;
+        const { error } = await supabase
+            .from("expenses")
+            .update(patch)
+            .eq("id", item.entity_id);
+        if (error) throw error;
+        return;
+    }
+
+    if (item.operation === "delete") {
+        const deletedAt =
+            typeof payload.deleted_at === "string"
+                ? payload.deleted_at
+                : new Date().toISOString();
+        const { error } = await supabase
+            .from("expenses")
+            .update({ deleted_at: deletedAt })
+            .eq("id", item.entity_id);
+        if (error) throw error;
+    }
+}
+
+async function syncExpenseCategoryItem(item: OutboxItem) {
+    const payload = parsePayload<Record<string, unknown>>(item);
+
+    if (item.operation === "insert" || item.operation === "upsert") {
+        const { error } = await supabase
+            .from("expense_categories")
+            .upsert(payload, { onConflict: "id" });
+        if (error) throw error;
+        return;
+    }
+
+    if (item.operation === "update") {
+        const { id: _id, ...patch } = payload;
+        const { error } = await supabase
+            .from("expense_categories")
+            .update(patch)
+            .eq("id", item.entity_id);
+        if (error) throw error;
+        return;
+    }
+
+    if (item.operation === "delete") {
+        const deletedAt =
+            typeof payload.deleted_at === "string"
+                ? payload.deleted_at
+                : new Date().toISOString();
+        const { error } = await supabase
+            .from("expense_categories")
+            .update({ deleted_at: deletedAt })
+            .eq("id", item.entity_id);
+        if (error) throw error;
+    }
+}
+
+async function syncExpenseBudgetItem(item: OutboxItem) {
+    const payload = parsePayload<Record<string, unknown>>(item);
+
+    if (item.operation === "insert" || item.operation === "upsert") {
+        const { error } = await supabase
+            .from("expense_budgets")
+            .upsert(payload, { onConflict: "id" });
+        if (error) throw error;
+        return;
+    }
+
+    if (item.operation === "update") {
+        const { id: _id, ...patch } = payload;
+        const { error } = await supabase
+            .from("expense_budgets")
+            .update(patch)
+            .eq("id", item.entity_id);
+        if (error) throw error;
+        return;
+    }
+
+    if (item.operation === "delete") {
+        const deletedAt =
+            typeof payload.deleted_at === "string"
+                ? payload.deleted_at
+                : new Date().toISOString();
+        const { error } = await supabase
+            .from("expense_budgets")
+            .update({ deleted_at: deletedAt })
+            .eq("id", item.entity_id);
+        if (error) throw error;
+    }
+}
+
 async function syncOutboxItem(item: OutboxItem) {
     if (item.entity === "lists") {
         await syncListItem(item);
@@ -130,6 +232,21 @@ async function syncOutboxItem(item: OutboxItem) {
 
     if (item.entity === "profile_note") {
         await syncProfileNoteItem(item);
+        return;
+    }
+
+    if (item.entity === "expenses") {
+        await syncExpenseItem(item);
+        return;
+    }
+
+    if (item.entity === "expense_categories") {
+        await syncExpenseCategoryItem(item);
+        return;
+    }
+
+    if (item.entity === "expense_budgets") {
+        await syncExpenseBudgetItem(item);
     }
 }
 
