@@ -3,6 +3,8 @@ import React, { useEffect, useRef } from "react";
 import { Animated, Pressable, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import FocusedExpensesIcon from "@/assets/svgs/nav-bar/expenses-focused.svg";
+import ExpensesIcon from "@/assets/svgs/nav-bar/expenses.svg";
 import FocusedGalleryIcon from "@/assets/svgs/nav-bar/gallery-focused.svg";
 import GalleryIcon from "@/assets/svgs/nav-bar/gallery.svg";
 import FocusedHomeIcon from "@/assets/svgs/nav-bar/home-focused.svg";
@@ -15,7 +17,12 @@ import { Colors } from "@/constants/colors";
 
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 
-type TabRouteName = "initial" | "(gallery)" | "(lists)" | "(wheel)";
+type TabRouteName =
+    | "initial"
+    | "(gallery)"
+    | "(expenses)"
+    | "(lists)"
+    | "(wheel)";
 
 interface AnimatedTabIconProps {
     focused: boolean;
@@ -40,6 +47,11 @@ const TAB_CONFIG: Record<
         ActiveIcon: FocusedGalleryIcon,
         InactiveIcon: GalleryIcon,
     },
+    "(expenses)": {
+        label: "Expenses",
+        ActiveIcon: FocusedExpensesIcon,
+        InactiveIcon: ExpensesIcon,
+    },
     "(lists)": {
         label: "Lists",
         ActiveIcon: FocusedListsIcon,
@@ -53,6 +65,10 @@ const TAB_CONFIG: Record<
 };
 
 const TAB_BAR_BASE_BOTTOM_OFFSET = 5;
+
+function EmptyIcon() {
+    return <View />;
+}
 
 function isTabRouteName(name: string): name is TabRouteName {
     return name in TAB_CONFIG;
@@ -201,6 +217,10 @@ export default function TabLayout() {
             <Tabs.Screen
                 name="(gallery)"
                 options={{ title: TAB_CONFIG["(gallery)"].label }}
+            />
+            <Tabs.Screen
+                name="(expenses)"
+                options={{ title: TAB_CONFIG["(expenses)"].label }}
             />
             <Tabs.Screen
                 name="(lists)"

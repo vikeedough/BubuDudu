@@ -11,7 +11,7 @@ Related docs:
 ## Goals
 
 - The app can open offline after the user has logged in once and joined or created a space.
-- Notes, lists, wheels, and shared milestones can be created, edited, and deleted while offline.
+- Notes, lists, wheels, expenses, expense budgets, categories, and shared milestones can be created, edited, and deleted while offline.
 - Offline writes update the UI immediately and sync to Supabase when the phone comes back online.
 - Sync conflict behavior is last-write-wins.
 - Gallery is view-only offline. Gallery uploads/deletes are intentionally blocked while offline.
@@ -37,6 +37,9 @@ Related docs:
 
 - `stores/SyncStore.ts`
   Tracks `isOnline`, `isSyncing`, `pendingCount`, `lastSyncedAt`, and `lastError`.
+
+- `stores/ExpenseStore.ts`
+  Owns expense/category cache reads, offline writes, exchange-rate conversion, and pending conversion retry.
 
 - `supabase/sql/offline-first-sync.sql`
   SQL that should be run in the Supabase GUI. It adds sync-friendly columns, triggers, and indexes.
@@ -65,6 +68,7 @@ This pattern is currently used by:
 
 - `stores/ListStore.ts`
 - `stores/WheelStore.ts`
+- `stores/ExpenseStore.ts`
 - `stores/MilestoneStore.ts`
 - `api/endpoints/profiles.ts`
 - `api/endpoints/quotes.ts`
@@ -95,6 +99,7 @@ The user is notified by toast when:
 
 - Lists
 - Wheels
+- Expenses, expense budgets, and expense categories
 - Shared milestone
 - Profile note/status
 
@@ -106,6 +111,10 @@ These writes update SQLite and Zustand immediately, then enqueue a `sync_outbox`
 - Quotes
 - Lists
 - Wheels
+- Expenses
+- Expense budgets
+- Expense categories
+- Exchange rates for expense conversion
 - Shared milestone
 - Gallery metadata
 - Gallery image rows and signed URLs, when previously fetched
@@ -161,6 +170,9 @@ Re-run `docs/supabase-introspection.sql` when touching sync behavior. The app de
 - `flushOutbox()` serializes concurrent sync attempts with a module-level `syncPromise`.
 - Failed outbox items stay queued and record `attempts` plus `last_error`.
 - The current conflict strategy is simple last queued write wins; there is no field-level merge.
+- Expense and expense-category deletes are soft deletes in Supabase via `deleted_at`.
+- Expense rows cache `paid_by` so "Me" views work offline from the actual payer, not the row creator.
+- Foreign-currency expenses may be created with `conversion_status = "pending"` when offline without a cached rate. `ExpenseStore` retries conversion after online refresh.
 
 ## Testing Offline Behavior
 
@@ -170,64 +182,23 @@ Suggested manual test:
 
 1. Install a preview/prod build.
 2. Open online, log in, and join/create a space.
-3. Visit Home, Lists, Wheel, and Gallery at least once to seed cache.
+3. Visit Home, Lists, Expenses, Wheel, and Gallery at least once to seed cache.
 4. Kill the app.
 5. Enable airplane mode.
 6. Reopen the app.
-7. Create/edit/delete lists, wheels, milestone, and profile note.
+7. Create/edit/delete lists, expenses, expense budgets, categories, wheels, milestone, and profile note.
 8. Disable airplane mode.
 9. Watch toast notifications and confirm Supabase receives the changes.
 
-## How To Add Expense Tracking
+## Expense Tracking Implementation
 
-Design expenses as an offline-first feature from the beginning. Avoid direct Supabase calls from the screen.
+Expense tracking has been implemented as an offline-first feature. See `docs/expense-tracker.md` for product behavior, currency conversion, local cache tables, and backend table details.
 
-Recommended server columns:
+Important implementation notes:
 
-```sql
-create table if not exists public.expenses (
-  id uuid primary key,
-  space_id uuid not null references public.spaces(id) on delete cascade,
-  created_by uuid not null references auth.users(id) on delete cascade,
-  title text not null,
-  amount numeric(12, 2) not null,
-  currency text not null default 'SGD',
-  category text,
-  paid_at timestamptz not null,
-  note text,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  deleted_at timestamptz
-);
-
-create trigger set_expenses_updated_at
-before update on public.expenses
-for each row execute function public.set_updated_at();
-
-create index if not exists expenses_space_sync_idx
-on public.expenses (space_id, updated_at, deleted_at);
-```
-
-Recommended app steps:
-
-1. Add an `expenses_cache` table in `utils/offline/local-db.ts`.
-2. Add helpers:
-   - `getCachedExpenses(spaceId)`
-   - `replaceCachedExpenses(spaceId, expenses)`
-   - `upsertCachedExpense(expense)`
-   - `markCachedExpenseDeleted(expenseId, deletedAt)`
-3. Add `"expenses"` to the `OutboxEntity` union.
-4. Add an expense sync branch in `utils/offline/sync.ts`.
-5. Create `stores/ExpenseStore.ts` using the same pattern as `ListStore`.
-6. Build screens against `ExpenseStore`, not Supabase directly.
-7. Add tests for:
-   - cached offline read
-   - offline create
-   - offline update
-   - offline delete
-   - reconnect sync
-   - failed sync remains queued
-
-Expense rows should use client-generated UUIDs from `createLocalId()` so new expenses can be created offline without waiting for Supabase.
-
-For v1 conflict handling, keep last-write-wins by `updated_at`. Expense entries are usually record-based, so this should be good enough unless we later add shared split/settlement workflows that need field-level conflict handling.
+- Screens call `stores/ExpenseStore.ts`, not Supabase directly.
+- Expense rows and category rows use client-generated UUIDs from `createLocalId()`.
+- Local cache tables are `expenses_cache`, `expense_budgets_cache`, `expense_categories_cache`, and `expense_exchange_rates_cache`.
+- Outbox entities are `expenses`, `expense_budgets`, and `expense_categories`.
+- Deletes use `deleted_at` soft deletes.
+- Conflict handling remains last-write-wins by queued operation order and server `updated_at`.
