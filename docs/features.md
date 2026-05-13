@@ -241,11 +241,11 @@ Behavior:
 
 - The Expenses tab is the third tab in the bottom bar.
 - The tracker logs expenses and monthly category budgets only. It does not model income, transfers, splitting, or settlement.
-- Expenses include amount, currency, title, category, paid date, and optional description.
+- Expenses include amount, currency, title, category, and paid date.
 - Expenses store both the creator and the payer. The payer can be the current user or partner.
 - The log can show both partners together or only the current user's expenses.
-- The log can switch between day, week, and month views, with previous/next period navigation.
-- Descriptions are shown in the expense detail/edit modal, not inline in the list.
+- The log opens to day view by default and can switch between day, week, and month views, with previous/next period navigation. The current day label is Today.
+- Adding an expense while viewing a specific log day starts the expense form date picker on that selected day.
 - Default categories are Food, Health, Medical, Bills, and Transport.
 - Categories can be added, renamed, recolored, and deleted. Deletes are soft deletes; existing expenses keep category snapshots.
 - Breakdown view supports daily, weekly, monthly, and yearly periods, with previous/next period navigation. Weekly periods start on Monday.

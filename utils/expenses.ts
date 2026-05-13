@@ -184,7 +184,11 @@ export function getExpensePeriodLabel(
     anchorDate = new Date(),
 ) {
     const anchor = dayjs(anchorDate);
-    if (period === "daily") return anchor.format("D MMM YYYY");
+    if (period === "daily") {
+        return anchor.isSame(dayjs(), "day")
+            ? "Today"
+            : anchor.format("D MMM YYYY");
+    }
     if (period === "weekly") {
         const range = getPeriodRange(period, anchorDate);
         return `${dayjs(range.start).format("D MMM")} - ${dayjs(range.end)

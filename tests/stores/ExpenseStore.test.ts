@@ -5,6 +5,7 @@ import { queueFrom, queueFromSingle, supabaseMock } from "@/tests/mocks/supabase
 import {
   buildExpenseAnalytics,
   buildExpenseBudgetAnalytics,
+  getExpensePeriodLabel,
 } from "@/utils/expenses";
 import { setIsOnline } from "@/utils/offline/network";
 
@@ -185,6 +186,13 @@ describe("stores/ExpenseStore", () => {
 
     expect(analytics.total).toBe(12.5);
     expect(analytics.transactionCount).toBe(1);
+  });
+
+  it("labels the current daily period as Today", () => {
+    expect(getExpensePeriodLabel("daily", new Date())).toBe("Today");
+    expect(
+      getExpensePeriodLabel("daily", new Date("2026-05-11T12:00:00.000Z")),
+    ).toBe("11 May 2026");
   });
 
   it("sets a shared category budget online", async () => {

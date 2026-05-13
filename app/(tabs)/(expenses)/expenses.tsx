@@ -155,7 +155,7 @@ const Expenses = () => {
 
     const [viewMode, setViewMode] = useState<ViewMode>("log");
     const [scope, setScope] = useState<ExpenseScope>("space");
-    const [logPeriod, setLogPeriod] = useState<ExpenseLogPeriod>("monthly");
+    const [logPeriod, setLogPeriod] = useState<ExpenseLogPeriod>("daily");
     const [logAnchorDate, setLogAnchorDate] = useState(new Date());
     const [period, setPeriod] = useState<ExpensePeriod>("monthly");
     const [breakdownAnchorDate, setBreakdownAnchorDate] = useState(new Date());
@@ -461,6 +461,11 @@ const Expenses = () => {
                 mode={selectedExpense ? "edit" : "create"}
                 categories={categories}
                 expense={selectedExpense}
+                initialPaidAt={
+                    viewMode === "log" && logPeriod === "daily"
+                        ? logAnchorDate
+                        : undefined
+                }
                 currentUserId={currentUserId}
                 partnerProfile={partnerProfile}
                 isLoadingCategories={isLoadingCategories}

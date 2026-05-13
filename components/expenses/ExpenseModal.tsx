@@ -42,6 +42,7 @@ type ExpenseModalProps = {
     mode: "create" | "edit";
     categories: ExpenseCategory[];
     expense?: Expense | null;
+    initialPaidAt?: Date;
     currentUserId: string | null;
     partnerProfile: Profile | null;
     isLoadingCategories: boolean;
@@ -52,8 +53,12 @@ type ExpenseModalProps = {
     onManageCategories: () => void;
 };
 
-function getInitialDate(expense?: Expense | null) {
-    if (!expense?.paid_at) return new Date();
+function getInitialDate(expense?: Expense | null, fallbackDate?: Date) {
+    if (!expense?.paid_at) {
+        return fallbackDate && !Number.isNaN(fallbackDate.getTime())
+            ? new Date(fallbackDate)
+            : new Date();
+    }
     const parsed = new Date(expense.paid_at);
     return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
 }
@@ -63,6 +68,7 @@ export default function ExpenseModal({
     mode,
     categories,
     expense,
+    initialPaidAt,
     currentUserId,
     partnerProfile,
     isLoadingCategories,
@@ -77,7 +83,6 @@ export default function ExpenseModal({
     const [currency, setCurrency] = useState(DEFAULT_EXPENSE_CURRENCY);
     const [categoryId, setCategoryId] = useState("");
     const [paidBy, setPaidBy] = useState("");
-    const [description, setDescription] = useState("");
     const [paidAt, setPaidAt] = useState(new Date());
     const [isCurrencyDropdownOpen, setIsCurrencyDropdownOpen] = useState(false);
     const [currencyDropdownPosition, setCurrencyDropdownPosition] = useState<{
@@ -96,15 +101,14 @@ export default function ExpenseModal({
         setCurrency(expense?.currency ?? DEFAULT_EXPENSE_CURRENCY);
         setCategoryId(expense?.category_id ?? "");
         setPaidBy(expense?.paid_by ?? currentUserId ?? "");
-        setDescription(expense?.description ?? "");
-        setPaidAt(getInitialDate(expense));
+        setPaidAt(getInitialDate(expense, initialPaidAt));
         setIsCurrencyDropdownOpen(false);
         setCurrencyDropdownPosition(null);
 
         requestAnimationFrame(() => {
             scrollViewRef.current?.scrollTo({ y: 0, animated: false });
         });
-    }, [currentUserId, expense, isOpen]);
+    }, [currentUserId, expense, initialPaidAt, isOpen]);
 
     useEffect(() => {
         if (!isOpen || categoryId || categories.length === 0) return;
@@ -173,7 +177,7 @@ export default function ExpenseModal({
             currency,
             categoryId,
             paidBy,
-            description: description.trim() || null,
+            description: expense?.description ?? null,
             paidAt: paidAt.toISOString(),
         });
     };
@@ -351,20 +355,6 @@ export default function ExpenseModal({
                                 onChange={setPaidAt}
                                 maxYear={new Date().getFullYear() + 1}
                                 nestedScrollEnabled
-                            />
-
-                            <CustomText weight="semibold" style={styles.label}>
-                                Description
-                            </CustomText>
-                            <TextInput
-                                style={[styles.input, styles.descriptionInput]}
-                                value={description}
-                                onChangeText={setDescription}
-                                placeholder="Optional"
-                                placeholderTextColor={Colors.gray}
-                                multiline
-                                textAlignVertical="top"
-                                allowFontScaling={false}
                             />
 
                             <CustomText weight="semibold" style={styles.label}>
@@ -704,10 +694,6 @@ const styles = StyleSheet.create({
     },
     disabledPaidByText: {
         color: Colors.gray,
-    },
-    descriptionInput: {
-        minHeight: 86,
-        paddingTop: 10,
     },
     footer: {
         flexDirection: "row",
