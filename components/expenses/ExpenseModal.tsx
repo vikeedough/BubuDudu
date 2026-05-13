@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
@@ -14,10 +14,11 @@ import {
 } from "react-native";
 
 import CustomText from "@/components/CustomText";
-import InlineWheelDatePicker from "@/components/InlineWheelDatePicker";
+import ExpenseDatePicker from "@/components/expenses/ExpenseDatePicker";
 import { Colors } from "@/constants/colors";
 import {
     DEFAULT_EXPENSE_CURRENCY,
+    getExpenseTitleSuggestions,
     POPULAR_CURRENCIES,
     parseExpenseAmount,
 } from "@/utils/expenses";
@@ -26,6 +27,8 @@ import type { Expense, ExpenseCategory, Profile } from "@/api/endpoints/types";
 
 const CURRENCY_DROPDOWN_WIDTH = 96;
 const CURRENCY_DROPDOWN_GAP = 6;
+const CATEGORY_DROPDOWN_WIDTH = 220;
+const CATEGORY_DROPDOWN_GAP = 6;
 
 type ExpenseModalSaveInput = {
     title: string;
@@ -40,9 +43,12 @@ type ExpenseModalSaveInput = {
 type ExpenseModalProps = {
     isOpen: boolean;
     mode: "create" | "edit";
+    expenses: Expense[];
     categories: ExpenseCategory[];
     expense?: Expense | null;
+    initialPaidAt?: Date;
     currentUserId: string | null;
+    currentUserProfile: Profile | null;
     partnerProfile: Profile | null;
     isLoadingCategories: boolean;
     isSaving: boolean;
@@ -52,18 +58,33 @@ type ExpenseModalProps = {
     onManageCategories: () => void;
 };
 
-function getInitialDate(expense?: Expense | null) {
-    if (!expense?.paid_at) return new Date();
+function getInitialDate(expense?: Expense | null, fallbackDate?: Date) {
+    if (!expense?.paid_at) {
+        return fallbackDate && !Number.isNaN(fallbackDate.getTime())
+            ? new Date(fallbackDate)
+            : new Date();
+    }
     const parsed = new Date(expense.paid_at);
     return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+}
+
+function getProfileColor(profile: Profile | null, fallback: string) {
+    return profile?.avatar_border_color?.trim() || fallback;
+}
+
+function getPartnerLabel(profile: Profile | null) {
+    return profile?.name?.trim() || "Partner";
 }
 
 export default function ExpenseModal({
     isOpen,
     mode,
+    expenses,
     categories,
     expense,
+    initialPaidAt,
     currentUserId,
+    currentUserProfile,
     partnerProfile,
     isLoadingCategories,
     isSaving,
@@ -77,16 +98,43 @@ export default function ExpenseModal({
     const [currency, setCurrency] = useState(DEFAULT_EXPENSE_CURRENCY);
     const [categoryId, setCategoryId] = useState("");
     const [paidBy, setPaidBy] = useState("");
-    const [description, setDescription] = useState("");
     const [paidAt, setPaidAt] = useState(new Date());
+    const [isTitleInputFocused, setIsTitleInputFocused] = useState(false);
     const [isCurrencyDropdownOpen, setIsCurrencyDropdownOpen] = useState(false);
     const [currencyDropdownPosition, setCurrencyDropdownPosition] = useState<{
+        top: number;
+        left: number;
+    } | null>(null);
+    const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
+    const [categoryDropdownPosition, setCategoryDropdownPosition] = useState<{
         top: number;
         left: number;
     } | null>(null);
     const scrollViewRef = useRef<ScrollView>(null);
     const currencyButtonRef =
         useRef<React.ComponentRef<typeof TouchableOpacity>>(null);
+    const categoryButtonRef =
+        useRef<React.ComponentRef<typeof TouchableOpacity>>(null);
+    const titleBlurTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const currentUserColor = getProfileColor(currentUserProfile, Colors.darkBlue);
+    const partnerColor = getProfileColor(partnerProfile, Colors.hotPink);
+    const partnerLabel = getPartnerLabel(partnerProfile);
+    const selectedCategory = useMemo(
+        () => categories.find((category) => category.id === categoryId) ?? null,
+        [categories, categoryId],
+    );
+    const titleSuggestions = useMemo(
+        () =>
+            getExpenseTitleSuggestions({
+                expenses,
+                query: title,
+                currentUserId,
+                excludeExpenseId: expense?.id,
+            }),
+        [currentUserId, expense?.id, expenses, title],
+    );
+    const showTitleSuggestions =
+        isTitleInputFocused && titleSuggestions.length > 0;
 
     useEffect(() => {
         if (!isOpen) return;
@@ -96,15 +144,25 @@ export default function ExpenseModal({
         setCurrency(expense?.currency ?? DEFAULT_EXPENSE_CURRENCY);
         setCategoryId(expense?.category_id ?? "");
         setPaidBy(expense?.paid_by ?? currentUserId ?? "");
-        setDescription(expense?.description ?? "");
-        setPaidAt(getInitialDate(expense));
+        setPaidAt(getInitialDate(expense, initialPaidAt));
+        setIsTitleInputFocused(false);
         setIsCurrencyDropdownOpen(false);
         setCurrencyDropdownPosition(null);
+        setIsCategoryDropdownOpen(false);
+        setCategoryDropdownPosition(null);
 
         requestAnimationFrame(() => {
             scrollViewRef.current?.scrollTo({ y: 0, animated: false });
         });
-    }, [currentUserId, expense, isOpen]);
+    }, [currentUserId, expense, initialPaidAt, isOpen]);
+
+    useEffect(() => {
+        return () => {
+            if (titleBlurTimerRef.current) {
+                clearTimeout(titleBlurTimerRef.current);
+            }
+        };
+    }, []);
 
     useEffect(() => {
         if (!isOpen || categoryId || categories.length === 0) return;
@@ -116,12 +174,23 @@ export default function ExpenseModal({
         setCurrencyDropdownPosition(null);
     };
 
+    const closeCategoryDropdown = () => {
+        setIsCategoryDropdownOpen(false);
+        setCategoryDropdownPosition(null);
+    };
+
+    const closeDropdowns = () => {
+        closeCurrencyDropdown();
+        closeCategoryDropdown();
+    };
+
     const handleToggleCurrencyDropdown = () => {
         if (isCurrencyDropdownOpen) {
             closeCurrencyDropdown();
             return;
         }
 
+        closeCategoryDropdown();
         currencyButtonRef.current?.measureInWindow((x, y, width, height) => {
             setCurrencyDropdownPosition({
                 top: y + height + CURRENCY_DROPDOWN_GAP,
@@ -131,14 +200,49 @@ export default function ExpenseModal({
         });
     };
 
+    const handleToggleCategoryDropdown = () => {
+        if (isCategoryDropdownOpen) {
+            closeCategoryDropdown();
+            return;
+        }
+
+        closeCurrencyDropdown();
+        categoryButtonRef.current?.measureInWindow((x, y, width, height) => {
+            setCategoryDropdownPosition({
+                top: y + height + CATEGORY_DROPDOWN_GAP,
+                left: Math.max(12, x + width - CATEGORY_DROPDOWN_WIDTH),
+            });
+            setIsCategoryDropdownOpen(true);
+        });
+    };
+
     const handleSelectCurrency = (code: string) => {
         setCurrency(code);
         closeCurrencyDropdown();
     };
 
+    const handleSelectCategory = (nextCategoryId: string) => {
+        setCategoryId(nextCategoryId);
+        closeCategoryDropdown();
+    };
+
+    const handleManageCategories = () => {
+        closeCategoryDropdown();
+        onManageCategories();
+    };
+
+    const handleSelectTitleSuggestion = (suggestion: string) => {
+        setTitle(suggestion);
+        setIsTitleInputFocused(false);
+        if (titleBlurTimerRef.current) {
+            clearTimeout(titleBlurTimerRef.current);
+            titleBlurTimerRef.current = null;
+        }
+    };
+
     const handleBackdropPress = () => {
-        if (isCurrencyDropdownOpen) {
-            closeCurrencyDropdown();
+        if (isCurrencyDropdownOpen || isCategoryDropdownOpen) {
+            closeDropdowns();
             return;
         }
 
@@ -173,7 +277,7 @@ export default function ExpenseModal({
             currency,
             categoryId,
             paidBy,
-            description: description.trim() || null,
+            description: expense?.description ?? null,
             paidAt: paidAt.toISOString(),
         });
     };
@@ -230,11 +334,51 @@ export default function ExpenseModal({
                             <TextInput
                                 style={styles.input}
                                 value={title}
-                                onChangeText={setTitle}
+                                onChangeText={(nextTitle) => {
+                                    setTitle(nextTitle);
+                                    setIsTitleInputFocused(true);
+                                }}
+                                onFocus={() => {
+                                    if (titleBlurTimerRef.current) {
+                                        clearTimeout(titleBlurTimerRef.current);
+                                        titleBlurTimerRef.current = null;
+                                    }
+                                    setIsTitleInputFocused(true);
+                                }}
+                                onBlur={() => {
+                                    titleBlurTimerRef.current = setTimeout(() => {
+                                        setIsTitleInputFocused(false);
+                                    }, 120);
+                                }}
                                 placeholder="What was it for?"
                                 placeholderTextColor={Colors.gray}
                                 allowFontScaling={false}
                             />
+                            {showTitleSuggestions ? (
+                                <View style={styles.titleSuggestions}>
+                                    {titleSuggestions.map((suggestion) => (
+                                        <TouchableOpacity
+                                            key={suggestion}
+                                            style={styles.titleSuggestionOption}
+                                            onPress={() =>
+                                                handleSelectTitleSuggestion(
+                                                    suggestion,
+                                                )
+                                            }
+                                        >
+                                            <CustomText
+                                                weight="semibold"
+                                                style={
+                                                    styles.titleSuggestionText
+                                                }
+                                                numberOfLines={1}
+                                            >
+                                                {suggestion}
+                                            </CustomText>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+                            ) : null}
 
                             <CustomText weight="semibold" style={styles.label}>
                                 Amount
@@ -277,94 +421,53 @@ export default function ExpenseModal({
                             <View style={styles.labelRow}>
                                 <CustomText
                                     weight="semibold"
-                                    style={styles.label}
+                                    style={[styles.label, styles.labelInRow]}
                                 >
                                     Category
                                 </CustomText>
-                                <TouchableOpacity onPress={onManageCategories}>
+                                <TouchableOpacity
+                                    ref={categoryButtonRef}
+                                    style={styles.categoryDropdownButton}
+                                    onPress={handleToggleCategoryDropdown}
+                                >
+                                    <CustomText
+                                        weight="extrabold"
+                                        style={styles.categoryDropdownText}
+                                        numberOfLines={1}
+                                    >
+                                        {isLoadingCategories &&
+                                        categories.length === 0
+                                            ? "Loading"
+                                            : (selectedCategory?.name ??
+                                              "Select")}
+                                    </CustomText>
                                     <CustomText
                                         weight="semibold"
-                                        style={styles.manageText}
+                                        style={styles.currencyChevron}
                                     >
-                                        Manage
+                                        {isCategoryDropdownOpen ? "^" : "v"}
                                     </CustomText>
                                 </TouchableOpacity>
                             </View>
-                            {isLoadingCategories && categories.length === 0 ? (
-                                <View style={styles.categoryEmptyState}>
-                                    <ActivityIndicator size="small" />
-                                    <CustomText
-                                        weight="semibold"
-                                        style={styles.categoryEmptyText}
-                                    >
-                                        Loading categories
-                                    </CustomText>
-                                </View>
-                            ) : categories.length === 0 ? (
+                            {!isLoadingCategories && categories.length === 0 ? (
                                 <View style={styles.categoryEmptyState}>
                                     <CustomText
                                         weight="semibold"
                                         style={styles.categoryEmptyText}
                                     >
-                                        No categories available
+                                        Open Manage Categories to add one.
                                     </CustomText>
                                 </View>
-                            ) : (
-                                <View style={styles.categoryList}>
-                                    {categories.map((category) => (
-                                        <TouchableOpacity
-                                            key={category.id}
-                                            style={[
-                                                styles.categoryChip,
-                                                {
-                                                    borderColor: category.color,
-                                                    backgroundColor:
-                                                        categoryId === category.id
-                                                            ? category.color
-                                                            : Colors.white,
-                                                },
-                                            ]}
-                                            onPress={() =>
-                                                setCategoryId(category.id)
-                                            }
-                                        >
-                                            <CustomText
-                                                weight="semibold"
-                                                style={[
-                                                    styles.categoryText,
-                                                    categoryId === category.id &&
-                                                        styles.selectedCategoryText,
-                                                ]}
-                                            >
-                                                {category.name}
-                                            </CustomText>
-                                        </TouchableOpacity>
-                                    ))}
-                                </View>
-                            )}
+                            ) : null}
 
                             <CustomText weight="semibold" style={styles.label}>
                                 Date
                             </CustomText>
-                            <InlineWheelDatePicker
+                            <ExpenseDatePicker
                                 value={paidAt}
                                 onChange={setPaidAt}
                                 maxYear={new Date().getFullYear() + 1}
                                 nestedScrollEnabled
-                            />
-
-                            <CustomText weight="semibold" style={styles.label}>
-                                Description
-                            </CustomText>
-                            <TextInput
-                                style={[styles.input, styles.descriptionInput]}
-                                value={description}
-                                onChangeText={setDescription}
-                                placeholder="Optional"
-                                placeholderTextColor={Colors.gray}
-                                multiline
-                                textAlignVertical="top"
-                                allowFontScaling={false}
                             />
 
                             <CustomText weight="semibold" style={styles.label}>
@@ -374,8 +477,13 @@ export default function ExpenseModal({
                                 <TouchableOpacity
                                     style={[
                                         styles.paidByButton,
+                                        { borderColor: currentUserColor },
                                         paidBy === currentUserId &&
-                                            styles.selectedPaidByButton,
+                                            {
+                                                backgroundColor:
+                                                    currentUserColor,
+                                            },
+                                        !currentUserId && styles.disabledPaidBy,
                                     ]}
                                     onPress={() =>
                                         currentUserId && setPaidBy(currentUserId)
@@ -386,9 +494,13 @@ export default function ExpenseModal({
                                         weight="semibold"
                                         style={[
                                             styles.paidByText,
+                                            { color: currentUserColor },
+                                            !currentUserId &&
+                                                styles.disabledPaidByText,
                                             paidBy === currentUserId &&
                                                 styles.selectedPaidByText,
                                         ]}
+                                        numberOfLines={1}
                                     >
                                         Me
                                     </CustomText>
@@ -396,9 +508,16 @@ export default function ExpenseModal({
                                 <TouchableOpacity
                                     style={[
                                         styles.paidByButton,
+                                        {
+                                            borderColor: partnerProfile
+                                                ? partnerColor
+                                                : "#EBEAEC",
+                                        },
                                         !partnerProfile && styles.disabledPaidBy,
                                         paidBy === partnerProfile?.id &&
-                                            styles.selectedPaidByButton,
+                                            {
+                                                backgroundColor: partnerColor,
+                                            },
                                     ]}
                                     onPress={() =>
                                         partnerProfile &&
@@ -410,13 +529,19 @@ export default function ExpenseModal({
                                         weight="semibold"
                                         style={[
                                             styles.paidByText,
+                                            {
+                                                color: partnerProfile
+                                                    ? partnerColor
+                                                    : Colors.gray,
+                                            },
                                             !partnerProfile &&
                                                 styles.disabledPaidByText,
                                             paidBy === partnerProfile?.id &&
                                                 styles.selectedPaidByText,
                                         ]}
+                                        numberOfLines={1}
                                     >
-                                        Partner
+                                        {partnerLabel}
                                     </CustomText>
                                 </TouchableOpacity>
                             </View>
@@ -515,6 +640,87 @@ export default function ExpenseModal({
                         </View>
                     </>
                 ) : null}
+                {isCategoryDropdownOpen && categoryDropdownPosition ? (
+                    <>
+                        <Pressable
+                            style={StyleSheet.absoluteFill}
+                            onPress={closeCategoryDropdown}
+                        />
+                        <View
+                            style={[
+                                styles.categoryDropdown,
+                                categoryDropdownPosition,
+                            ]}
+                        >
+                            <ScrollView
+                                nestedScrollEnabled
+                                keyboardShouldPersistTaps="handled"
+                                style={styles.categoryDropdownScroll}
+                                contentContainerStyle={
+                                    styles.categoryDropdownContent
+                                }
+                                showsVerticalScrollIndicator
+                            >
+                                {isLoadingCategories &&
+                                categories.length === 0 ? (
+                                    <View style={styles.categoryOption}>
+                                        <ActivityIndicator size="small" />
+                                    </View>
+                                ) : categories.length === 0 ? (
+                                    <View style={styles.categoryOption}>
+                                        <CustomText
+                                            weight="semibold"
+                                            style={styles.categoryOptionText}
+                                        >
+                                            No categories
+                                        </CustomText>
+                                    </View>
+                                ) : (
+                                    categories.map((category) => (
+                                        <TouchableOpacity
+                                            key={category.id}
+                                            style={[
+                                                styles.categoryOption,
+                                                categoryId === category.id &&
+                                                    styles.selectedCategoryOption,
+                                            ]}
+                                            onPress={() =>
+                                                handleSelectCategory(category.id)
+                                            }
+                                        >
+                                            <CustomText
+                                                weight="semibold"
+                                                style={[
+                                                    styles.categoryOptionText,
+                                                    categoryId === category.id &&
+                                                        styles.selectedCategoryOptionText,
+                                                ]}
+                                                numberOfLines={1}
+                                            >
+                                                {category.name}
+                                            </CustomText>
+                                        </TouchableOpacity>
+                                    ))
+                                )}
+                                <TouchableOpacity
+                                    style={[
+                                        styles.categoryOption,
+                                        styles.manageCategoriesOption,
+                                    ]}
+                                    onPress={handleManageCategories}
+                                >
+                                    <CustomText
+                                        weight="semibold"
+                                        style={styles.manageCategoriesText}
+                                        numberOfLines={1}
+                                    >
+                                        Manage Categories
+                                    </CustomText>
+                                </TouchableOpacity>
+                            </ScrollView>
+                        </View>
+                    </>
+                ) : null}
             </View>
         </Modal>
     );
@@ -553,11 +759,14 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
-    },
-    manageText: {
-        color: Colors.darkBlue,
-        fontSize: 12,
+        gap: 12,
         marginTop: 12,
+        marginBottom: 7,
+    },
+    labelInRow: {
+        flex: 1,
+        marginTop: 0,
+        marginBottom: 0,
     },
     input: {
         borderWidth: 1,
@@ -569,6 +778,25 @@ const styles = StyleSheet.create({
         minHeight: 42,
         paddingHorizontal: 12,
         paddingVertical: 8,
+    },
+    titleSuggestions: {
+        marginTop: 6,
+        borderWidth: 1,
+        borderColor: "#EBEAEC",
+        borderRadius: 10,
+        overflow: "hidden",
+        backgroundColor: Colors.white,
+    },
+    titleSuggestionOption: {
+        minHeight: 38,
+        justifyContent: "center",
+        paddingHorizontal: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: "#F2F1F3",
+    },
+    titleSuggestionText: {
+        color: Colors.darkGreenText,
+        fontSize: 13,
     },
     amountField: {
         position: "relative",
@@ -642,11 +870,6 @@ const styles = StyleSheet.create({
     selectedCurrencyOptionText: {
         color: Colors.brownText,
     },
-    categoryList: {
-        flexDirection: "row",
-        flexWrap: "wrap",
-        gap: 8,
-    },
     categoryEmptyState: {
         minHeight: 42,
         borderWidth: 1,
@@ -661,19 +884,71 @@ const styles = StyleSheet.create({
         color: Colors.gray,
         fontSize: 12,
     },
-    categoryChip: {
+    categoryDropdownButton: {
+        width: 180,
+        minHeight: 42,
         borderWidth: 1,
-        borderRadius: 999,
-        paddingHorizontal: 12,
-        height: 34,
+        borderColor: "#EBEAEC",
+        borderRadius: 10,
+        paddingHorizontal: 10,
+        flexDirection: "row",
+        alignItems: "center",
         justifyContent: "center",
+        gap: 6,
     },
-    categoryText: {
+    categoryDropdownText: {
+        flex: 1,
+        color: Colors.darkGreenText,
+        fontSize: 13,
+        textAlign: "center",
+    },
+    categoryDropdown: {
+        position: "absolute",
+        width: CATEGORY_DROPDOWN_WIDTH,
+        maxHeight: 220,
+        borderWidth: 1,
+        borderColor: "#EBEAEC",
+        borderRadius: 10,
+        backgroundColor: Colors.white,
+        overflow: "hidden",
+        zIndex: 100,
+        elevation: 100,
+        shadowColor: Colors.black,
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.12,
+        shadowRadius: 6,
+    },
+    categoryDropdownScroll: {
+        maxHeight: 218,
+    },
+    categoryDropdownContent: {
+        paddingBottom: 1,
+    },
+    categoryOption: {
+        minHeight: 40,
+        alignItems: "center",
+        justifyContent: "center",
+        paddingHorizontal: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: "#F2F1F3",
+    },
+    selectedCategoryOption: {
+        backgroundColor: Colors.yellow,
+    },
+    categoryOptionText: {
         color: Colors.darkGreenText,
         fontSize: 12,
     },
-    selectedCategoryText: {
-        color: Colors.white,
+    selectedCategoryOptionText: {
+        color: Colors.brownText,
+    },
+    manageCategoriesOption: {
+        borderTopWidth: 1,
+        borderTopColor: "#EBEAEC",
+    },
+    manageCategoriesText: {
+        color: Colors.darkBlue,
+        fontSize: 12,
     },
     paidByRow: {
         flexDirection: "row",
@@ -687,10 +962,7 @@ const styles = StyleSheet.create({
         borderColor: "#EBEAEC",
         alignItems: "center",
         justifyContent: "center",
-    },
-    selectedPaidByButton: {
-        backgroundColor: Colors.green,
-        borderColor: Colors.green,
+        paddingHorizontal: 8,
     },
     disabledPaidBy: {
         opacity: 0.45,
@@ -698,16 +970,14 @@ const styles = StyleSheet.create({
     paidByText: {
         color: Colors.darkGreenText,
         fontSize: 13,
+        maxWidth: "100%",
+        textAlign: "center",
     },
     selectedPaidByText: {
         color: Colors.white,
     },
     disabledPaidByText: {
         color: Colors.gray,
-    },
-    descriptionInput: {
-        minHeight: 86,
-        paddingTop: 10,
     },
     footer: {
         flexDirection: "row",

@@ -53,21 +53,30 @@ function SegmentedControl<T extends string>({
     value,
     options,
     onChange,
+    getOptionColor,
+    selectedColor = Colors.green,
+    selectedTextColor = Colors.white,
 }: {
     value: T;
     options: SegmentOption<T>[];
     onChange: (value: T) => void;
+    getOptionColor?: (value: T) => string | undefined;
+    selectedColor?: string;
+    selectedTextColor?: string;
 }) {
     return (
         <View style={styles.segmentedControl}>
             {options.map((option) => {
                 const selected = value === option.value;
+                const optionColor = getOptionColor?.(option.value);
                 return (
                     <TouchableOpacity
                         key={option.value}
                         style={[
                             styles.segmentButton,
-                            selected && styles.selectedSegmentButton,
+                            selected && {
+                                backgroundColor: optionColor ?? selectedColor,
+                            },
                         ]}
                         onPress={() => onChange(option.value)}
                     >
@@ -75,7 +84,13 @@ function SegmentedControl<T extends string>({
                             weight="semibold"
                             style={[
                                 styles.segmentText,
-                                selected && styles.selectedSegmentText,
+                                !selected &&
+                                    optionColor && {
+                                        color: optionColor,
+                                    },
+                                selected && {
+                                    color: selectedTextColor,
+                                },
                             ]}
                         >
                             {option.label}
@@ -85,6 +100,10 @@ function SegmentedControl<T extends string>({
             })}
         </View>
     );
+}
+
+function getProfileColor(profile: Profile | null, fallback: string) {
+    return profile?.avatar_border_color?.trim() || fallback;
 }
 
 function PeriodNavigator({
@@ -155,7 +174,7 @@ const Expenses = () => {
 
     const [viewMode, setViewMode] = useState<ViewMode>("log");
     const [scope, setScope] = useState<ExpenseScope>("space");
-    const [logPeriod, setLogPeriod] = useState<ExpenseLogPeriod>("monthly");
+    const [logPeriod, setLogPeriod] = useState<ExpenseLogPeriod>("daily");
     const [logAnchorDate, setLogAnchorDate] = useState(new Date());
     const [period, setPeriod] = useState<ExpensePeriod>("monthly");
     const [breakdownAnchorDate, setBreakdownAnchorDate] = useState(new Date());
@@ -178,6 +197,15 @@ const Expenses = () => {
                 : null,
         [currentUserId, profiles],
     );
+    const currentUserProfile = useMemo(
+        () =>
+            currentUserId
+                ? (profiles.find((item) => item.id === currentUserId) ?? null)
+                : null,
+        [currentUserId, profiles],
+    );
+    const currentUserColor = getProfileColor(currentUserProfile, Colors.darkBlue);
+    const partnerColor = getProfileColor(partnerProfile, Colors.hotPink);
 
     const refreshProfiles = useCallback(async () => {
         const spaceId = await getSpaceId();
@@ -447,6 +475,7 @@ const Expenses = () => {
         <ExpenseRow
             expense={item}
             currentUserId={currentUserId}
+            partnerProfile={partnerProfile}
             onPress={(expense) => {
                 setSelectedExpense(expense);
                 setIsExpenseModalOpen(true);
@@ -459,9 +488,16 @@ const Expenses = () => {
             <ExpenseModal
                 isOpen={isExpenseModalOpen}
                 mode={selectedExpense ? "edit" : "create"}
+                expenses={expenses}
                 categories={categories}
                 expense={selectedExpense}
+                initialPaidAt={
+                    viewMode === "log" && logPeriod === "daily"
+                        ? logAnchorDate
+                        : undefined
+                }
                 currentUserId={currentUserId}
+                currentUserProfile={currentUserProfile}
                 partnerProfile={partnerProfile}
                 isLoadingCategories={isLoadingCategories}
                 isSaving={isSavingExpense}
@@ -508,9 +544,12 @@ const Expenses = () => {
                     <SegmentedControl<ExpenseScope>
                         value={scope}
                         onChange={setScope}
+                        getOptionColor={(value) =>
+                            value === "me" ? currentUserColor : partnerColor
+                        }
                         options={[
-                            { value: "space", label: "Both" },
                             { value: "me", label: "Me" },
+                            { value: "space", label: "Both" },
                         ]}
                     />
                 </View>
@@ -534,6 +573,8 @@ const Expenses = () => {
                         <SegmentedControl<ExpenseLogPeriod>
                             value={logPeriod}
                             onChange={setLogPeriod}
+                            selectedColor={Colors.yellow}
+                            selectedTextColor={Colors.brownText}
                             options={[
                                 { value: "daily", label: "Day" },
                                 { value: "weekly", label: "Week" },
