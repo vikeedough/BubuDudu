@@ -14,7 +14,7 @@ import {
 } from "react-native";
 
 import CustomText from "@/components/CustomText";
-import InlineWheelDatePicker from "@/components/InlineWheelDatePicker";
+import ExpenseDatePicker from "@/components/expenses/ExpenseDatePicker";
 import { Colors } from "@/constants/colors";
 import {
     DEFAULT_EXPENSE_CURRENCY,
@@ -44,6 +44,7 @@ type ExpenseModalProps = {
     expense?: Expense | null;
     initialPaidAt?: Date;
     currentUserId: string | null;
+    currentUserProfile: Profile | null;
     partnerProfile: Profile | null;
     isLoadingCategories: boolean;
     isSaving: boolean;
@@ -63,6 +64,14 @@ function getInitialDate(expense?: Expense | null, fallbackDate?: Date) {
     return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
 }
 
+function getProfileColor(profile: Profile | null, fallback: string) {
+    return profile?.avatar_border_color?.trim() || fallback;
+}
+
+function getPartnerLabel(profile: Profile | null) {
+    return profile?.name?.trim() || "Partner";
+}
+
 export default function ExpenseModal({
     isOpen,
     mode,
@@ -70,6 +79,7 @@ export default function ExpenseModal({
     expense,
     initialPaidAt,
     currentUserId,
+    currentUserProfile,
     partnerProfile,
     isLoadingCategories,
     isSaving,
@@ -92,6 +102,9 @@ export default function ExpenseModal({
     const scrollViewRef = useRef<ScrollView>(null);
     const currencyButtonRef =
         useRef<React.ComponentRef<typeof TouchableOpacity>>(null);
+    const currentUserColor = getProfileColor(currentUserProfile, Colors.darkBlue);
+    const partnerColor = getProfileColor(partnerProfile, Colors.hotPink);
+    const partnerLabel = getPartnerLabel(partnerProfile);
 
     useEffect(() => {
         if (!isOpen) return;
@@ -350,7 +363,7 @@ export default function ExpenseModal({
                             <CustomText weight="semibold" style={styles.label}>
                                 Date
                             </CustomText>
-                            <InlineWheelDatePicker
+                            <ExpenseDatePicker
                                 value={paidAt}
                                 onChange={setPaidAt}
                                 maxYear={new Date().getFullYear() + 1}
@@ -364,8 +377,13 @@ export default function ExpenseModal({
                                 <TouchableOpacity
                                     style={[
                                         styles.paidByButton,
+                                        { borderColor: currentUserColor },
                                         paidBy === currentUserId &&
-                                            styles.selectedPaidByButton,
+                                            {
+                                                backgroundColor:
+                                                    currentUserColor,
+                                            },
+                                        !currentUserId && styles.disabledPaidBy,
                                     ]}
                                     onPress={() =>
                                         currentUserId && setPaidBy(currentUserId)
@@ -376,9 +394,13 @@ export default function ExpenseModal({
                                         weight="semibold"
                                         style={[
                                             styles.paidByText,
+                                            { color: currentUserColor },
+                                            !currentUserId &&
+                                                styles.disabledPaidByText,
                                             paidBy === currentUserId &&
                                                 styles.selectedPaidByText,
                                         ]}
+                                        numberOfLines={1}
                                     >
                                         Me
                                     </CustomText>
@@ -386,9 +408,16 @@ export default function ExpenseModal({
                                 <TouchableOpacity
                                     style={[
                                         styles.paidByButton,
+                                        {
+                                            borderColor: partnerProfile
+                                                ? partnerColor
+                                                : "#EBEAEC",
+                                        },
                                         !partnerProfile && styles.disabledPaidBy,
                                         paidBy === partnerProfile?.id &&
-                                            styles.selectedPaidByButton,
+                                            {
+                                                backgroundColor: partnerColor,
+                                            },
                                     ]}
                                     onPress={() =>
                                         partnerProfile &&
@@ -400,13 +429,19 @@ export default function ExpenseModal({
                                         weight="semibold"
                                         style={[
                                             styles.paidByText,
+                                            {
+                                                color: partnerProfile
+                                                    ? partnerColor
+                                                    : Colors.gray,
+                                            },
                                             !partnerProfile &&
                                                 styles.disabledPaidByText,
                                             paidBy === partnerProfile?.id &&
                                                 styles.selectedPaidByText,
                                         ]}
+                                        numberOfLines={1}
                                     >
-                                        Partner
+                                        {partnerLabel}
                                     </CustomText>
                                 </TouchableOpacity>
                             </View>
@@ -677,10 +712,7 @@ const styles = StyleSheet.create({
         borderColor: "#EBEAEC",
         alignItems: "center",
         justifyContent: "center",
-    },
-    selectedPaidByButton: {
-        backgroundColor: Colors.green,
-        borderColor: Colors.green,
+        paddingHorizontal: 8,
     },
     disabledPaidBy: {
         opacity: 0.45,
@@ -688,6 +720,8 @@ const styles = StyleSheet.create({
     paidByText: {
         color: Colors.darkGreenText,
         fontSize: 13,
+        maxWidth: "100%",
+        textAlign: "center",
     },
     selectedPaidByText: {
         color: Colors.white,

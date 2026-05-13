@@ -246,6 +246,8 @@ Behavior:
 - The log can show both partners together or only the current user's expenses.
 - The log opens to day view by default and can switch between day, week, and month views, with previous/next period navigation. The current day label is Today.
 - Adding an expense while viewing a specific log day starts the expense form date picker on that selected day.
+- The expense form date picker labels the current day as Today and shows adjacent rows as full dates.
+- Payer buttons use each person's avatar border color, and the partner payer option shows the partner's profile name when available.
 - Default categories are Food, Health, Medical, Bills, and Transport.
 - Categories can be added, renamed, recolored, and deleted. Deletes are soft deletes; existing expenses keep category snapshots.
 - Breakdown view supports daily, weekly, monthly, and yearly periods, with previous/next period navigation. Weekly periods start on Monday.

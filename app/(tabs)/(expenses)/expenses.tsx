@@ -178,6 +178,13 @@ const Expenses = () => {
                 : null,
         [currentUserId, profiles],
     );
+    const currentUserProfile = useMemo(
+        () =>
+            currentUserId
+                ? (profiles.find((item) => item.id === currentUserId) ?? null)
+                : null,
+        [currentUserId, profiles],
+    );
 
     const refreshProfiles = useCallback(async () => {
         const spaceId = await getSpaceId();
@@ -467,6 +474,7 @@ const Expenses = () => {
                         : undefined
                 }
                 currentUserId={currentUserId}
+                currentUserProfile={currentUserProfile}
                 partnerProfile={partnerProfile}
                 isLoadingCategories={isLoadingCategories}
                 isSaving={isSavingExpense}

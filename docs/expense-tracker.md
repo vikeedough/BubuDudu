@@ -10,9 +10,10 @@ The expense tracker is an offline-first tab for logging shared-space expenses. I
 - Each expense has an amount, currency, title, category, and paid date.
 - Each expense stores the creator and the payer. The payer can be the current user or partner.
 - The partner payer option is disabled until a partner profile exists in the active space.
-- The payer selector sits at the bottom of the expense form so the entry starts with expense details first.
+- The payer selector sits at the bottom of the expense form so the entry starts with expense details first. Payer buttons use each person's avatar border color, and the partner option shows the partner's profile name when available.
 - The add expense action is a bottom-right floating button and always opens the expense form; category loading or empty states are handled inside the category section of that form.
 - The log opens to the day view by default. When adding an expense from a selected log day, the expense form's date picker starts on that selected day.
+- The expense form date picker uses a single day wheel. The current day is labeled Today, with neighboring rows shown as full dates.
 - Default currency is SGD.
 - The expense form keeps currency beside amount, with currency choices shown in a single scrollable overlay dropdown list.
 - Foreign-currency expenses store both the original amount and a converted SGD snapshot.
@@ -31,6 +32,8 @@ The expense tracker is an offline-first tab for logging shared-space expenses. I
   Main tab screen with log and breakdown views.
 - `components/expenses/ExpenseModal.tsx`
   Add/edit/detail modal for expense amount, currency, title, category, paid date, and payer.
+- `components/expenses/ExpenseDatePicker.tsx`
+  Expense-only day wheel that labels the current day as Today.
 - `components/expenses/CategoryManagerModal.tsx`
   Add, rename, recolor, and delete categories.
 - `components/expenses/ExpenseRow.tsx`
