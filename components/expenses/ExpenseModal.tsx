@@ -17,6 +17,11 @@ import CustomText from "@/components/CustomText";
 import ExpenseDatePicker from "@/components/expenses/ExpenseDatePicker";
 import { Colors } from "@/constants/colors";
 import {
+    getReadableAccentTextColor,
+    getReadableTextColor,
+    normalizeHexColor,
+} from "@/utils/colors";
+import {
     DEFAULT_EXPENSE_CURRENCY,
     getExpenseTitleSuggestions,
     POPULAR_CURRENCIES,
@@ -69,7 +74,7 @@ function getInitialDate(expense?: Expense | null, fallbackDate?: Date) {
 }
 
 function getProfileColor(profile: Profile | null, fallback: string) {
-    return profile?.avatar_border_color?.trim() || fallback;
+    return normalizeHexColor(profile?.avatar_border_color) ?? fallback;
 }
 
 function getPartnerLabel(profile: Profile | null) {
@@ -118,6 +123,11 @@ export default function ExpenseModal({
     const titleBlurTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const currentUserColor = getProfileColor(currentUserProfile, Colors.darkBlue);
     const partnerColor = getProfileColor(partnerProfile, Colors.hotPink);
+    const currentUserTextColor = getReadableAccentTextColor(currentUserColor);
+    const partnerTextColor = getReadableAccentTextColor(partnerColor);
+    const currentUserSelectedTextColor =
+        getReadableTextColor(currentUserColor);
+    const partnerSelectedTextColor = getReadableTextColor(partnerColor);
     const partnerLabel = getPartnerLabel(partnerProfile);
     const selectedCategory = useMemo(
         () => categories.find((category) => category.id === categoryId) ?? null,
@@ -494,11 +504,14 @@ export default function ExpenseModal({
                                         weight="semibold"
                                         style={[
                                             styles.paidByText,
-                                            { color: currentUserColor },
+                                            {
+                                                color:
+                                                    paidBy === currentUserId
+                                                        ? currentUserSelectedTextColor
+                                                        : currentUserTextColor,
+                                            },
                                             !currentUserId &&
                                                 styles.disabledPaidByText,
-                                            paidBy === currentUserId &&
-                                                styles.selectedPaidByText,
                                         ]}
                                         numberOfLines={1}
                                     >
@@ -530,14 +543,15 @@ export default function ExpenseModal({
                                         style={[
                                             styles.paidByText,
                                             {
-                                                color: partnerProfile
-                                                    ? partnerColor
-                                                    : Colors.gray,
+                                                color:
+                                                    paidBy === partnerProfile?.id
+                                                        ? partnerSelectedTextColor
+                                                        : partnerProfile
+                                                          ? partnerTextColor
+                                                          : Colors.gray,
                                             },
                                             !partnerProfile &&
                                                 styles.disabledPaidByText,
-                                            paidBy === partnerProfile?.id &&
-                                                styles.selectedPaidByText,
                                         ]}
                                         numberOfLines={1}
                                     >
@@ -972,9 +986,6 @@ const styles = StyleSheet.create({
         fontSize: 13,
         maxWidth: "100%",
         textAlign: "center",
-    },
-    selectedPaidByText: {
-        color: Colors.white,
     },
     disabledPaidByText: {
         color: Colors.gray,

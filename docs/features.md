@@ -67,7 +67,7 @@ Behavior:
 - `AuthProvider.updateProfile` first tries to update the user's `profiles` row; if no row exists, it inserts one.
 - Avatar upload shrinks the selected image, uploads a JPEG to the `avatars` bucket, obtains a public URL, and saves it as `profiles.avatar_url`.
 - Avatar border color is saved as `profiles.avatar_border_color`.
-- Settings can update name and date of birth.
+- Settings can update name, date of birth, and avatar border color.
 
 Offline behavior:
 
@@ -160,6 +160,7 @@ Components:
 - `components/settings/SettingsField.tsx`
 - `components/settings/SettingsTextInputField.tsx`
 - `components/settings/DisplayDatePickerField.tsx`
+- `components/settings/AvatarColorPicker.tsx`
 - `components/settings/InviteCode.tsx`
 
 Backend:
@@ -170,15 +171,16 @@ Backend:
 
 Behavior:
 
-- Settings displays profile name, date of birth, shared milestone, invite code, and sign out.
+- Settings displays profile name, date of birth, shared milestone, avatar colour, invite code, and sign out.
 - Name and date of birth use `AuthProvider.updateProfile`.
+- Avatar colour uses a custom on-screen picker with palette shortcuts, RGB controls, a hex field, live preview, and an explicit Save action. Saved colours are normalized to `#RRGGBB`.
 - Shared milestone uses `useMilestoneStore.upsertMilestone`.
 - Sign out clears Supabase auth, offline SQLite cache, and the stored active space ID.
 
 Offline behavior:
 
 - Shared milestone can be updated offline.
-- Name and date of birth currently require online profile update requests.
+- Name, date of birth, and avatar colour currently require online profile update requests.
 - Invite code fetch is online-only unless future code adds caching.
 
 ## Notes / Lists

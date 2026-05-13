@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { Alert } from "react-native";
+import { Alert, ScrollView, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { GeneralButton } from "@/components/GeneralButton";
+import CustomText from "@/components/CustomText";
 import { DisplayDatePickerField } from "@/components/settings/DisplayDatePickerField";
 import { settingsScreenStyles } from "@/components/settings/settingsScreenStyles";
 import { SettingsTextInputField } from "@/components/settings/SettingsTextInputField";
@@ -36,20 +36,23 @@ export default function SharedMilestone() {
         }
     }, [milestone]);
 
+    const selectedDateValue = dateToYYYYMMDD(date);
+    const trimmedTitle = milestoneTitle.trim();
+    const hasMilestoneChanges =
+        trimmedTitle !== (milestone?.title ?? "") ||
+        selectedDateValue !== (milestone?.date ?? "");
+
     const handleSaveMilestone = async () => {
-        const trimmedTitle = milestoneTitle.trim();
         if (!trimmedTitle) {
             Alert.alert("Milestone name cannot be empty.");
             return;
         }
 
         try {
-            const convertedDate = dateToYYYYMMDD(date);
-
-            await upsertMilestone(trimmedTitle as any, convertedDate);
+            await upsertMilestone(trimmedTitle as any, selectedDateValue);
 
             Alert.alert("Milestone saved successfully.");
-            setDisplayedDate(formatDate(convertedDate));
+            setDisplayedDate(formatDate(selectedDateValue));
         } catch (error: any) {
             Alert.alert("Failed to save Milestone.", error?.message ?? "");
         }
@@ -57,22 +60,67 @@ export default function SharedMilestone() {
 
     return (
         <SafeAreaView style={settingsScreenStyles.container}>
-            <SettingsTextInputField
-                label="Name"
-                value={milestoneTitle}
-                onChangeText={setMilestoneTitle}
-                placeholder="Enter the name of your shared milestone!"
-            />
+            <ScrollView
+                contentContainerStyle={settingsScreenStyles.scrollContent}
+                keyboardShouldPersistTaps="handled"
+            >
+                <View style={settingsScreenStyles.header}>
+                    <CustomText
+                        weight="extrabold"
+                        style={settingsScreenStyles.title}
+                    >
+                        Shared Milestone
+                    </CustomText>
+                    <CustomText
+                        weight="medium"
+                        style={settingsScreenStyles.subtitle}
+                    >
+                        This appears as the shared countdown on Home.
+                    </CustomText>
+                </View>
 
-            <DisplayDatePickerField
-                label="Date"
-                date={date}
-                displayedDate={displayedDate}
-                setDate={setDate}
-                setDisplayedDate={setDisplayedDate}
-            />
+                <View
+                    style={[
+                        settingsScreenStyles.card,
+                        settingsScreenStyles.formCard,
+                    ]}
+                >
+                    <SettingsTextInputField
+                        label="Name"
+                        value={milestoneTitle}
+                        onChangeText={setMilestoneTitle}
+                        placeholder="Milestone name"
+                    />
 
-            <GeneralButton label="Save" onPress={handleSaveMilestone} />
+                    <DisplayDatePickerField
+                        label="Date"
+                        date={date}
+                        displayedDate={displayedDate}
+                        setDate={setDate}
+                        setDisplayedDate={setDisplayedDate}
+                    />
+
+                    <View style={settingsScreenStyles.actionsRow}>
+                        <TouchableOpacity
+                            activeOpacity={0.78}
+                            onPress={handleSaveMilestone}
+                            disabled={!trimmedTitle || !hasMilestoneChanges}
+                            style={[
+                                settingsScreenStyles.primaryButton,
+                                (!trimmedTitle || !hasMilestoneChanges) &&
+                                    settingsScreenStyles.disabled,
+                            ]}
+                        >
+                            <CustomText
+                                weight="semibold"
+                                style={settingsScreenStyles.primaryButtonText}
+                            >
+                                Save
+                            </CustomText>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </ScrollView>
         </SafeAreaView>
     );
 }

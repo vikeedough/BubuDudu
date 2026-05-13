@@ -8,31 +8,76 @@ interface SettingsFieldProps {
     label: string;
     value: string;
     onPress: () => void;
+    placeholder?: string;
+    disabled?: boolean;
 }
 
 export const SettingsField = (props: SettingsFieldProps) => {
+    const displayValue = props.value.trim() || props.placeholder || "Not set";
+
     return (
-        <View style={styles.mainContainer}>
-            <CustomText weight="semibold">{props.label}</CustomText>
-            <TouchableOpacity
-                style={styles.fieldContainer}
-                onPress={props.onPress}
-            >
-                <CustomText>{props.value}</CustomText>
-            </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+            activeOpacity={0.78}
+            disabled={props.disabled}
+            onPress={props.onPress}
+            style={[styles.fieldContainer, props.disabled && styles.disabled]}
+        >
+            <View style={styles.copy}>
+                <CustomText weight="semibold" style={styles.label}>
+                    {props.label}
+                </CustomText>
+                <CustomText
+                    weight="medium"
+                    style={[
+                        styles.value,
+                        !props.value.trim() && styles.placeholder,
+                    ]}
+                    numberOfLines={2}
+                >
+                    {displayValue}
+                </CustomText>
+            </View>
+            <CustomText weight="bold" style={styles.chevron}>
+                {">"}
+            </CustomText>
+        </TouchableOpacity>
     );
 };
 
 const styles = StyleSheet.create({
-    mainContainer: {
-        marginVertical: "5%",
-    },
     fieldContainer: {
-        marginTop: 8,
+        minHeight: 64,
         borderWidth: 1,
-        borderColor: Colors.black,
+        borderColor: "#EBEAEC",
         borderRadius: 12,
-        padding: "2%",
+        backgroundColor: Colors.white,
+        paddingHorizontal: 14,
+        paddingVertical: 12,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 12,
+    },
+    copy: {
+        flex: 1,
+        gap: 5,
+    },
+    label: {
+        color: Colors.darkGreenText,
+        fontSize: 13,
+    },
+    value: {
+        color: Colors.black,
+        fontSize: 15,
+        lineHeight: 19,
+    },
+    placeholder: {
+        color: Colors.gray,
+    },
+    chevron: {
+        color: Colors.brownText,
+        fontSize: 16,
+    },
+    disabled: {
+        opacity: 0.55,
     },
 });
