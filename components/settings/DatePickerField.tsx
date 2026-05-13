@@ -37,6 +37,7 @@ export const DatePickerField: React.FC<DatePickerFieldProps> = ({
             <SettingsField
                 label={label}
                 value={value}
+                placeholder="Select date"
                 onPress={() => setShowPicker(true)}
             />
         </>

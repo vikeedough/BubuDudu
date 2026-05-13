@@ -25,6 +25,11 @@ import { useAuthContext } from "@/hooks/useAuthContext";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { useExpenseStore } from "@/stores/ExpenseStore";
 import {
+    getReadableAccentTextColor,
+    getReadableTextColor,
+    normalizeHexColor,
+} from "@/utils/colors";
+import {
     buildExpenseBudgetAnalytics,
     buildExpenseAnalytics,
     getExpensePeriodLabel,
@@ -69,6 +74,12 @@ function SegmentedControl<T extends string>({
             {options.map((option) => {
                 const selected = value === option.value;
                 const optionColor = getOptionColor?.(option.value);
+                const optionTextColor = optionColor
+                    ? getReadableAccentTextColor(optionColor)
+                    : undefined;
+                const selectedOptionTextColor = optionColor
+                    ? getReadableTextColor(optionColor)
+                    : selectedTextColor;
                 return (
                     <TouchableOpacity
                         key={option.value}
@@ -85,11 +96,11 @@ function SegmentedControl<T extends string>({
                             style={[
                                 styles.segmentText,
                                 !selected &&
-                                    optionColor && {
-                                        color: optionColor,
+                                    optionTextColor && {
+                                        color: optionTextColor,
                                     },
                                 selected && {
-                                    color: selectedTextColor,
+                                    color: selectedOptionTextColor,
                                 },
                             ]}
                         >
@@ -103,7 +114,7 @@ function SegmentedControl<T extends string>({
 }
 
 function getProfileColor(profile: Profile | null, fallback: string) {
-    return profile?.avatar_border_color?.trim() || fallback;
+    return normalizeHexColor(profile?.avatar_border_color) ?? fallback;
 }
 
 function PeriodNavigator({

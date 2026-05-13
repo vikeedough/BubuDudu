@@ -1,3 +1,5 @@
+import { create } from "zustand";
+
 import { supabase } from "@/api/clients/supabaseClient";
 import { toast } from "@/toast/api";
 import { generateBlurhash } from "@/utils/generateBlurhash";
@@ -11,7 +13,6 @@ import {
 import { getIsOnline } from "@/utils/offline/network";
 import { runWithConcurrency } from "@/utils/runWithConcurrency";
 import { getSpaceId } from "@/utils/secure-store";
-import { create } from "zustand";
 
 const GALLERY_BUCKET = "gallery-private";
 const SIGN_TTL_SECONDS = 60 * 60;
@@ -151,6 +152,24 @@ function setGalleryCoverInList(
     );
 }
 
+function updateGalleryInList(
+    galleries: Gallery[],
+    updatedGallery: Gallery,
+): Gallery[] {
+    return galleries.map((gallery) =>
+        gallery.id === updatedGallery.id
+            ? {
+                  ...gallery,
+                  ...updatedGallery,
+                  cover_thumb_url:
+                      updatedGallery.cover_thumb_url ??
+                      gallery.cover_thumb_url ??
+                      null,
+              }
+            : gallery,
+    );
+}
+
 function removeImageFromGalleryCache(
     imagesByGalleryId: Record<string, GalleryImage[]>,
     galleryId: string,
@@ -280,6 +299,12 @@ export type GalleryState = {
         title: string;
         date: string;
         color: string;
+        location: string;
+    }) => Promise<Gallery | null>;
+    updateGalleryDetails: (input: {
+        galleryId: string;
+        title: string;
+        date: string;
         location: string;
     }) => Promise<Gallery | null>;
 
@@ -1127,6 +1152,61 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
         return newGallery;
     },
 
+    updateGalleryDetails: async ({ galleryId, title, date, location }) => {
+        set({ error: null });
+
+        if (!getIsOnline()) {
+            set({ error: "Gallery changes are unavailable offline." });
+            return null;
+        }
+
+        const { data, error } = await supabase
+            .from("galleries")
+            .update({
+                title,
+                date,
+                date_date: extractDateOnly(date),
+                location,
+            })
+            .eq("id", galleryId)
+            .select("*")
+            .single();
+
+        if (error) {
+            console.error("Error updating gallery:", error);
+            set({ error: error.message });
+            return null;
+        }
+
+        const updatedGallery = data as Gallery;
+        const previousGallery = get().galleries.find(
+            (gallery) => gallery.id === galleryId,
+        );
+        const mergedGallery = previousGallery
+            ? {
+                  ...previousGallery,
+                  ...updatedGallery,
+                  cover_thumb_url:
+                      updatedGallery.cover_thumb_url ??
+                      previousGallery.cover_thumb_url ??
+                      null,
+              }
+            : updatedGallery;
+
+        const updatedGalleries = updateGalleryInList(
+            get().galleries,
+            mergedGallery,
+        );
+        set({ galleries: updatedGalleries });
+
+        const spaceId = updatedGallery.space_id || (await getSpaceId());
+        if (spaceId && updatedGalleries.length > 0) {
+            await replaceCachedGalleries(spaceId, updatedGalleries);
+        }
+
+        return mergedGallery;
+    },
+
     uploadGalleryImages: async (galleryId: string, images: string[]) => {
         if (!getIsOnline()) {
             set({ error: "Gallery uploads are unavailable offline." });
@@ -1439,15 +1519,13 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
 
         const rows =
             (imageRows as
-                | Array<
-                      Pick<
-                          GalleryImage,
-                          | "id"
-                          | "storage_path_thumb"
-                          | "storage_path_grid"
-                          | "storage_path_orig"
-                      >
-                  >
+                | Pick<
+                      GalleryImage,
+                      | "id"
+                      | "storage_path_thumb"
+                      | "storage_path_grid"
+                      | "storage_path_orig"
+                  >[]
                 | null) ?? [];
 
         if (rows.length >= BULK_DELETE_THRESHOLD) {

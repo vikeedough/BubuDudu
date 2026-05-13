@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { Alert } from "react-native";
+import { Alert, ScrollView, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { GeneralButton } from "@/components/GeneralButton";
+import CustomText from "@/components/CustomText";
 import { DisplayDatePickerField } from "@/components/settings/DisplayDatePickerField";
 import { settingsScreenStyles } from "@/components/settings/settingsScreenStyles";
 import { useAuthContext } from "@/hooks/useAuthContext";
@@ -28,11 +28,13 @@ export default function DateOfBirth() {
         setDisplayedDate("");
     }, [profile]);
 
-    const handleSaveDate = async (date: Date) => {
+    const selectedDateValue = dateToYYYYMMDD(date);
+    const hasDateChanges = selectedDateValue !== profile?.date_of_birth;
+
+    const handleSaveDate = async () => {
         if (date) {
-            const convertedDate = dateToYYYYMMDD(date);
             try {
-                await updateProfile({ date_of_birth: convertedDate });
+                await updateProfile({ date_of_birth: selectedDateValue });
                 Alert.alert("Date of Birth saved successfully.");
             } catch {
                 Alert.alert("Failed to save Date of Birth.");
@@ -42,14 +44,59 @@ export default function DateOfBirth() {
 
     return (
         <SafeAreaView style={settingsScreenStyles.container}>
-            <DisplayDatePickerField
-                label="Date of Birth"
-                date={date}
-                displayedDate={displayedDate}
-                setDate={setDate}
-                setDisplayedDate={setDisplayedDate}
-            />
-            <GeneralButton label="Save" onPress={() => handleSaveDate(date)} />
+            <ScrollView
+                contentContainerStyle={settingsScreenStyles.scrollContent}
+                keyboardShouldPersistTaps="handled"
+            >
+                <View style={settingsScreenStyles.header}>
+                    <CustomText
+                        weight="extrabold"
+                        style={settingsScreenStyles.title}
+                    >
+                        Birthday
+                    </CustomText>
+                    <CustomText
+                        weight="medium"
+                        style={settingsScreenStyles.subtitle}
+                    >
+                        Your birthday powers the home countdown.
+                    </CustomText>
+                </View>
+
+                <View
+                    style={[
+                        settingsScreenStyles.card,
+                        settingsScreenStyles.formCard,
+                    ]}
+                >
+                    <DisplayDatePickerField
+                        label="Date of Birth"
+                        date={date}
+                        displayedDate={displayedDate}
+                        setDate={setDate}
+                        setDisplayedDate={setDisplayedDate}
+                    />
+                    <View style={settingsScreenStyles.actionsRow}>
+                        <TouchableOpacity
+                            activeOpacity={0.78}
+                            onPress={handleSaveDate}
+                            disabled={!hasDateChanges}
+                            style={[
+                                settingsScreenStyles.primaryButton,
+                                !hasDateChanges &&
+                                    settingsScreenStyles.disabled,
+                            ]}
+                        >
+                            <CustomText
+                                weight="semibold"
+                                style={settingsScreenStyles.primaryButtonText}
+                            >
+                                Save
+                            </CustomText>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </ScrollView>
         </SafeAreaView>
     );
 }

@@ -1,14 +1,16 @@
+import { router } from "expo-router";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Alert } from "react-native";
+
 import { supabase } from "@/api/clients/supabaseClient";
-import type { GalleryImage } from "@/stores/GalleryStore";
 import { useGalleryStore } from "@/stores/GalleryStore";
+import { useSyncStore } from "@/stores/SyncStore";
 import {
     multipleDownloadAndSaveImage,
     pickMultipleImages,
 } from "@/utils/gallery";
-import { router } from "expo-router";
-import { Alert } from "react-native";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSyncStore } from "@/stores/SyncStore";
+
+import type { GalleryImage } from "@/stores/GalleryStore";
 
 const EMPTY_IMAGES: GalleryImage[] = [];
 
@@ -23,6 +25,7 @@ export const useGalleryContent = ({ galleryId }: { galleryId: string }) => {
 
     const refreshGalleries = useGalleryStore((s) => s.refreshGalleries);
     const deleteGallery = useGalleryStore((s) => s.deleteGallery);
+    const updateGalleryDetails = useGalleryStore((s) => s.updateGalleryDetails);
     const uploadGalleryImages = useGalleryStore((s) => s.uploadGalleryImages);
     const isOnline = useSyncStore((s) => s.isOnline);
 
@@ -45,6 +48,9 @@ export const useGalleryContent = ({ galleryId }: { galleryId: string }) => {
     const [isDeleteImagesModalOpen, setIsDeleteImagesModalOpen] =
         useState(false);
     const [isDeleteGalleryModalOpen, setIsDeleteGalleryModalOpen] =
+        useState(false);
+    const [isEditGalleryModalOpen, setIsEditGalleryModalOpen] = useState(false);
+    const [isUpdatingGalleryDetails, setIsUpdatingGalleryDetails] =
         useState(false);
     const [editMode, setEditMode] = useState(false);
     const [selectedImageIds, setSelectedImageIds] = useState<Set<string>>(
@@ -121,6 +127,35 @@ export const useGalleryContent = ({ galleryId }: { galleryId: string }) => {
         router.back();
         await refreshGalleries();
     }, [deleteGallery, galleryId, isOnline, refreshGalleries]);
+
+    const handleUpdateGalleryDetails = useCallback(
+        async (input: { title: string; date: string; location: string }) => {
+            if (!isOnline) {
+                Alert.alert("Offline", "Gallery changes are unavailable offline.");
+                return null;
+            }
+
+            setIsUpdatingGalleryDetails(true);
+            try {
+                const updatedGallery = await updateGalleryDetails({
+                    galleryId,
+                    ...input,
+                });
+
+                if (!updatedGallery) {
+                    Alert.alert("Error", "Failed to update gallery.");
+                    return null;
+                }
+
+                setIsEditGalleryModalOpen(false);
+                await refreshGalleries();
+                return updatedGallery;
+            } finally {
+                setIsUpdatingGalleryDetails(false);
+            }
+        },
+        [galleryId, isOnline, refreshGalleries, updateGalleryDetails],
+    );
 
     const handleImagePress = useCallback((image: GalleryImage) => {
         if (editMode) {
@@ -234,6 +269,8 @@ export const useGalleryContent = ({ galleryId }: { galleryId: string }) => {
         images: visibleImages,
         isDeleteImagesModalOpen,
         isDeleteGalleryModalOpen,
+        isEditGalleryModalOpen,
+        isUpdatingGalleryDetails,
         editMode,
         selectedImages,
         selectedImageIds,
@@ -244,6 +281,7 @@ export const useGalleryContent = ({ galleryId }: { galleryId: string }) => {
         handleBack,
         handleDownloadImages,
         handleDeleteGallery,
+        handleUpdateGalleryDetails,
         handleSelectImage,
         handleImagePress,
         handleImageLongPress,
@@ -254,6 +292,7 @@ export const useGalleryContent = ({ galleryId }: { galleryId: string }) => {
         setViewerInitialImageId,
         setIsDeleteImagesModalOpen,
         setIsDeleteGalleryModalOpen,
+        setIsEditGalleryModalOpen,
         applySelectedImageIds,
     };
 };

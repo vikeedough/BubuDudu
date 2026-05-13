@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
-import { Alert, StyleSheet } from "react-native";
+import { Alert, ScrollView, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { GeneralButton } from "@/components/GeneralButton";
+import CustomText from "@/components/CustomText";
+import { settingsScreenStyles } from "@/components/settings/settingsScreenStyles";
 import { SettingsTextInputField } from "@/components/settings/SettingsTextInputField";
 import { useAuthContext } from "@/hooks/useAuthContext";
+
 export default function Name() {
     const { profile, updateProfile } = useAuthContext();
     const [name, setName] = useState(profile?.name || "");
@@ -30,25 +32,63 @@ export default function Name() {
     };
 
     return (
-        <SafeAreaView style={styles.container}>
-            <SettingsTextInputField
-                label="Name"
-                value={name}
-                onChangeText={setName}
-                placeholder="Enter your name"
-            />
-            <GeneralButton
-                label="Save"
-                onPress={handleSave}
-                disabled={name.trim() === "" || name === profile?.name}
-            />
+        <SafeAreaView style={settingsScreenStyles.container}>
+            <ScrollView
+                contentContainerStyle={settingsScreenStyles.scrollContent}
+                keyboardShouldPersistTaps="handled"
+            >
+                <View style={settingsScreenStyles.header}>
+                    <CustomText
+                        weight="extrabold"
+                        style={settingsScreenStyles.title}
+                    >
+                        Name
+                    </CustomText>
+                    <CustomText
+                        weight="medium"
+                        style={settingsScreenStyles.subtitle}
+                    >
+                        This is how your name appears across the app.
+                    </CustomText>
+                </View>
+
+                <View
+                    style={[
+                        settingsScreenStyles.card,
+                        settingsScreenStyles.formCard,
+                    ]}
+                >
+                    <SettingsTextInputField
+                        label="Name"
+                        value={name}
+                        onChangeText={setName}
+                        placeholder="Enter your name"
+                        autoCapitalize="words"
+                    />
+                    <View style={settingsScreenStyles.actionsRow}>
+                        <TouchableOpacity
+                            activeOpacity={0.78}
+                            onPress={handleSave}
+                            disabled={
+                                name.trim() === "" || name === profile?.name
+                            }
+                            style={[
+                                settingsScreenStyles.primaryButton,
+                                (name.trim() === "" ||
+                                    name === profile?.name) &&
+                                    settingsScreenStyles.disabled,
+                            ]}
+                        >
+                            <CustomText
+                                weight="semibold"
+                                style={settingsScreenStyles.primaryButtonText}
+                            >
+                                Save
+                            </CustomText>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </ScrollView>
         </SafeAreaView>
     );
 }
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        padding: "10%",
-    },
-});

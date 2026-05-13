@@ -9,6 +9,10 @@ export default function SettingsLayout() {
                 name="date-of-birth"
                 options={{ headerShown: false }}
             />
+            <Stack.Screen
+                name="shared-milestone"
+                options={{ headerShown: false }}
+            />
         </Stack>
     );
 }

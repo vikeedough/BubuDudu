@@ -50,7 +50,7 @@ app/
     (lists)/lists.tsx               Notes/lists
     (wheel)/wheel.tsx               Decision wheel
   (settings)/
-    index.tsx                       Settings menu
+    index.tsx                       Settings menu and avatar colour
     name.tsx                        Edit profile name
     date-of-birth.tsx               Edit birthday
     shared-milestone.tsx            Edit shared milestone

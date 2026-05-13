@@ -3,7 +3,7 @@ import {
     StyleSheet,
     TextInput,
     TextInputProps,
-    TouchableOpacity,
+    View,
 } from "react-native";
 
 import CustomText from "@/components/CustomText";
@@ -19,26 +19,43 @@ export const SettingsTextInputField: React.FC<SettingsTextInputFieldProps> = ({
     ...props
 }) => {
     return (
-        <>
-            <CustomText weight="bold">{label}</CustomText>
-            <TouchableOpacity style={styles.fieldContainer}>
-                <TextInput style={[styles.textInput, style]} {...props} />
-            </TouchableOpacity>
-        </>
+        <View style={styles.container}>
+            <CustomText weight="semibold" style={styles.label}>
+                {label}
+            </CustomText>
+            <View style={styles.fieldContainer}>
+                <TextInput
+                    allowFontScaling={false}
+                    placeholderTextColor={Colors.gray}
+                    style={[styles.textInput, style]}
+                    {...props}
+                />
+            </View>
+        </View>
     );
 };
 
 const styles = StyleSheet.create({
+    container: {
+        gap: 8,
+    },
+    label: {
+        color: Colors.darkGreenText,
+        fontSize: 14,
+    },
     fieldContainer: {
-        marginTop: 8,
         borderWidth: 1,
-        borderColor: Colors.black,
+        borderColor: "#EBEAEC",
         borderRadius: 12,
-        padding: "1%",
-        marginBottom: "5%",
+        backgroundColor: Colors.white,
+        minHeight: 46,
+        justifyContent: "center",
     },
     textInput: {
         fontSize: 16,
         fontFamily: "Raleway-Regular",
+        color: Colors.black,
+        paddingHorizontal: 14,
+        paddingVertical: 10,
     },
 });
