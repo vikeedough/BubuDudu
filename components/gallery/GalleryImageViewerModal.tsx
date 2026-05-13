@@ -261,7 +261,7 @@ const styles = StyleSheet.create({
     },
     topBar: {
         width: "100%",
-        marginTop: 15,
+        marginTop: 40,
         paddingHorizontal: 20,
         paddingTop: 10,
         paddingBottom: 10,

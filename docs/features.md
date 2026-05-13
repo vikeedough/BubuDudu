@@ -337,6 +337,7 @@ Components:
 - `components/gallery/GalleryListGrid.tsx`
 - `components/gallery/GalleryItem.tsx`
 - `components/gallery/GalleryControls.tsx`
+- `components/gallery/EditGalleryDetailsModal.tsx`
 - `components/gallery/GalleryImageGrid.tsx`
 - `components/gallery/GalleryImageItem.tsx`
 - `components/gallery/GalleryImageViewerModal.tsx`
@@ -389,7 +390,7 @@ Gallery detail behavior:
 - Image rows are signed through `sign-gallery-urls` and merged with `url_thumb`, `url_grid`, and `url_orig`.
 - Tapping an image opens a full-screen zoomable viewer.
 - The viewer requests more images when the user nears the end.
-- Sort toggles local display order by `created_at`.
+- The detail controls include an edit button for gallery name, location, and date. The edit modal uses `InlineWheelDatePicker` for the date.
 - Long-press enters edit mode if online.
 - Selected images can be downloaded to a `BubuDudu` device album or deleted.
 
@@ -404,7 +405,7 @@ Offline behavior:
 
 - Gallery metadata and image rows are cached for offline reading.
 - Missing image URLs are hidden offline; cached signed URLs may still work until they expire.
-- Gallery creation, uploads, image deletes, gallery deletes, and downloads are blocked offline.
+- Gallery creation, metadata edits, uploads, image deletes, gallery deletes, and downloads are blocked offline.
 
 ## Toasts
 

@@ -1,9 +1,8 @@
 import React from "react";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 
+import Pencil from "@/assets/svgs/pencil.svg";
 import Plus from "@/assets/svgs/plus.svg";
-import SortAscending from "@/assets/svgs/sort-ascending.svg";
-import SortDescending from "@/assets/svgs/sort-descending.svg";
 import TrashBin from "@/assets/svgs/trash-bin.svg";
 import CustomText from "@/components/CustomText";
 import { Colors } from "@/constants/colors";
@@ -13,20 +12,18 @@ import GalleryControlButton from "./GalleryControlButton";
 interface GalleryControlsProps {
     galleryTitle: string;
     galleryDate: string;
-    sortingByAscending: boolean;
     isDeleting: boolean;
     onDeleteGallery: () => void;
-    onToggleSort: () => void;
+    onEditGallery: () => void;
     onAddImages: () => void;
 }
 
 const GalleryControls: React.FC<GalleryControlsProps> = ({
     galleryTitle,
     galleryDate,
-    sortingByAscending,
     isDeleting,
     onDeleteGallery,
-    onToggleSort,
+    onEditGallery,
     onAddImages,
 }) => {
     return (
@@ -47,12 +44,8 @@ const GalleryControls: React.FC<GalleryControlsProps> = ({
                         <TrashBin />
                     )}
                 </GalleryControlButton>
-                <GalleryControlButton onPress={onToggleSort}>
-                    {sortingByAscending ? (
-                        <SortAscending />
-                    ) : (
-                        <SortDescending />
-                    )}
+                <GalleryControlButton onPress={onEditGallery}>
+                    <Pencil />
                 </GalleryControlButton>
                 <GalleryControlButton onPress={onAddImages}>
                     <Plus />
@@ -86,6 +79,14 @@ const styles = StyleSheet.create({
         marginTop: 5,
         fontSize: 10,
         color: Colors.darkGreenText,
+    },
+    editButton: {
+        width: 44,
+        paddingHorizontal: 9,
+    },
+    editButtonText: {
+        color: Colors.brownText,
+        fontSize: 11,
     },
 });
 

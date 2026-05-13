@@ -1,10 +1,11 @@
 import { useLocalSearchParams } from "expo-router";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import ConfirmModal from "@/components/common/ConfirmModal";
 import DeleteImagesModal from "@/components/gallery/DeleteImagesModal";
+import EditGalleryDetailsModal from "@/components/gallery/EditGalleryDetailsModal";
 import GalleryControls from "@/components/gallery/GalleryControls";
 import GalleryEditControls from "@/components/gallery/GalleryEditControls";
 import GalleryHeader from "@/components/gallery/GalleryHeader";
@@ -26,6 +27,11 @@ const GalleryContent = () => {
     } = useLocalSearchParams();
 
     const date = getDate();
+    const [galleryDetails, setGalleryDetails] = useState({
+        title: galleryTitle as string,
+        date: galleryDate as string,
+        location: galleryLocation as string,
+    });
 
     const {
         isLoadingInitialImages,
@@ -40,24 +46,54 @@ const GalleryContent = () => {
         viewerInitialImageId,
         isDeleteImagesModalOpen,
         isDeleteGalleryModalOpen,
+        isEditGalleryModalOpen,
+        isUpdatingGalleryDetails,
         editMode,
         selectedImageIds,
         selectedImageIdList,
-        sortingByAscending,
         handleAddImages,
         handleBack,
         handleDownloadImages,
         handleDeleteGallery,
+        handleUpdateGalleryDetails,
         handleImagePress,
         handleImageLongPress,
         handleSelectImage,
         handleClearSelection,
-        handleToggleSort,
         setIsViewerOpen,
         setViewerInitialImageId,
         setIsDeleteImagesModalOpen,
         setIsDeleteGalleryModalOpen,
+        setIsEditGalleryModalOpen,
     } = useGalleryContent({ galleryId: galleryId as string });
+
+    useEffect(() => {
+        setGalleryDetails({
+            title: galleryTitle as string,
+            date: galleryDate as string,
+            location: galleryLocation as string,
+        });
+    }, [galleryDate, galleryLocation, galleryTitle]);
+
+    const handleSaveGalleryDetails = async (input: {
+        title: string;
+        date: string;
+        location: string;
+    }) => {
+        const updatedGallery = await handleUpdateGalleryDetails(input);
+        if (updatedGallery) {
+            setGalleryDetails({
+                title: updatedGallery.title,
+                date:
+                    updatedGallery.date instanceof Date
+                        ? updatedGallery.date.toISOString()
+                        : updatedGallery.date,
+                location: updatedGallery.location,
+            });
+        }
+
+        return updatedGallery;
+    };
 
     return (
         <SafeAreaView style={styles.container}>
@@ -91,6 +127,15 @@ const GalleryContent = () => {
                     message="Are you sure you want to delete this gallery?"
                 />
             )}
+            <EditGalleryDetailsModal
+                isOpen={isEditGalleryModalOpen}
+                onClose={() => setIsEditGalleryModalOpen(false)}
+                galleryTitle={galleryDetails.title}
+                galleryLocation={galleryDetails.location}
+                galleryDate={galleryDetails.date}
+                isSaving={isUpdatingGalleryDetails}
+                onSave={handleSaveGalleryDetails}
+            />
 
             <GalleryHeader onBack={handleBack} currentDate={date} />
 
@@ -101,12 +146,11 @@ const GalleryContent = () => {
                 ]}
             >
                 <GalleryControls
-                    galleryTitle={galleryTitle as string}
-                    galleryDate={convertDate(galleryDate as string)}
-                    sortingByAscending={sortingByAscending}
+                    galleryTitle={galleryDetails.title}
+                    galleryDate={convertDate(galleryDetails.date)}
                     isDeleting={isDeleting}
                     onDeleteGallery={() => setIsDeleteGalleryModalOpen(true)}
-                    onToggleSort={handleToggleSort}
+                    onEditGallery={() => setIsEditGalleryModalOpen(true)}
                     onAddImages={handleAddImages}
                 />
 
@@ -119,7 +163,7 @@ const GalleryContent = () => {
                 )}
 
                 <GalleryLocationBar
-                    location={galleryLocation as string}
+                    location={galleryDetails.location}
                     showClearButton={selectedImageIds.size > 0}
                     onClear={handleClearSelection}
                 />
