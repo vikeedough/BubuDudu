@@ -3,25 +3,26 @@ import { StyleSheet, TouchableOpacity, View } from "react-native";
 
 import CustomText from "@/components/CustomText";
 import { Colors } from "@/constants/colors";
-import {
-    DEFAULT_EXPENSE_CURRENCY,
-    formatCurrency,
-} from "@/utils/expenses";
+import { DEFAULT_EXPENSE_CURRENCY, formatCurrency } from "@/utils/expenses";
 
-import type { Expense } from "@/api/endpoints/types";
+import type { Expense, Profile } from "@/api/endpoints/types";
 
 type ExpenseRowProps = {
     expense: Expense;
     currentUserId: string | null;
+    partnerProfile: Profile | null;
     onPress: (expense: Expense) => void;
 };
 
 export default function ExpenseRow({
     expense,
     currentUserId,
+    partnerProfile,
     onPress,
 }: ExpenseRowProps) {
     const isMine = !!currentUserId && expense.paid_by === currentUserId;
+    const partnerName = partnerProfile?.name?.trim() || "partner";
+    const payerName = isMine ? "me" : partnerName;
     const showConverted =
         expense.currency !== DEFAULT_EXPENSE_CURRENCY &&
         expense.conversion_status === "converted" &&
@@ -61,8 +62,7 @@ export default function ExpenseRow({
                     numberOfLines={1}
                     ellipsizeMode="tail"
                 >
-                    Paid by {isMine ? "me" : "partner"} ·{" "}
-                    {expense.category_name}
+                    Paid by {payerName} - {expense.category_name}
                 </CustomText>
             </View>
             <View style={styles.amountBlock}>
@@ -102,7 +102,7 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.12,
         shadowRadius: 3,
-        elevation: 3,
+        elevation: 2,
     },
     categoryMark: {
         width: 46,
@@ -120,12 +120,12 @@ const styles = StyleSheet.create({
         minWidth: 0,
     },
     title: {
-        fontSize: 18,
+        fontSize: 16,
         color: Colors.black,
         marginBottom: 6,
     },
     subtitle: {
-        fontSize: 12,
+        fontSize: 10,
         color: Colors.gray,
     },
     amountBlock: {
@@ -133,19 +133,19 @@ const styles = StyleSheet.create({
         maxWidth: 128,
     },
     amountText: {
-        fontSize: 17,
+        fontSize: 15,
         color: Colors.black,
         textAlign: "right",
     },
     convertedText: {
         marginTop: 5,
-        fontSize: 11,
+        fontSize: 9,
         color: Colors.darkGreenText,
         textAlign: "right",
     },
     pendingText: {
         marginTop: 5,
-        fontSize: 11,
+        fontSize: 9,
         color: Colors.orangeText,
         textAlign: "right",
     },

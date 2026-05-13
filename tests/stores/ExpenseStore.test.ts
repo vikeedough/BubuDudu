@@ -6,6 +6,7 @@ import {
   buildExpenseAnalytics,
   buildExpenseBudgetAnalytics,
   getExpensePeriodLabel,
+  getExpenseTitleSuggestions,
 } from "@/utils/expenses";
 import { setIsOnline } from "@/utils/offline/network";
 
@@ -193,6 +194,54 @@ describe("stores/ExpenseStore", () => {
     expect(
       getExpensePeriodLabel("daily", new Date("2026-05-11T12:00:00.000Z")),
     ).toBe("11 May 2026");
+  });
+
+  it("suggests previous titles created by the current user", () => {
+    const suggestions = getExpenseTitleSuggestions({
+      expenses: [
+        {
+          ...EXPENSE_A,
+          id: "exp-mcd-new",
+          title: "McDonalds",
+          created_at: "2026-05-12T10:00:00.000Z",
+        },
+        {
+          ...EXPENSE_A,
+          id: "exp-mcd-old",
+          title: "McDonalds",
+          created_at: "2026-05-10T10:00:00.000Z",
+        },
+        {
+          ...EXPENSE_A,
+          id: "exp-burger",
+          title: "Burger McD",
+          created_at: "2026-05-13T10:00:00.000Z",
+        },
+        {
+          ...EXPENSE_A,
+          id: "exp-mcd-cafe",
+          title: "McD Cafe",
+          created_at: "2026-05-11T10:00:00.000Z",
+        },
+        {
+          ...EXPENSE_A,
+          id: "exp-mcd-delivery",
+          title: "McD Delivery",
+          created_at: "2026-05-09T10:00:00.000Z",
+        },
+        {
+          ...EXPENSE_A,
+          id: "exp-partner",
+          created_by: "partner-1",
+          title: "McCafe",
+          created_at: "2026-05-14T10:00:00.000Z",
+        },
+      ] as any,
+      query: "McD",
+      currentUserId: "user-1",
+    });
+
+    expect(suggestions).toEqual(["McDonalds", "McD Cafe", "McD Delivery"]);
   });
 
   it("sets a shared category budget online", async () => {

@@ -1,19 +1,196 @@
-import dayjs from "dayjs";
-import React, { useEffect, useMemo, useRef } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { StyleSheet, View } from "react-native";
 import {
-    FlatList,
-    NativeScrollEvent,
-    NativeSyntheticEvent,
-    StyleSheet,
-    View,
-} from "react-native";
+    Gesture,
+    GestureDetector,
+    ScrollView,
+} from "react-native-gesture-handler";
 
 import CustomText from "@/components/CustomText";
 
-const ITEM_H = 34;
+const MONTHS = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+];
+
+function isLeapYear(year: number) {
+    return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+}
+
+function daysInMonth(year: number, monthIndex0: number) {
+    const month = monthIndex0 + 1;
+    if (month === 2) return isLeapYear(year) ? 29 : 28;
+    if ([4, 6, 9, 11].includes(month)) return 30;
+    return 31;
+}
+
+function clamp(value: number, min: number, max: number) {
+    return Math.max(min, Math.min(max, value));
+}
+
+function dateOnly(date: Date) {
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function isToday(year: number, month: number, day: number) {
+    const today = new Date();
+    return (
+        year === today.getFullYear() &&
+        month === today.getMonth() &&
+        day === today.getDate()
+    );
+}
+
+const ITEM_H = 30;
 const VISIBLE_ROWS = 3;
 const WHEEL_H = ITEM_H * VISIBLE_ROWS;
 const PAD = ITEM_H;
+
+type WheelProps<T extends string | number> = {
+    data: T[];
+    value: T;
+    onPick: (value: T) => void;
+    width: number;
+    renderText?: (value: T) => string;
+    textColor: string;
+    dimTextColor: string;
+    nestedScrollEnabled?: boolean;
+};
+
+function Wheel<T extends string | number>({
+    data,
+    value,
+    onPick,
+    width,
+    renderText,
+    textColor,
+    dimTextColor,
+    nestedScrollEnabled,
+}: WheelProps<T>) {
+    const ref = useRef<ScrollView>(null);
+    const isDraggingRef = useRef(false);
+    const isMomentumRef = useRef(false);
+    const hasMountedRef = useRef(false);
+    const finalizeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const nativeGesture = useMemo(() => Gesture.Native(), []);
+
+    const index = useMemo(() => {
+        const found = data.findIndex((item) => item === value);
+        return found < 0 ? 0 : found;
+    }, [data, value]);
+
+    useEffect(() => {
+        if (!isDraggingRef.current && !isMomentumRef.current) {
+            ref.current?.scrollTo({
+                y: index * ITEM_H,
+                animated: hasMountedRef.current,
+            });
+        }
+        hasMountedRef.current = true;
+    }, [index]);
+
+    const clearFinalizeTimer = () => {
+        if (!finalizeTimerRef.current) return;
+        clearTimeout(finalizeTimerRef.current);
+        finalizeTimerRef.current = null;
+    };
+
+    useEffect(() => clearFinalizeTimer, []);
+
+    const settleFromOffsetY = (offsetY: number) => {
+        const nextIndex = clamp(
+            Math.round((offsetY + 0.001) / ITEM_H),
+            0,
+            data.length - 1,
+        );
+        ref.current?.scrollTo({ y: nextIndex * ITEM_H, animated: false });
+        const nextValue = data[nextIndex];
+        if (nextValue !== value) onPick(nextValue);
+    };
+
+    return (
+        <GestureDetector gesture={nativeGesture}>
+            <View style={{ width, height: WHEEL_H, alignItems: "center" }}>
+                <ScrollView
+                    ref={ref}
+                    showsVerticalScrollIndicator={false}
+                    bounces={false}
+                    decelerationRate="fast"
+                    snapToInterval={ITEM_H}
+                    snapToAlignment="start"
+                    contentContainerStyle={styles.wheelContent}
+                    nestedScrollEnabled={nestedScrollEnabled}
+                    onScrollBeginDrag={() => {
+                        isDraggingRef.current = true;
+                    }}
+                    onMomentumScrollBegin={() => {
+                        isMomentumRef.current = true;
+                        clearFinalizeTimer();
+                    }}
+                    onMomentumScrollEnd={(event) => {
+                        isMomentumRef.current = false;
+                        settleFromOffsetY(event.nativeEvent.contentOffset.y);
+                    }}
+                    onScrollEndDrag={(event) => {
+                        isDraggingRef.current = false;
+                        const offsetY = event.nativeEvent.contentOffset.y;
+                        const velocityY = Math.abs(
+                            event.nativeEvent.velocity?.y ?? 0,
+                        );
+
+                        if (velocityY < 0.05 && !isMomentumRef.current) {
+                            settleFromOffsetY(offsetY);
+                            return;
+                        }
+
+                        clearFinalizeTimer();
+                        finalizeTimerRef.current = setTimeout(() => {
+                            if (!isMomentumRef.current) {
+                                settleFromOffsetY(offsetY);
+                            }
+                            finalizeTimerRef.current = null;
+                        }, 45);
+                    }}
+                >
+                    {data.map((item, itemIndex) => {
+                        const selected = item === value;
+                        return (
+                            <View key={String(itemIndex)} style={styles.item}>
+                                <CustomText
+                                    weight="extrabold"
+                                    style={[
+                                        styles.itemText,
+                                        {
+                                            color: selected
+                                                ? textColor
+                                                : dimTextColor,
+                                        },
+                                    ]}
+                                    numberOfLines={1}
+                                >
+                                    {renderText
+                                        ? renderText(item)
+                                        : String(item)}
+                                </CustomText>
+                            </View>
+                        );
+                    })}
+                </ScrollView>
+            </View>
+        </GestureDetector>
+    );
+}
 
 type ExpenseDatePickerProps = {
     value: Date;
@@ -27,23 +204,6 @@ type ExpenseDatePickerProps = {
     nestedScrollEnabled?: boolean;
 };
 
-function clamp(value: number, min: number, max: number) {
-    return Math.max(min, Math.min(max, value));
-}
-
-function getDateIndex(date: Date, startDate: dayjs.Dayjs, totalDays: number) {
-    const index = dayjs(date).startOf("day").diff(startDate, "day");
-    return clamp(Number.isFinite(index) ? index : 0, 0, totalDays - 1);
-}
-
-function getDateFromIndex(startDate: dayjs.Dayjs, index: number) {
-    return startDate.add(index, "day");
-}
-
-function getDateLabel(date: dayjs.Dayjs) {
-    return date.isSame(dayjs(), "day") ? "Today" : date.format("D MMM YYYY");
-}
-
 export default function ExpenseDatePicker({
     value,
     onChange,
@@ -55,71 +215,43 @@ export default function ExpenseDatePicker({
     highlightColor = "#EEF0EB",
     nestedScrollEnabled = true,
 }: ExpenseDatePickerProps) {
-    const listRef = useRef<FlatList<number>>(null);
-    const isMomentumRef = useRef(false);
-    const hasMountedRef = useRef(false);
-    const finalizeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-    const startDate = useMemo(
-        () => dayjs(new Date(minYear, 0, 1)).startOf("day"),
-        [minYear],
-    );
-    const endDate = useMemo(
-        () => dayjs(new Date(maxYear, 11, 31)).startOf("day"),
-        [maxYear],
-    );
-    const totalDays = useMemo(
-        () => Math.max(1, endDate.diff(startDate, "day") + 1),
-        [endDate, startDate],
-    );
-    const data = useMemo(
-        () => Array.from({ length: totalDays }, (_, index) => index),
-        [totalDays],
-    );
-    const selectedIndex = useMemo(
-        () => getDateIndex(value, startDate, totalDays),
-        [startDate, totalDays, value],
-    );
-
-    const clearFinalizeTimer = () => {
-        if (!finalizeTimerRef.current) return;
-        clearTimeout(finalizeTimerRef.current);
-        finalizeTimerRef.current = null;
-    };
-
-    useEffect(() => clearFinalizeTimer, []);
+    const selectedValue = useMemo(() => dateOnly(value), [value]);
+    const [month, setMonth] = useState(selectedValue.getMonth());
+    const [year, setYear] = useState(selectedValue.getFullYear());
+    const [day, setDay] = useState(selectedValue.getDate());
 
     useEffect(() => {
-        requestAnimationFrame(() => {
-            listRef.current?.scrollToOffset({
-                offset: selectedIndex * ITEM_H,
-                animated: hasMountedRef.current,
-            });
-            hasMountedRef.current = true;
-        });
-    }, [selectedIndex]);
+        setMonth(selectedValue.getMonth());
+        setYear(selectedValue.getFullYear());
+        setDay(selectedValue.getDate());
+    }, [selectedValue]);
 
-    const settleFromOffsetY = (offsetY: number) => {
-        const index = clamp(
-            Math.round((offsetY + 0.001) / ITEM_H),
-            0,
-            totalDays - 1,
-        );
-        listRef.current?.scrollToOffset({
-            offset: index * ITEM_H,
-            animated: false,
-        });
-
-        const nextDate = getDateFromIndex(startDate, index);
-        if (!nextDate.isSame(dayjs(value), "day")) {
-            onChange(nextDate.toDate());
+    const years = useMemo(() => {
+        const startYear = Math.min(minYear, selectedValue.getFullYear());
+        const endYear = Math.max(maxYear, selectedValue.getFullYear());
+        const items: number[] = [];
+        for (let itemYear = startYear; itemYear <= endYear; itemYear += 1) {
+            items.push(itemYear);
         }
-    };
+        return items;
+    }, [maxYear, minYear, selectedValue]);
 
-    const handleScrollEnd = (
-        event: NativeSyntheticEvent<NativeScrollEvent>,
-    ) => {
-        settleFromOffsetY(event.nativeEvent.contentOffset.y);
+    const days = useMemo(() => {
+        const totalDays = daysInMonth(year, month);
+        const items: number[] = [];
+        for (let itemDay = 1; itemDay <= totalDays; itemDay += 1) {
+            items.push(itemDay);
+        }
+        return items;
+    }, [month, year]);
+
+    useEffect(() => {
+        const totalDays = daysInMonth(year, month);
+        if (day > totalDays) setDay(totalDays);
+    }, [day, month, year]);
+
+    const commit = (nextYear: number, nextMonth: number, nextDay: number) => {
+        onChange(new Date(nextYear, nextMonth, nextDay));
     };
 
     return (
@@ -132,82 +264,58 @@ export default function ExpenseDatePicker({
                     { backgroundColor: highlightColor },
                 ]}
             />
-            <FlatList
-                ref={listRef}
-                data={data}
-                keyExtractor={(item) => String(item)}
-                renderItem={({ item }) => {
-                    const date = getDateFromIndex(startDate, item);
-                    const selected = item === selectedIndex;
+            <View style={styles.columns}>
+                <Wheel
+                    data={MONTHS}
+                    value={MONTHS[month]}
+                    onPick={(pickedMonth) => {
+                        const nextMonth = MONTHS.indexOf(pickedMonth);
+                        setMonth(nextMonth);
+                        const totalDays = daysInMonth(year, nextMonth);
+                        const nextDay = Math.min(day, totalDays);
+                        if (nextDay !== day) setDay(nextDay);
+                        commit(year, nextMonth, nextDay);
+                    }}
+                    width={86}
+                    textColor={textColor}
+                    dimTextColor={dimTextColor}
+                    nestedScrollEnabled={nestedScrollEnabled}
+                />
 
-                    return (
-                        <View style={styles.item}>
-                            <CustomText
-                                weight={selected ? "extrabold" : "semibold"}
-                                style={[
-                                    styles.itemText,
-                                    {
-                                        color: selected
-                                            ? textColor
-                                            : dimTextColor,
-                                    },
-                                ]}
-                                numberOfLines={1}
-                            >
-                                {getDateLabel(date)}
-                            </CustomText>
-                        </View>
-                    );
-                }}
-                showsVerticalScrollIndicator={false}
-                bounces={false}
-                nestedScrollEnabled={nestedScrollEnabled}
-                decelerationRate="fast"
-                snapToInterval={ITEM_H}
-                snapToAlignment="start"
-                getItemLayout={(_, index) => ({
-                    length: ITEM_H,
-                    offset: ITEM_H * index,
-                    index,
-                })}
-                initialScrollIndex={selectedIndex}
-                contentContainerStyle={styles.content}
-                style={styles.list}
-                onMomentumScrollBegin={() => {
-                    isMomentumRef.current = true;
-                    clearFinalizeTimer();
-                }}
-                onMomentumScrollEnd={(event) => {
-                    isMomentumRef.current = false;
-                    handleScrollEnd(event);
-                }}
-                onScrollEndDrag={(event) => {
-                    const velocityY = Math.abs(
-                        event.nativeEvent.velocity?.y ?? 0,
-                    );
-
-                    if (velocityY < 0.05 && !isMomentumRef.current) {
-                        handleScrollEnd(event);
-                        return;
+                <Wheel
+                    data={days}
+                    value={day}
+                    onPick={(pickedDay) => {
+                        setDay(pickedDay);
+                        commit(year, month, pickedDay);
+                    }}
+                    width={92}
+                    renderText={(pickedDay) =>
+                        isToday(year, month, pickedDay)
+                            ? "Today"
+                            : String(pickedDay).padStart(2, "0")
                     }
+                    textColor={textColor}
+                    dimTextColor={dimTextColor}
+                    nestedScrollEnabled={nestedScrollEnabled}
+                />
 
-                    clearFinalizeTimer();
-                    finalizeTimerRef.current = setTimeout(() => {
-                        if (!isMomentumRef.current) {
-                            handleScrollEnd(event);
-                        }
-                        finalizeTimerRef.current = null;
-                    }, 45);
-                }}
-                onScrollToIndexFailed={({ index }) => {
-                    requestAnimationFrame(() => {
-                        listRef.current?.scrollToOffset({
-                            offset: index * ITEM_H,
-                            animated: false,
-                        });
-                    });
-                }}
-            />
+                <Wheel
+                    data={years}
+                    value={year}
+                    onPick={(pickedYear) => {
+                        setYear(pickedYear);
+                        const totalDays = daysInMonth(pickedYear, month);
+                        const nextDay = Math.min(day, totalDays);
+                        if (nextDay !== day) setDay(nextDay);
+                        commit(pickedYear, month, nextDay);
+                    }}
+                    width={90}
+                    textColor={textColor}
+                    dimTextColor={dimTextColor}
+                    nestedScrollEnabled={nestedScrollEnabled}
+                />
+            </View>
         </View>
     );
 }
@@ -222,10 +330,12 @@ const styles = StyleSheet.create({
         borderColor: "#EBEAEC",
         overflow: "hidden",
     },
-    list: {
-        height: WHEEL_H,
+    columns: {
+        flexDirection: "row",
+        justifyContent: "center",
+        gap: 10,
     },
-    content: {
+    wheelContent: {
         paddingVertical: PAD,
     },
     item: {

@@ -243,11 +243,14 @@ Behavior:
 - The tracker logs expenses and monthly category budgets only. It does not model income, transfers, splitting, or settlement.
 - Expenses include amount, currency, title, category, and paid date.
 - Expenses store both the creator and the payer. The payer can be the current user or partner.
-- The log can show both partners together or only the current user's expenses.
-- The log opens to day view by default and can switch between day, week, and month views, with previous/next period navigation. The current day label is Today.
+- The log can show both partners together or only the current user's expenses. The Me/Both scope control is ordered Me then Both and uses current-user/partner avatar border colors.
+- The log opens to day view by default and can switch between day, week, and month views, with previous/next period navigation. The current day label is Today, and the selected log period uses the same yellow style as Breakdown.
 - Adding an expense while viewing a specific log day starts the expense form date picker on that selected day.
 - The expense form date picker labels the current day as Today and shows adjacent rows as full dates.
+- The category field in the expense form is a dropdown with Manage Categories at the bottom.
+- Expense title suggestions show up to three prior expenses created by the current user, starting after two typed characters, with prefix matches ranked before contains matches.
 - Payer buttons use each person's avatar border color, and the partner payer option shows the partner's profile name when available.
+- Expense rows show the partner's profile name for partner-paid expenses when available.
 - Default categories are Food, Health, Medical, Bills, and Transport.
 - Categories can be added, renamed, recolored, and deleted. Deletes are soft deletes; existing expenses keep category snapshots.
 - Breakdown view supports daily, weekly, monthly, and yearly periods, with previous/next period navigation. Weekly periods start on Monday.

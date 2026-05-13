@@ -5,7 +5,7 @@ The expense tracker is an offline-first tab for logging shared-space expenses. I
 ## Product Behavior
 
 - The tab appears third in the bottom tab bar, between Gallery and Lists.
-- Expenses can be viewed for both partners together or filtered to expenses paid by the current user from the header scope control.
+- Expenses can be viewed for both partners together or filtered to expenses paid by the current user from the header scope control. The scope control shows Me on the left and Both on the right, with each option colored from the current user or partner avatar border color.
 - The main view switcher supports Log, Breakdown, and Budget.
 - Each expense has an amount, currency, title, category, and paid date.
 - Each expense stores the creator and the payer. The payer can be the current user or partner.
@@ -14,6 +14,8 @@ The expense tracker is an offline-first tab for logging shared-space expenses. I
 - The add expense action is a bottom-right floating button and always opens the expense form; category loading or empty states are handled inside the category section of that form.
 - The log opens to the day view by default. When adding an expense from a selected log day, the expense form's date picker starts on that selected day.
 - The expense form date picker uses a single day wheel. The current day is labeled Today, with neighboring rows shown as full dates.
+- The expense form category field is a dropdown beside the Category label, with Manage Categories at the bottom of the dropdown.
+- Expense titles suggest up to three previous titles created by the current user once at least two characters are typed. Prefix matches appear before contains matches.
 - Default currency is SGD.
 - The expense form keeps currency beside amount, with currency choices shown in a single scrollable overlay dropdown list.
 - Foreign-currency expenses store both the original amount and a converted SGD snapshot.
@@ -21,6 +23,7 @@ The expense tracker is an offline-first tab for logging shared-space expenses. I
 - Categories start with Food, Health, Medical, Bills, and Transport.
 - Users can add, rename, and delete categories. Category deletes are soft deletes; historical expenses keep their category label and color snapshot.
 - The log can switch between day, week, and month views and move to previous/next periods, using consistent spacing across the log/breakdown, period, and date controls. The current day is labeled as Today.
+- The log Day/Week/Month selector uses the same yellow selected state as the Breakdown period selector.
 - Expense breakdown can switch between daily, weekly, monthly, and yearly periods and move to previous/next periods. Weeks start on Monday.
 - Budgets are monthly and SGD-only. Shared budgets live under Both, while personal budgets live under Me and are scoped to the current user.
 - Budget rows show only categories with budgets, plus spent amount, budget amount, remaining/over amount, percentage used, and a visual progress bar.
@@ -37,7 +40,7 @@ The expense tracker is an offline-first tab for logging shared-space expenses. I
 - `components/expenses/CategoryManagerModal.tsx`
   Add, rename, recolor, and delete categories.
 - `components/expenses/ExpenseRow.tsx`
-  Expense log row inspired by the provided sample layout.
+  Expense log row inspired by the provided sample layout. Shows the partner's profile name for partner-paid expenses when available.
 - `components/expenses/ExpenseBreakdownView.tsx`
   Period controls, metrics, pie chart, and category legend.
 - `components/expenses/ExpenseBudgetView.tsx`

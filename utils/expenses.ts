@@ -140,6 +140,62 @@ export function formatCurrency(
     }
 }
 
+export function getExpenseTitleSuggestions(input: {
+    expenses: Expense[];
+    query: string;
+    currentUserId: string | null;
+    excludeExpenseId?: string | null;
+    minLength?: number;
+    limit?: number;
+}) {
+    const query = input.query.trim().toLowerCase();
+    const minLength = input.minLength ?? 2;
+    if (!input.currentUserId || query.length < minLength) return [];
+
+    const byTitle = new Map<
+        string,
+        { title: string; lastUsedAt: number }
+    >();
+
+    for (const expense of input.expenses) {
+        if (expense.created_by !== input.currentUserId) continue;
+        if (expense.id === input.excludeExpenseId) continue;
+
+        const title = expense.title.trim();
+        if (title.length === 0) continue;
+
+        const normalized = title.toLowerCase();
+        if (normalized === query) continue;
+
+        const lastUsedAt = new Date(expense.created_at).getTime();
+        const existing = byTitle.get(normalized);
+        if (!existing || lastUsedAt > existing.lastUsedAt) {
+            byTitle.set(normalized, {
+                title,
+                lastUsedAt: Number.isFinite(lastUsedAt) ? lastUsedAt : 0,
+            });
+        }
+    }
+
+    return Array.from(byTitle.entries())
+        .map(([normalized, item]) => ({
+            ...item,
+            normalized,
+            matchRank: normalized.startsWith(query) ? 0 : 1,
+        }))
+        .filter(
+            (item) =>
+                item.matchRank === 0 || item.normalized.includes(query),
+        )
+        .sort((a, b) => {
+            if (a.matchRank !== b.matchRank) return a.matchRank - b.matchRank;
+            if (a.lastUsedAt !== b.lastUsedAt) return b.lastUsedAt - a.lastUsedAt;
+            return a.title.localeCompare(b.title);
+        })
+        .slice(0, input.limit ?? 3)
+        .map((item) => item.title);
+}
+
 export function getPeriodRange(
     period: ExpensePeriod,
     anchorDate = new Date(),
