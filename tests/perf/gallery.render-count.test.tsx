@@ -78,8 +78,13 @@ describe("Gallery performance guardrails", () => {
       loadMoreGalleries: jest.fn(),
       galleriesPage: {
         isLoadingMore: false,
+        isLoadingInitial: false,
         hasMore: false,
       },
+      galleriesQuery: {
+        searchText: "",
+      },
+      error: null,
     };
   });
 
@@ -115,6 +120,7 @@ describe("Gallery performance guardrails", () => {
         images={images as any}
         isLoadingInitial={false}
         isLoadingMore={false}
+        hasMore={false}
         onEndReached={onEndReached}
         editMode={false}
         selectedImageIds={selectedImageIds}
@@ -131,6 +137,7 @@ describe("Gallery performance guardrails", () => {
         images={images as any}
         isLoadingInitial={false}
         isLoadingMore={false}
+        hasMore={false}
         onEndReached={onEndReached}
         editMode={false}
         selectedImageIds={selectedImageIds}

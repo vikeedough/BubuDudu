@@ -1,9 +1,11 @@
 import { FlashList } from "@shopify/flash-list";
 import React, { useCallback, useMemo } from "react";
-import { ActivityIndicator, Dimensions, StyleSheet, View } from "react-native";
+import { ActivityIndicator, StyleSheet, View } from "react-native";
 
 import { Colors } from "@/constants/colors";
 import { GalleryImage } from "@/stores/GalleryStore";
+
+import CustomText from "../CustomText";
 
 import GalleryImageItem from "./GalleryImageItem";
 
@@ -11,6 +13,7 @@ interface GalleryImageGridProps {
     images: GalleryImage[];
     isLoadingInitial: boolean;
     isLoadingMore: boolean;
+    hasMore: boolean;
     onEndReached: () => void;
     editMode: boolean;
     selectedImageIds: ReadonlySet<string>;
@@ -31,13 +34,11 @@ const groupIntoRows = (images: GalleryImage[]): GalleryImageRow[] => {
     return rows;
 };
 
-const IMAGE_SIZE = (Dimensions.get("window").width - 110) / 2;
-const ESTIMATED_ROW_SIZE = IMAGE_SIZE + 15;
-
 const GalleryImageGrid: React.FC<GalleryImageGridProps> = ({
     images,
     isLoadingInitial,
     isLoadingMore,
+    hasMore,
     onEndReached,
     editMode,
     selectedImageIds,
@@ -51,9 +52,9 @@ const GalleryImageGrid: React.FC<GalleryImageGridProps> = ({
         [],
     );
     const handleEndReached = useCallback(() => {
-        if (isLoadingMore) return;
+        if (!hasMore || isLoadingMore) return;
         onEndReached();
-    }, [isLoadingMore, onEndReached]);
+    }, [hasMore, isLoadingMore, onEndReached]);
     const renderFooter = useMemo(
         () =>
             isLoadingMore ? (
@@ -110,9 +111,18 @@ const GalleryImageGrid: React.FC<GalleryImageGridProps> = ({
                 data={rows}
                 renderItem={renderRow}
                 ItemSeparatorComponent={renderSeparator}
-                estimatedItemSize={ESTIMATED_ROW_SIZE}
                 onEndReached={handleEndReached}
                 onEndReachedThreshold={0.5}
+                ListEmptyComponent={
+                    <View style={styles.emptyState}>
+                        <CustomText weight="bold" style={styles.emptyTitle}>
+                            No photos here yet
+                        </CustomText>
+                        <CustomText weight="medium" style={styles.emptyText}>
+                            Tap plus to add photos.
+                        </CustomText>
+                    </View>
+                }
                 ListFooterComponent={renderFooter}
             />
         </View>
@@ -142,6 +152,24 @@ const styles = StyleSheet.create({
     },
     footer: {
         paddingVertical: 15,
+    },
+    emptyState: {
+        minHeight: 260,
+        justifyContent: "center",
+        alignItems: "center",
+        paddingHorizontal: 24,
+        gap: 8,
+    },
+    emptyTitle: {
+        color: Colors.darkGreenText,
+        fontSize: 16,
+        textAlign: "center",
+    },
+    emptyText: {
+        color: Colors.darkGreenText,
+        fontSize: 12,
+        opacity: 0.68,
+        textAlign: "center",
     },
 });
 

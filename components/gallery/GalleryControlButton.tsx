@@ -7,15 +7,29 @@ interface GalleryControlButtonProps {
     onPress: () => void;
     children: React.ReactNode;
     style?: StyleProp<ViewStyle>;
+    disabled?: boolean;
+    accessibilityLabel?: string;
 }
 
 const GalleryControlButton: React.FC<GalleryControlButtonProps> = ({
     onPress,
     children,
     style,
+    disabled = false,
+    accessibilityLabel,
 }) => {
     return (
-        <TouchableOpacity style={[styles.controlButton, style]} onPress={onPress}>
+        <TouchableOpacity
+            accessibilityLabel={accessibilityLabel}
+            accessibilityRole="button"
+            disabled={disabled}
+            style={[
+                styles.controlButton,
+                disabled && styles.controlButtonDisabled,
+                style,
+            ]}
+            onPress={onPress}
+        >
             {children}
         </TouchableOpacity>
     );
@@ -28,11 +42,14 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.white,
         borderRadius: 999,
         padding: 10,
-        height: 30,
-        width: 30,
+        height: 40,
+        width: 40,
         justifyContent: "center",
         alignItems: "center",
         borderWidth: 1,
         borderColor: "#EBEAEC",
+    },
+    controlButtonDisabled: {
+        opacity: 0.45,
     },
 });

@@ -42,21 +42,22 @@ const DeleteImagesModal: React.FC<DeleteImagesModalProps> = ({
 
         setIsDeleting(true);
 
-        const ok = await deleteMultipleGalleryImages(
-            galleryId,
-            selectedImageIds,
-        );
+        try {
+            const ok = await deleteMultipleGalleryImages(
+                galleryId,
+                selectedImageIds,
+            );
 
-        if (ok) {
-            await refreshGalleryImages(galleryId);
-            onCleared();
-            onClose();
-        } else {
-            // keep modal open if you want, but current UX closes anyway
-            onClose();
+            if (ok) {
+                await refreshGalleryImages(galleryId);
+                onCleared();
+                onClose();
+            } else {
+                Alert.alert("Error", "Failed to delete the selected images.");
+            }
+        } finally {
+            setIsDeleting(false);
         }
-
-        setIsDeleting(false);
     };
 
     return (

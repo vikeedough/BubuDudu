@@ -6,6 +6,8 @@ import { Colors } from "@/constants/colors";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { Gallery, useGalleryStore } from "@/stores/GalleryStore";
 
+import CustomText from "../CustomText";
+
 import GalleryItem from "./GalleryItem";
 
 interface GalleryListGridProps {
@@ -24,16 +26,19 @@ const groupIntoRows = (galleries: Gallery[]): GalleryRow[] => {
     return rows;
 };
 
-const ESTIMATED_ROW_SIZE = 185;
-
 const GalleryListGrid: React.FC<GalleryListGridProps> = ({
     galleries,
     onGalleryPress,
 }) => {
     const refreshGalleries = useGalleryStore((s) => s.refreshGalleries);
     const loadMoreGalleries = useGalleryStore((s) => s.loadMoreGalleries);
+    const error = useGalleryStore((s) => s.error);
+    const isLoadingInitial = useGalleryStore(
+        (s) => s.galleriesPage.isLoadingInitial,
+    );
     const isLoadingMore = useGalleryStore((s) => s.galleriesPage.isLoadingMore);
     const hasMore = useGalleryStore((s) => s.galleriesPage.hasMore);
+    const searchText = useGalleryStore((s) => s.galleriesQuery.searchText);
 
     const rows = useMemo(() => groupIntoRows(galleries), [galleries]);
     const { refreshing, onRefresh } = usePullToRefresh(refreshGalleries);
@@ -55,6 +60,42 @@ const GalleryListGrid: React.FC<GalleryListGridProps> = ({
             ) : null,
         [isLoadingMore],
     );
+    const emptyState = useMemo(() => {
+        if (isLoadingInitial) {
+            return (
+                <View style={styles.emptyState}>
+                    <ActivityIndicator size="large" color={Colors.lightBlue} />
+                </View>
+            );
+        }
+
+        if (error) {
+            return (
+                <View style={styles.emptyState}>
+                    <CustomText weight="bold" style={styles.emptyTitle}>
+                        Gallery could not load
+                    </CustomText>
+                    <CustomText weight="medium" style={styles.emptyText}>
+                        Pull down to try again.
+                    </CustomText>
+                </View>
+            );
+        }
+
+        const hasSearch = searchText.trim().length > 0;
+        return (
+            <View style={styles.emptyState}>
+                <CustomText weight="bold" style={styles.emptyTitle}>
+                    {hasSearch ? "No matching galleries" : "No galleries yet"}
+                </CustomText>
+                <CustomText weight="medium" style={styles.emptyText}>
+                    {hasSearch
+                        ? "Try a different search."
+                        : "Tap plus to save your first date."}
+                </CustomText>
+            </View>
+        );
+    }, [error, isLoadingInitial, searchText]);
     const renderRow = useCallback(
         ({ item: row }: { item: GalleryRow }) => (
             <View style={styles.row}>
@@ -86,11 +127,11 @@ const GalleryListGrid: React.FC<GalleryListGridProps> = ({
             data={rows}
             renderItem={renderRow}
             ItemSeparatorComponent={renderSeparator}
-            estimatedItemSize={ESTIMATED_ROW_SIZE}
             refreshing={refreshing}
             onRefresh={onRefresh}
             onEndReached={handleEndReached}
             onEndReachedThreshold={0.5}
+            ListEmptyComponent={emptyState}
             ListFooterComponent={renderFooter}
         />
     );
@@ -117,6 +158,25 @@ const styles = StyleSheet.create({
     },
     footer: {
         paddingVertical: 15,
+    },
+    emptyState: {
+        flex: 1,
+        minHeight: 260,
+        justifyContent: "center",
+        alignItems: "center",
+        paddingHorizontal: 28,
+        gap: 8,
+    },
+    emptyTitle: {
+        color: Colors.darkGreenText,
+        fontSize: 16,
+        textAlign: "center",
+    },
+    emptyText: {
+        color: Colors.darkGreenText,
+        fontSize: 12,
+        opacity: 0.68,
+        textAlign: "center",
     },
 });
 

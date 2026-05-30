@@ -41,7 +41,6 @@ const GalleryContent = () => {
         isDownloading,
         isDeleting,
         images,
-        canonicalImages,
         isViewerOpen,
         viewerInitialImageId,
         isDeleteImagesModalOpen,
@@ -51,6 +50,7 @@ const GalleryContent = () => {
         editMode,
         selectedImageIds,
         selectedImageIdList,
+        sortingByAscending,
         handleAddImages,
         handleBack,
         handleDownloadImages,
@@ -60,6 +60,7 @@ const GalleryContent = () => {
         handleImageLongPress,
         handleSelectImage,
         handleClearSelection,
+        handleToggleSort,
         setIsViewerOpen,
         setViewerInitialImageId,
         setIsDeleteImagesModalOpen,
@@ -100,7 +101,7 @@ const GalleryContent = () => {
             <GalleryImageViewerModal
                 isOpen={isViewerOpen}
                 initialImageId={viewerInitialImageId}
-                images={canonicalImages}
+                images={images}
                 hasMore={hasMoreImages}
                 isLoadingMore={isLoadingMoreImages}
                 onLoadMore={() => loadMoreGalleryImages(galleryId as string)}
@@ -157,6 +158,7 @@ const GalleryContent = () => {
                 {editMode && (
                     <GalleryEditControls
                         isDownloading={isDownloading}
+                        selectedCount={selectedImageIds.size}
                         onDownload={handleDownloadImages}
                         onDelete={() => setIsDeleteImagesModalOpen(true)}
                     />
@@ -165,6 +167,8 @@ const GalleryContent = () => {
                 <GalleryLocationBar
                     location={galleryDetails.location}
                     showClearButton={selectedImageIds.size > 0}
+                    sortingByAscending={sortingByAscending}
+                    onToggleSort={handleToggleSort}
                     onClear={handleClearSelection}
                 />
 
@@ -172,6 +176,7 @@ const GalleryContent = () => {
                     images={images}
                     isLoadingInitial={isLoadingInitialImages}
                     isLoadingMore={isLoadingMoreImages}
+                    hasMore={hasMoreImages}
                     onEndReached={() =>
                         loadMoreGalleryImages(galleryId as string)
                     }

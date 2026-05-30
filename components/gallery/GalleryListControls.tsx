@@ -29,6 +29,8 @@ const GalleryListControls: React.FC<GalleryListControlsProps> = ({
     return (
         <View style={styles.controlsContainer}>
             <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel="Focus gallery search"
                 style={styles.searchBar}
                 onPress={() => {
                     searchBarRef.current?.focus();
@@ -44,10 +46,16 @@ const GalleryListControls: React.FC<GalleryListControlsProps> = ({
                     onChangeText={onSearchChange}
                 />
             </TouchableOpacity>
-            <GalleryControlButton onPress={onToggleSort}>
+            <GalleryControlButton
+                accessibilityLabel="Toggle gallery sort direction"
+                onPress={onToggleSort}
+            >
                 {sortingByDescending ? <SortDescending /> : <SortAscending />}
             </GalleryControlButton>
-            <GalleryControlButton onPress={onAddNew}>
+            <GalleryControlButton
+                accessibilityLabel="Add new gallery"
+                onPress={onAddNew}
+            >
                 <Plus />
             </GalleryControlButton>
         </View>
@@ -73,8 +81,8 @@ const styles = StyleSheet.create({
         borderColor: "#EBEAEC",
         flexDirection: "row",
         alignItems: "center",
-        gap: 10,
-        height: 35,
+        gap: 8,
+        height: 40,
     },
     searchBarText: {
         fontSize: 14,

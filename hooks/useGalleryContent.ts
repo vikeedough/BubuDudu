@@ -5,6 +5,7 @@ import { Alert } from "react-native";
 import { supabase } from "@/api/clients/supabaseClient";
 import { useGalleryStore } from "@/stores/GalleryStore";
 import { useSyncStore } from "@/stores/SyncStore";
+import { toast } from "@/toast/api";
 import {
     multipleDownloadAndSaveImage,
     pickMultipleImages,
@@ -107,9 +108,16 @@ export const useGalleryContent = ({ galleryId }: { galleryId: string }) => {
         const newImages = await pickMultipleImages();
         if (!newImages?.length) return;
 
-        const ok = await uploadGalleryImages(galleryId, newImages);
-        if (ok) {
-            await refreshGalleries();
+        try {
+            const ok = await uploadGalleryImages(galleryId, newImages);
+            if (ok) {
+                await refreshGalleries();
+                return;
+            }
+            Alert.alert("Upload failed", "Please try uploading the photos again.");
+        } catch (err) {
+            console.error("Error adding gallery images:", err);
+            Alert.alert("Upload failed", "Please try uploading the photos again.");
         }
     }, [galleryId, isOnline, refreshGalleries, uploadGalleryImages]);
 
@@ -120,12 +128,19 @@ export const useGalleryContent = ({ galleryId }: { galleryId: string }) => {
         }
 
         setIsDeleting(true);
-        await deleteGallery(galleryId);
-        setIsDeleting(false);
+        try {
+            const ok = await deleteGallery(galleryId);
+            if (!ok) {
+                Alert.alert("Error", "Failed to delete gallery.");
+                return;
+            }
 
-        setIsDeleteGalleryModalOpen(false);
-        router.back();
-        await refreshGalleries();
+            setIsDeleteGalleryModalOpen(false);
+            router.back();
+            await refreshGalleries();
+        } finally {
+            setIsDeleting(false);
+        }
     }, [deleteGallery, galleryId, isOnline, refreshGalleries]);
 
     const handleUpdateGalleryDetails = useCallback(
@@ -233,7 +248,19 @@ export const useGalleryContent = ({ galleryId }: { galleryId: string }) => {
                 }
             }
 
-            await multipleDownloadAndSaveImage(imagesToDownload);
+            const savedCount =
+                await multipleDownloadAndSaveImage(imagesToDownload);
+
+            if (savedCount > 0) {
+                toast.show({
+                    title: "Download complete",
+                    message:
+                        savedCount === 1
+                            ? "Saved 1 photo to BubuDudu."
+                            : `Saved ${savedCount} photos to BubuDudu.`,
+                    durationMs: 2000,
+                });
+            }
         } finally {
             setSelectedImageIds(new Set());
             setEditMode(false);
@@ -261,6 +288,7 @@ export const useGalleryContent = ({ galleryId }: { galleryId: string }) => {
         refreshGalleryImages,
 
         canonicalImages: visibleCanonicalImages,
+        isOnline,
         isViewerOpen,
         viewerInitialImageId,
 

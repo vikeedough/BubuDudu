@@ -13,6 +13,7 @@ interface GalleryControlsProps {
     galleryTitle: string;
     galleryDate: string;
     isDeleting: boolean;
+    actionsDisabled?: boolean;
     onDeleteGallery: () => void;
     onEditGallery: () => void;
     onAddImages: () => void;
@@ -22,6 +23,7 @@ const GalleryControls: React.FC<GalleryControlsProps> = ({
     galleryTitle,
     galleryDate,
     isDeleting,
+    actionsDisabled = false,
     onDeleteGallery,
     onEditGallery,
     onAddImages,
@@ -30,24 +32,41 @@ const GalleryControls: React.FC<GalleryControlsProps> = ({
         <View style={styles.buttonContainer}>
             <View style={styles.controlsContainer}>
                 <View style={styles.titleContainer}>
-                    <CustomText weight="bold" style={styles.title}>
+                    <CustomText
+                        weight="bold"
+                        style={styles.title}
+                        numberOfLines={2}
+                        ellipsizeMode="tail"
+                    >
                         {galleryTitle}
                     </CustomText>
                     <CustomText weight="medium" style={styles.date}>
                         {galleryDate}
                     </CustomText>
                 </View>
-                <GalleryControlButton onPress={onDeleteGallery}>
+                <GalleryControlButton
+                    accessibilityLabel="Delete gallery"
+                    disabled={actionsDisabled || isDeleting}
+                    onPress={onDeleteGallery}
+                >
                     {isDeleting ? (
                         <ActivityIndicator size="small" color={Colors.red} />
                     ) : (
                         <TrashBin />
                     )}
                 </GalleryControlButton>
-                <GalleryControlButton onPress={onEditGallery}>
+                <GalleryControlButton
+                    accessibilityLabel="Edit gallery details"
+                    disabled={actionsDisabled}
+                    onPress={onEditGallery}
+                >
                     <Pencil />
                 </GalleryControlButton>
-                <GalleryControlButton onPress={onAddImages}>
+                <GalleryControlButton
+                    accessibilityLabel="Add photos"
+                    disabled={actionsDisabled}
+                    onPress={onAddImages}
+                >
                     <Plus />
                 </GalleryControlButton>
             </View>
