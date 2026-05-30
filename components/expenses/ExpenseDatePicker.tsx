@@ -51,8 +51,6 @@ const ITEM_H = 30;
 const VISIBLE_ROWS = 3;
 const WHEEL_H = ITEM_H * VISIBLE_ROWS;
 const PAD = ITEM_H;
-const HOURS = Array.from({ length: 24 }, (_, index) => index);
-const MINUTES = Array.from({ length: 60 }, (_, index) => index);
 
 type WheelProps<T extends string | number> = {
     data: T[];
@@ -275,7 +273,6 @@ type ExpenseDatePickerProps = {
     cardColor?: string;
     highlightColor?: string;
     nestedScrollEnabled?: boolean;
-    showTime?: boolean;
     onInteractionStart?: () => void;
     onInteractionEnd?: () => void;
     parentScrollRef?: React.RefObject<any>;
@@ -291,7 +288,6 @@ export default function ExpenseDatePicker({
     cardColor = "#FFFFFF",
     highlightColor = "#EEF0EB",
     nestedScrollEnabled = true,
-    showTime = false,
     onInteractionStart,
     onInteractionEnd,
     parentScrollRef,
@@ -303,15 +299,11 @@ export default function ExpenseDatePicker({
     const [month, setMonth] = useState(selectedValue.getMonth());
     const [year, setYear] = useState(selectedValue.getFullYear());
     const [day, setDay] = useState(selectedValue.getDate());
-    const [hour, setHour] = useState(selectedValue.getHours());
-    const [minute, setMinute] = useState(selectedValue.getMinutes());
 
     useEffect(() => {
         setMonth(selectedValue.getMonth());
         setYear(selectedValue.getFullYear());
         setDay(selectedValue.getDate());
-        setHour(selectedValue.getHours());
-        setMinute(selectedValue.getMinutes());
     }, [selectedValue]);
 
     const years = useMemo(() => {
@@ -342,10 +334,8 @@ export default function ExpenseDatePicker({
         nextYear: number,
         nextMonth: number,
         nextDay: number,
-        nextHour = hour,
-        nextMinute = minute,
     ) => {
-        onChange(new Date(nextYear, nextMonth, nextDay, nextHour, nextMinute));
+        onChange(new Date(nextYear, nextMonth, nextDay));
     };
 
     return (
@@ -419,49 +409,6 @@ export default function ExpenseDatePicker({
                     parentScrollRef={parentScrollRef}
                 />
             </View>
-            {showTime ? (
-                <View style={styles.timeColumns}>
-                    <Wheel
-                        data={HOURS}
-                        value={hour}
-                        onPick={(pickedHour) => {
-                            setHour(pickedHour);
-                            commit(year, month, day, pickedHour, minute);
-                        }}
-                        width={74}
-                        renderText={(pickedHour) =>
-                            String(pickedHour).padStart(2, "0")
-                        }
-                        textColor={textColor}
-                        dimTextColor={dimTextColor}
-                        nestedScrollEnabled={nestedScrollEnabled}
-                        onInteractionStart={onInteractionStart}
-                        onInteractionEnd={onInteractionEnd}
-                        parentScrollRef={parentScrollRef}
-                    />
-                    <CustomText weight="extrabold" style={styles.timeColon}>
-                        :
-                    </CustomText>
-                    <Wheel
-                        data={MINUTES}
-                        value={minute}
-                        onPick={(pickedMinute) => {
-                            setMinute(pickedMinute);
-                            commit(year, month, day, hour, pickedMinute);
-                        }}
-                        width={74}
-                        renderText={(pickedMinute) =>
-                            String(pickedMinute).padStart(2, "0")
-                        }
-                        textColor={textColor}
-                        dimTextColor={dimTextColor}
-                        nestedScrollEnabled={nestedScrollEnabled}
-                        onInteractionStart={onInteractionStart}
-                        onInteractionEnd={onInteractionEnd}
-                        parentScrollRef={parentScrollRef}
-                    />
-                </View>
-            ) : null}
         </View>
     );
 }
@@ -480,17 +427,6 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         justifyContent: "center",
         gap: 10,
-    },
-    timeColumns: {
-        flexDirection: "row",
-        justifyContent: "center",
-        alignItems: "center",
-        gap: 6,
-        marginTop: 8,
-    },
-    timeColon: {
-        color: "#4C5A45",
-        fontSize: 18,
     },
     wheelContent: {
         paddingVertical: PAD,

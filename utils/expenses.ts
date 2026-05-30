@@ -145,9 +145,14 @@ function getExpenseTimestamp(value: string) {
     return Number.isFinite(timestamp) ? timestamp : 0;
 }
 
+function getExpenseDateTimestamp(value: string) {
+    const parsed = dayjs(value);
+    return parsed.isValid() ? parsed.startOf("day").valueOf() : 0;
+}
+
 function compareExpensesNewestFirst(a: Expense, b: Expense) {
     const paidDiff =
-        getExpenseTimestamp(b.paid_at) - getExpenseTimestamp(a.paid_at);
+        getExpenseDateTimestamp(b.paid_at) - getExpenseDateTimestamp(a.paid_at);
     if (paidDiff !== 0) return paidDiff;
 
     const createdDiff =

@@ -64,12 +64,20 @@ type ExpenseModalProps = {
 
 function getInitialDate(expense?: Expense | null, fallbackDate?: Date) {
     if (!expense?.paid_at) {
-        return fallbackDate && !Number.isNaN(fallbackDate.getTime())
-            ? new Date(fallbackDate)
-            : new Date();
+        const fallback =
+            fallbackDate && !Number.isNaN(fallbackDate.getTime())
+                ? fallbackDate
+                : new Date();
+        return getDateOnly(fallback);
     }
     const parsed = new Date(expense.paid_at);
-    return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+    return Number.isNaN(parsed.getTime())
+        ? getDateOnly(new Date())
+        : getDateOnly(parsed);
+}
+
+function getDateOnly(date: Date) {
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
 function getProfileColor(profile: Profile | null, fallback: string) {
@@ -305,7 +313,7 @@ export default function ExpenseModal({
             categoryId,
             paidBy,
             description: expense?.description ?? null,
-            paidAt: paidAt.toISOString(),
+            paidAt: getDateOnly(paidAt).toISOString(),
         });
     };
 
@@ -492,14 +500,13 @@ export default function ExpenseModal({
                             ) : null}
 
                             <CustomText weight="semibold" style={styles.label}>
-                                Date and time
+                                Date
                             </CustomText>
                             <ExpenseDatePicker
                                 value={paidAt}
                                 onChange={setPaidAt}
                                 maxYear={new Date().getFullYear() + 1}
                                 nestedScrollEnabled
-                                showTime
                                 onInteractionStart={
                                     handleDatePickerInteractionStart
                                 }
