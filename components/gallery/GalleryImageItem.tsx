@@ -30,20 +30,6 @@ const GalleryImageItem: React.FC<GalleryImageItemProps> = ({
             onLongPress={() => onLongPress(image)}
         >
             <View style={styles.container}>
-                {editMode && (
-                    <TouchableOpacity
-                        style={[
-                            styles.editDeleteButton,
-                            {
-                                backgroundColor: isSelected
-                                    ? "rgba(255,255,255,0.7)"
-                                    : "transparent",
-                            },
-                        ]}
-                        onPress={() => onSelect(image)}
-                    />
-                )}
-
                 <Image
                     source={
                         image.url_thumb ? { uri: image.url_thumb } : undefined
@@ -59,6 +45,19 @@ const GalleryImageItem: React.FC<GalleryImageItemProps> = ({
                     transition={150}
                     cachePolicy="disk"
                 />
+                {editMode && (
+                    <TouchableOpacity
+                        style={[
+                            styles.editDeleteButton,
+                            {
+                                backgroundColor: isSelected
+                                    ? "rgba(255,255,255,0.7)"
+                                    : "transparent",
+                            },
+                        ]}
+                        onPress={() => onSelect(image)}
+                    />
+                )}
             </View>
         </TouchableOpacity>
     );

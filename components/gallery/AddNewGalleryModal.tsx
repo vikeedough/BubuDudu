@@ -38,6 +38,7 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
 }) => {
     const addNewGallery = useGalleryStore((s) => s.addNewGallery);
     const uploadGalleryImages = useGalleryStore((s) => s.uploadGalleryImages);
+    const deleteGallery = useGalleryStore((s) => s.deleteGallery);
     const refreshGalleries = useGalleryStore((s) => s.refreshGalleries);
     const isOnline = useSyncStore((s) => s.isOnline);
 
@@ -89,16 +90,47 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
         onClose();
     };
 
+    const uploadCreatedGalleryImages = useCallback(
+        async (galleryId: string, selectedImages: string[]) => {
+            try {
+                await refreshGalleries();
+                const ok = await uploadGalleryImages(galleryId, selectedImages);
+
+                if (!ok) {
+                    await deleteGallery(galleryId, { showToast: false });
+                }
+
+                await refreshGalleries();
+            } catch (err) {
+                console.error("Error uploading created gallery images:", err);
+                try {
+                    await deleteGallery(galleryId, { showToast: false });
+                    await refreshGalleries();
+                } catch (cleanupErr) {
+                    console.error(
+                        "Error cleaning up failed gallery upload:",
+                        cleanupErr,
+                    );
+                }
+            }
+        },
+        [deleteGallery, refreshGalleries, uploadGalleryImages],
+    );
+
     const handleAddGallery = async () => {
         if (!isOnline) {
             Alert.alert("Offline", "Gallery uploads are unavailable offline.");
             return;
         }
 
+        const trimmedTitle = dateName.trim();
+        const trimmedLocation = location.trim();
+        const selectedImages = images.slice();
+
         if (
-            dateName.trim() === "" ||
-            location.trim() === "" ||
-            images.length === 0 ||
+            trimmedTitle === "" ||
+            trimmedLocation === "" ||
+            selectedImages.length === 0 ||
             selectedColor === ""
         ) {
             Alert.alert("Error", "Please fill in all fields.");
@@ -106,36 +138,29 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
         }
 
         setIsUploadingImages(true);
-        resetForm();
-        onClose();
 
-        // 1) create gallery row
-        const newGallery = await addNewGallery({
-            title: dateName.trim(),
-            date: date.toISOString(), // matches your current DB values
-            color: selectedColor,
-            location: location.trim(),
-        });
+        try {
+            const newGallery = await addNewGallery({
+                title: trimmedTitle,
+                date: date.toISOString(),
+                color: selectedColor,
+                location: trimmedLocation,
+            });
 
-        if (!newGallery) {
-            setIsUploadingImages(false);
+            if (!newGallery) {
+                Alert.alert("Error", "Failed to add gallery");
+                return;
+            }
+
+            resetForm();
+            onClose();
+            void uploadCreatedGalleryImages(newGallery.id, selectedImages);
+        } catch (err) {
+            console.error("Error creating gallery:", err);
             Alert.alert("Error", "Failed to add gallery");
-            return;
-        }
-
-        // 2) upload images (this will also update cover image + imagesByGalleryId in store)
-        const ok = await uploadGalleryImages(newGallery.id, images);
-
-        if (!ok) {
+        } finally {
             setIsUploadingImages(false);
-            Alert.alert("Error", "Failed to upload images");
-            return;
         }
-
-        // Sync list ordering + cover thumbs for current query
-        await refreshGalleries();
-
-        setIsUploadingImages(false);
     };
 
     const imagesShown = () => (
@@ -155,7 +180,9 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
     return (
         <Modal
             visible={isOpen}
-            onRequestClose={handleCancel}
+            onRequestClose={() => {
+                if (!isUploadingImages) handleCancel();
+            }}
             transparent
             animationType="fade"
         >
@@ -239,6 +266,7 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
                                     value={dateName}
                                     onChangeText={setDateName}
                                     allowFontScaling={false}
+                                    editable={!isUploadingImages}
                                 />
 
                                 <CustomText
@@ -254,6 +282,7 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
                                     value={location}
                                     onChangeText={setLocation}
                                     allowFontScaling={false}
+                                    editable={!isUploadingImages}
                                 />
 
                                 <CustomText

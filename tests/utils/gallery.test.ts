@@ -64,13 +64,20 @@ describe("utils/gallery", () => {
       canAskAgain: true,
     });
 
-    await downloadAndSaveImage("i1", "https://example.com/a.jpg");
+    const savedCount = await downloadAndSaveImage(
+      "i1",
+      "https://example.com/a.jpg",
+    );
 
+    expect(MediaLibrary.requestPermissionsAsync).toHaveBeenCalledWith(false, [
+      "photo",
+    ]);
     expect(Alert.alert).toHaveBeenCalledWith(
       "Permission Required",
       expect.stringContaining("Please allow full access"),
       undefined,
     );
+    expect(savedCount).toBe(0);
   });
 
   it("downloadAndSaveImage alerts with settings hint when denied and cannot ask again", async () => {
@@ -79,29 +86,46 @@ describe("utils/gallery", () => {
       canAskAgain: false,
     });
 
-    await downloadAndSaveImage("i1", "https://example.com/a.jpg");
+    const savedCount = await downloadAndSaveImage(
+      "i1",
+      "https://example.com/a.jpg",
+    );
 
     expect(Alert.alert).toHaveBeenCalledWith(
       "Permission Required",
       expect.stringContaining("Please enable it in your device settings."),
       [{ text: "OK" }],
     );
+    expect(savedCount).toBe(0);
   });
 
-  it("downloadAndSaveImage saves and creates album", async () => {
+  it("downloadAndSaveImage creates a missing album with the downloaded file", async () => {
     (MediaLibrary.requestPermissionsAsync as jest.Mock).mockResolvedValueOnce({
       status: "granted",
       canAskAgain: true,
     });
     (MediaLibrary.getAlbumAsync as jest.Mock).mockResolvedValueOnce(null);
 
-    await downloadAndSaveImage("i1", "https://example.com/a.jpg");
+    const savedCount = await downloadAndSaveImage(
+      "i1",
+      "https://example.com/a.jpg",
+    );
 
-    expect(MediaLibrary.createAssetAsync).toHaveBeenCalled();
-    expect(MediaLibrary.createAlbumAsync).toHaveBeenCalled();
+    expect(MediaLibrary.requestPermissionsAsync).toHaveBeenCalledWith(false, [
+      "photo",
+    ]);
+    expect(MediaLibrary.createAlbumAsync).toHaveBeenCalledWith(
+      "BubuDudu",
+      undefined,
+      false,
+      "/tmp/downloaded.jpg",
+    );
+    expect(MediaLibrary.createAssetAsync).not.toHaveBeenCalled();
+    expect(MediaLibrary.addAssetsToAlbumAsync).not.toHaveBeenCalled();
+    expect(savedCount).toBe(1);
   });
 
-  it("downloadAndSaveImage adds asset to existing album", async () => {
+  it("downloadAndSaveImage creates the asset directly in an existing album", async () => {
     (MediaLibrary.requestPermissionsAsync as jest.Mock).mockResolvedValueOnce({
       status: "granted",
       canAskAgain: true,
@@ -110,20 +134,37 @@ describe("utils/gallery", () => {
       id: "album-1",
     });
 
-    await downloadAndSaveImage("i1", "https://example.com/a.jpg");
+    const savedCount = await downloadAndSaveImage(
+      "i1",
+      "https://example.com/a.jpg",
+    );
 
-    expect(MediaLibrary.addAssetsToAlbumAsync).toHaveBeenCalledTimes(1);
+    expect(MediaLibrary.createAssetAsync).toHaveBeenCalledWith(
+      "/tmp/downloaded.jpg",
+      { id: "album-1" },
+    );
     expect(MediaLibrary.createAlbumAsync).not.toHaveBeenCalled();
+    expect(MediaLibrary.addAssetsToAlbumAsync).not.toHaveBeenCalled();
+    expect(savedCount).toBe(1);
   });
 
   it("multipleDownloadAndSaveImage alerts when permission denied", async () => {
     (MediaLibrary.requestPermissionsAsync as jest.Mock).mockResolvedValueOnce({
       status: "denied",
+      canAskAgain: true,
     });
 
-    await multipleDownloadAndSaveImage([] as any);
+    const savedCount = await multipleDownloadAndSaveImage([] as any);
 
-    expect(Alert.alert).toHaveBeenCalledWith("Permission to save images was denied");
+    expect(MediaLibrary.requestPermissionsAsync).toHaveBeenCalledWith(false, [
+      "photo",
+    ]);
+    expect(Alert.alert).toHaveBeenCalledWith(
+      "Permission Required",
+      expect.stringContaining("Please allow full access"),
+      undefined,
+    );
+    expect(savedCount).toBe(0);
   });
 
   it("multipleDownloadAndSaveImage skips rows without url_orig", async () => {
@@ -132,14 +173,27 @@ describe("utils/gallery", () => {
       canAskAgain: true,
     });
     (MediaLibrary.createAssetAsync as jest.Mock).mockClear();
+    (MediaLibrary.getAlbumAsync as jest.Mock).mockResolvedValue({
+      id: "album-1",
+    });
 
-    await multipleDownloadAndSaveImage([
+    const savedCount = await multipleDownloadAndSaveImage([
       { id: "1", url_orig: "https://x/a.jpg" },
       { id: "2", url_orig: undefined },
       { id: "3", url_orig: "https://x/b.jpg" },
     ] as any);
 
+    expect(MediaLibrary.requestPermissionsAsync).toHaveBeenCalledTimes(1);
+    expect(MediaLibrary.requestPermissionsAsync).toHaveBeenCalledWith(false, [
+      "photo",
+    ]);
     expect(MediaLibrary.createAssetAsync).toHaveBeenCalledTimes(2);
+    expect(MediaLibrary.createAssetAsync).toHaveBeenCalledWith(
+      "/tmp/downloaded.jpg",
+      { id: "album-1" },
+    );
+    expect(MediaLibrary.addAssetsToAlbumAsync).not.toHaveBeenCalled();
+    expect(savedCount).toBe(2);
   });
 
   it("multipleDownloadAndSaveImage alerts when download throws", async () => {
@@ -151,11 +205,12 @@ describe("utils/gallery", () => {
       new Error("download failed"),
     );
 
-    await multipleDownloadAndSaveImage([
+    const savedCount = await multipleDownloadAndSaveImage([
       { id: "1", url_orig: "https://x/a.jpg" },
     ] as any);
 
     expect(Alert.alert).toHaveBeenCalledWith("Error downloading images");
+    expect(savedCount).toBe(0);
   });
 
   it("normalizeGalleries converts string dates to Date", () => {

@@ -16,10 +16,17 @@ jest.mock("@/utils/gallery", () => ({
   multipleDownloadAndSaveImage: jest.fn(),
 }));
 
+jest.mock("@/toast/api", () => {
+  const { toastMock } = require("@/tests/mocks/toast");
+  return { toast: toastMock };
+});
+
 import { act, renderHook } from "@testing-library/react-native";
+import { Alert } from "react-native";
 
 import { useGalleryContent } from "@/hooks/useGalleryContent";
 import { queueFunction, supabaseMock } from "@/tests/mocks/supabase";
+import { resetToastMock, toastMock } from "@/tests/mocks/toast";
 import {
   multipleDownloadAndSaveImage,
   pickMultipleImages,
@@ -39,6 +46,8 @@ describe("hooks/useGalleryContent", () => {
 
   beforeEach(() => {
     mockBack = jest.fn();
+    resetToastMock();
+    jest.spyOn(Alert, "alert").mockImplementation(jest.fn());
 
     mockGalleryStoreState = {
       loadInitialGalleryImages: jest.fn(),
@@ -61,7 +70,7 @@ describe("hooks/useGalleryContent", () => {
 
     (pickMultipleImages as jest.Mock).mockReset();
     (multipleDownloadAndSaveImage as jest.Mock).mockReset();
-    (multipleDownloadAndSaveImage as jest.Mock).mockResolvedValue(undefined);
+    (multipleDownloadAndSaveImage as jest.Mock).mockResolvedValue(0);
   });
 
   it("loads initial gallery images on mount", () => {
@@ -147,6 +156,25 @@ describe("hooks/useGalleryContent", () => {
     expect(mockGalleryStoreState.refreshGalleries).toHaveBeenCalled();
     expect(result.current.isDeleting).toBe(false);
     expect(result.current.isDeleteGalleryModalOpen).toBe(false);
+  });
+
+  it("keeps the user on the screen when gallery delete fails", async () => {
+    mockGalleryStoreState.deleteGallery.mockResolvedValueOnce(false);
+    const { result } = renderHook(() => useGalleryContent({ galleryId: "g1" }));
+
+    act(() => {
+      result.current.setIsDeleteGalleryModalOpen(true);
+    });
+
+    await act(async () => {
+      await result.current.handleDeleteGallery();
+    });
+
+    expect(mockGalleryStoreState.deleteGallery).toHaveBeenCalledWith("g1");
+    expect(mockBack).not.toHaveBeenCalled();
+    expect(mockGalleryStoreState.refreshGalleries).not.toHaveBeenCalled();
+    expect(result.current.isDeleteGalleryModalOpen).toBe(true);
+    expect(Alert.alert).toHaveBeenCalledWith("Error", "Failed to delete gallery.");
   });
 
   it("opens the viewer on image press while not in edit mode", () => {
@@ -241,6 +269,7 @@ describe("hooks/useGalleryContent", () => {
   });
 
   it("signs missing selected image urls before download", async () => {
+    (multipleDownloadAndSaveImage as jest.Mock).mockResolvedValueOnce(1);
     queueFunction("sign-gallery-urls", {
       data: {
         i1: { url_orig: "https://signed/i1.jpg" },
@@ -264,11 +293,18 @@ describe("hooks/useGalleryContent", () => {
     expect(supabaseMock.functions.invoke).toHaveBeenCalledWith("sign-gallery-urls", {
       body: { galleryId: "g1", imageIds: ["i1"] },
     });
+    expect(toastMock.show).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "Download complete",
+        message: "Saved 1 photo to BubuDudu.",
+      }),
+    );
     expect(result.current.selectedImages).toEqual([]);
     expect(result.current.editMode).toBe(false);
   });
 
   it("downloads images without signing when all selected rows already have orig urls", async () => {
+    (multipleDownloadAndSaveImage as jest.Mock).mockResolvedValueOnce(1);
     const { result } = renderHook(() => useGalleryContent({ galleryId: "g1" }));
 
     act(() => {
@@ -281,6 +317,12 @@ describe("hooks/useGalleryContent", () => {
 
     expect(supabaseMock.functions.invoke).not.toHaveBeenCalled();
     expect(multipleDownloadAndSaveImage).toHaveBeenCalledWith([image2]);
+    expect(toastMock.show).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "Download complete",
+        message: "Saved 1 photo to BubuDudu.",
+      }),
+    );
     expect(result.current.isDownloading).toBe(false);
   });
 

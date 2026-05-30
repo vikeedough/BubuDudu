@@ -11,32 +11,42 @@ import { Colors } from "@/constants/colors";
 
 interface GalleryEditControlsProps {
     isDownloading: boolean;
+    selectedCount: number;
     onDownload: () => void;
     onDelete: () => void;
 }
 
 const GalleryEditControls: React.FC<GalleryEditControlsProps> = ({
     isDownloading,
+    selectedCount,
     onDownload,
     onDelete,
 }) => {
+    const disabled = selectedCount === 0 || isDownloading;
+    const suffix = selectedCount > 0 ? ` ${selectedCount}` : "";
+
     return (
         <View style={styles.editControlsContainer}>
             <TouchableOpacity
-                style={styles.downloadButton}
+                style={[styles.downloadButton, disabled && styles.disabledButton]}
                 onPress={onDownload}
+                disabled={disabled}
             >
                 {isDownloading ? (
                     <ActivityIndicator size="small" color={Colors.white} />
                 ) : (
                     <CustomText weight="semibold" style={styles.buttonText}>
-                        Download
+                        Download{suffix}
                     </CustomText>
                 )}
             </TouchableOpacity>
-            <TouchableOpacity style={styles.deleteButton} onPress={onDelete}>
+            <TouchableOpacity
+                style={[styles.deleteButton, disabled && styles.disabledButton]}
+                onPress={onDelete}
+                disabled={disabled}
+            >
                 <CustomText weight="semibold" style={styles.buttonText}>
-                    Delete
+                    Delete{suffix}
                 </CustomText>
             </TouchableOpacity>
         </View>
@@ -67,6 +77,9 @@ const styles = StyleSheet.create({
         padding: 10,
         borderRadius: 15,
         paddingHorizontal: 20,
+    },
+    disabledButton: {
+        opacity: 0.45,
     },
     buttonText: {
         fontSize: 16,

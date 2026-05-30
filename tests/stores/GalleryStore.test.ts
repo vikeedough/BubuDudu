@@ -1041,6 +1041,14 @@ describe("stores/GalleryStore", () => {
         url_orig: "https://signed/o.jpg",
       }),
     );
+    const dateImageUpdateBuilder = (supabaseMock.from as jest.Mock).mock.results.find(
+      (result: any, index: number) =>
+        (supabaseMock.from as jest.Mock).mock.calls[index][0] === "date_images" &&
+        result.value.update?.mock?.calls.length > 0,
+    )?.value;
+    expect(dateImageUpdateBuilder.update.mock.calls[0][0]).not.toHaveProperty(
+      "bytes_total",
+    );
     expect(toastMock.dismiss).toHaveBeenCalledWith("toast-id");
   });
 
@@ -1069,10 +1077,12 @@ describe("stores/GalleryStore", () => {
     queueStorage("gallery-private", "remove", { data: [], error: null });
     queueFrom("date_images", "delete", { data: null, error: null });
 
-    await expect(
-      useGalleryStore.getState().uploadGalleryImages("g1", ["file://1.jpg"]),
-    ).rejects.toBeTruthy();
+    const ok = await useGalleryStore
+      .getState()
+      .uploadGalleryImages("g1", ["file://1.jpg"]);
 
+    expect(ok).toBe(false);
+    expect(useGalleryStore.getState().error).toBe("upload failed");
     expect(useGalleryStore.getState().isUploadingByGalleryId.g1).toBe(false);
     expect(toastMock.dismiss).toHaveBeenCalledWith("toast-id");
   });
@@ -1175,19 +1185,169 @@ describe("stores/GalleryStore", () => {
     expect(useGalleryStore.getState().galleries[0].cover_image_path).toBe("cover/grid.jpg");
   });
 
-  it("deleteMultipleGalleryImages delegates deletion for each id", async () => {
-    const deleteOneSpy = jest
-      .spyOn(useGalleryStore.getState(), "deleteOneGalleryImage")
-      .mockResolvedValue(true);
+  it("deleteMultipleGalleryImages deletes selected rows as one batch", async () => {
+    useGalleryStore.setState({
+      imagesByGalleryId: {
+        g1: [
+          { ...BASE_IMAGE, id: "i1" },
+          { ...BASE_IMAGE, id: "i2" },
+          { ...BASE_IMAGE, id: "i3" },
+        ],
+      },
+    });
+
+    queueFromSingle("galleries", "select", {
+      data: {
+        space_id: "space-1",
+        cover_image_path: "cover/grid.jpg",
+        cover_image_thumb_path: "cover/thumb.jpg",
+      },
+      error: null,
+    });
+    queueFrom("date_images", "select", {
+      data: [
+        {
+          id: "i1",
+          storage_path_thumb: "thumb-1.jpg",
+          storage_path_grid: "grid-1.jpg",
+          storage_path_orig: "orig-1.jpg",
+          blur_hash: null,
+        },
+        {
+          id: "i2",
+          storage_path_thumb: "thumb-2.jpg",
+          storage_path_grid: "grid-2.jpg",
+          storage_path_orig: "orig-2.jpg",
+          blur_hash: null,
+        },
+      ],
+      error: null,
+    });
+    queueStorage("gallery-private", "remove", { data: [], error: null });
+    queueFrom("date_images", "delete", { data: null, error: null });
 
     const ok = await useGalleryStore
       .getState()
       .deleteMultipleGalleryImages("g1", ["i1", "i2"]);
 
     expect(ok).toBe(true);
-    expect(deleteOneSpy).toHaveBeenCalledTimes(2);
-    expect(deleteOneSpy).toHaveBeenNthCalledWith(1, "g1", "i1");
-    expect(deleteOneSpy).toHaveBeenNthCalledWith(2, "g1", "i2");
+    expect(useGalleryStore.getState().imagesByGalleryId.g1.map((img) => img.id)).toEqual(["i3"]);
+    const imageDeleteBuilder = (supabaseMock.from as jest.Mock).mock.results.find(
+      (result: any) => result.value.delete?.mock?.calls.length > 0,
+    )?.value;
+    expect(imageDeleteBuilder?.in).toHaveBeenCalledWith("id", ["i1", "i2"]);
+  });
+
+  it("deleteMultipleGalleryImages chooses a replacement cover outside the selected ids", async () => {
+    useGalleryStore.setState({
+      galleries: [
+        {
+          ...BASE_GALLERY,
+          cover_image_path: "cover/grid.jpg",
+          cover_image_thumb_path: "cover/thumb.jpg",
+          cover_image_blur_hash: "cover-blur",
+        },
+      ],
+      imagesByGalleryId: {
+        g1: [
+          {
+            ...BASE_IMAGE,
+            id: "cover",
+            storage_path_thumb: "cover/thumb.jpg",
+            storage_path_grid: "cover/grid.jpg",
+            storage_path_orig: "cover/orig.jpg",
+          },
+          {
+            ...BASE_IMAGE,
+            id: "selected-too",
+            storage_path_thumb: "selected/thumb.jpg",
+            storage_path_grid: "selected/grid.jpg",
+            storage_path_orig: "selected/orig.jpg",
+          },
+          {
+            ...BASE_IMAGE,
+            id: "replacement",
+            storage_path_thumb: "replacement/thumb.jpg",
+            storage_path_grid: "replacement/grid.jpg",
+            storage_path_orig: "replacement/orig.jpg",
+            blur_hash: "replacement-blur",
+          },
+        ],
+      },
+    });
+
+    queueFromSingle("galleries", "select", {
+      data: {
+        space_id: "space-1",
+        cover_image_path: "cover/grid.jpg",
+        cover_image_thumb_path: "cover/thumb.jpg",
+      },
+      error: null,
+    });
+    queueFrom("date_images", "select", {
+      data: [
+        {
+          id: "cover",
+          storage_path_thumb: "cover/thumb.jpg",
+          storage_path_grid: "cover/grid.jpg",
+          storage_path_orig: "cover/orig.jpg",
+          blur_hash: "cover-blur",
+        },
+        {
+          id: "selected-too",
+          storage_path_thumb: "selected/thumb.jpg",
+          storage_path_grid: "selected/grid.jpg",
+          storage_path_orig: "selected/orig.jpg",
+          blur_hash: "selected-blur",
+        },
+      ],
+      error: null,
+    });
+    queueFrom("date_images", "select", {
+      data: [
+        {
+          id: "cover",
+          storage_path_grid: "cover/grid.jpg",
+          storage_path_thumb: "cover/thumb.jpg",
+          blur_hash: "cover-blur",
+        },
+        {
+          id: "selected-too",
+          storage_path_grid: "selected/grid.jpg",
+          storage_path_thumb: "selected/thumb.jpg",
+          blur_hash: "selected-blur",
+        },
+        {
+          id: "replacement",
+          storage_path_grid: "replacement/grid.jpg",
+          storage_path_thumb: "replacement/thumb.jpg",
+          blur_hash: "replacement-blur",
+        },
+      ],
+      error: null,
+    });
+    queueFrom("galleries", "update", { data: null, error: null });
+    queueStorage("gallery-private", "createSignedUrl", {
+      data: { signedUrl: "https://signed/replacement-thumb.jpg" },
+      error: null,
+    });
+    queueStorage("gallery-private", "remove", { data: [], error: null });
+    queueFrom("date_images", "delete", { data: null, error: null });
+
+    const ok = await useGalleryStore
+      .getState()
+      .deleteMultipleGalleryImages("g1", ["cover", "selected-too"]);
+
+    expect(ok).toBe(true);
+    expect(useGalleryStore.getState().galleries[0]).toEqual(
+      expect.objectContaining({
+        cover_image_path: "replacement/grid.jpg",
+        cover_image_thumb_path: "replacement/thumb.jpg",
+        cover_image_blur_hash: "replacement-blur",
+        cover_thumb_url: "https://signed/replacement-thumb.jpg",
+      }),
+    );
+    expect(useGalleryStore.getState().imagesByGalleryId.g1.map((img) => img.id)).toEqual(["replacement"]);
   });
 
   it("deleteGallery queries image rows and deletes a small set before gallery row", async () => {
@@ -1428,10 +1588,12 @@ describe("stores/GalleryStore", () => {
       error: null,
     });
 
-    await expect(
-      useGalleryStore.getState().uploadGalleryImages("g1", ["file://1.jpg"]),
-    ).rejects.toThrow("Failed to create image row");
+    const ok = await useGalleryStore
+      .getState()
+      .uploadGalleryImages("g1", ["file://1.jpg"]);
 
+    expect(ok).toBe(false);
+    expect(useGalleryStore.getState().error).toBe("Failed to create image row");
     expect(generateVariants).not.toHaveBeenCalled();
     expect(useGalleryStore.getState().isUploadingByGalleryId.g1).toBe(false);
     expect(toastMock.dismiss).toHaveBeenCalledWith("toast-id");
@@ -1463,10 +1625,12 @@ describe("stores/GalleryStore", () => {
     queueStorage("gallery-private", "remove", { data: [], error: null });
     queueFrom("date_images", "delete", { data: null, error: null });
 
-    await expect(
-      useGalleryStore.getState().uploadGalleryImages("g1", ["file://1.jpg"]),
-    ).rejects.toMatchObject({ message: "db update failed" });
+    const ok = await useGalleryStore
+      .getState()
+      .uploadGalleryImages("g1", ["file://1.jpg"]);
 
+    expect(ok).toBe(false);
+    expect(useGalleryStore.getState().error).toBe("db update failed");
     expect(useGalleryStore.getState().isUploadingByGalleryId.g1).toBe(false);
     expect(toastMock.dismiss).toHaveBeenCalledWith("toast-id");
   });

@@ -18,9 +18,7 @@ const GALLERY_BUCKET = "gallery-private";
 const SIGN_TTL_SECONDS = 60 * 60;
 const GALLERIES_PAGE_SIZE = 10;
 const IMAGES_PAGE_SIZE = 20;
-const BULK_DELETE_THRESHOLD = 10;
 const STORAGE_REMOVE_CHUNK_SIZE = 100;
-const DELETE_IMAGES_CONCURRENCY = 4;
 
 function mergeUniqueById<T extends { id: string }>(prev: T[], next: T[]): T[] {
     if (next.length === 0) return prev;
@@ -47,6 +45,19 @@ function chunk<T>(items: T[], size: number): T[][] {
 
 function isNonEmptyString(value: unknown): value is string {
     return typeof value === "string" && value.length > 0;
+}
+
+function getErrorMessage(err: unknown, fallback: string): string {
+    if (err instanceof Error) return err.message;
+    if (
+        err &&
+        typeof err === "object" &&
+        "message" in err &&
+        typeof (err as { message?: unknown }).message === "string"
+    ) {
+        return String((err as { message: string }).message);
+    }
+    return fallback;
 }
 
 function extractDateOnly(value: string): string | null {
@@ -179,6 +190,18 @@ function removeImageFromGalleryCache(
     return {
         ...imagesByGalleryId,
         [galleryId]: previous.filter((img) => img.id !== imageId),
+    };
+}
+
+function removeImagesFromGalleryCache(
+    imagesByGalleryId: Record<string, GalleryImage[]>,
+    galleryId: string,
+    imageIds: Set<string>,
+): Record<string, GalleryImage[]> {
+    const previous = imagesByGalleryId[galleryId] ?? [];
+    return {
+        ...imagesByGalleryId,
+        [galleryId]: previous.filter((img) => !imageIds.has(img.id)),
     };
 }
 
@@ -322,7 +345,10 @@ export type GalleryState = {
         imageIds: string[],
     ) => Promise<boolean>;
 
-    deleteGallery: (galleryId: string) => Promise<boolean>;
+    deleteGallery: (
+        galleryId: string,
+        options?: { showToast?: boolean },
+    ) => Promise<boolean>;
 
     // Helpers
     clear: () => void;
@@ -1276,6 +1302,16 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
             );
 
             return true;
+        } catch (err) {
+            const message = getErrorMessage(err, "Failed to upload images.");
+            console.error("Error uploading gallery images:", err);
+            set({ error: message });
+            toast.show({
+                title: "Upload failed",
+                message: "Please try uploading the photos again.",
+                durationMs: 2500,
+            });
+            return false;
         } finally {
             set((state) => ({
                 isUploadingByGalleryId: {
@@ -1424,20 +1460,194 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
             return false;
         }
 
-        if (imageIds.length === 0) return true;
+        const uniqueImageIds = Array.from(new Set(imageIds));
+        if (uniqueImageIds.length === 0) return true;
 
-        await runWithConcurrency(
-            imageIds,
-            DELETE_IMAGES_CONCURRENCY,
-            async (id) => {
-                await get().deleteOneGalleryImage(galleryId, id);
-            },
+        set({ error: null });
+
+        const { data: galleryData, error: galleryError } = await supabase
+            .from("galleries")
+            .select("space_id, cover_image_path, cover_image_thumb_path")
+            .eq("id", galleryId)
+            .single();
+
+        if (galleryError) {
+            console.error("Error fetching gallery data:", galleryError);
+            set({ error: galleryError.message });
+            return false;
+        }
+
+        const { data: rowsData, error: rowsError } = await supabase
+            .from("date_images")
+            .select(
+                "id, storage_path_thumb, storage_path_grid, storage_path_orig, blur_hash",
+            )
+            .eq("gallery_id", galleryId)
+            .in("id", uniqueImageIds);
+
+        if (rowsError) {
+            console.error("Error fetching selected image rows:", rowsError);
+            set({ error: rowsError.message });
+            return false;
+        }
+
+        const selectedRows =
+            (rowsData as Pick<
+                GalleryImage,
+                | "id"
+                | "storage_path_thumb"
+                | "storage_path_grid"
+                | "storage_path_orig"
+                | "blur_hash"
+            >[]) ?? [];
+
+        if (selectedRows.length === 0) return true;
+
+        const selectedIdSet = new Set(uniqueImageIds);
+        const deletingCurrentCover = selectedRows.some(
+            (row) => row.storage_path_grid === galleryData?.cover_image_path,
         );
+
+        if (deletingCurrentCover) {
+            const { data: replacementRows, error: replacementError } =
+                await supabase
+                    .from("date_images")
+                    .select("id, storage_path_grid, storage_path_thumb, blur_hash")
+                    .eq("gallery_id", galleryId)
+                    .order("created_at", { ascending: false })
+                    .limit(uniqueImageIds.length + 1);
+
+            if (replacementError) {
+                console.error("Error fetching replacement image:", replacementError);
+                set({ error: replacementError.message });
+                return false;
+            }
+
+            const replacement = (
+                (replacementRows as (Pick<
+                    GalleryImage,
+                    "id" | "storage_path_grid" | "storage_path_thumb" | "blur_hash"
+                > & { id: string })[]) ?? []
+            ).find((row) => !selectedIdSet.has(row.id));
+
+            if (!replacement) {
+                const { error: updateCoverError } = await supabase
+                    .from("galleries")
+                    .update({
+                        cover_image_path: null,
+                        cover_image_thumb_path: null,
+                        cover_image_blur_hash: null,
+                    })
+                    .eq("id", galleryId);
+
+                if (updateCoverError) {
+                    console.error("Error clearing gallery cover:", updateCoverError);
+                    set({ error: updateCoverError.message });
+                    return false;
+                }
+
+                set((state) => ({
+                    galleries: clearGalleryCoverInList(
+                        state.galleries,
+                        galleryId,
+                    ),
+                }));
+            } else {
+                const { error: updateCoverError } = await supabase
+                    .from("galleries")
+                    .update({
+                        cover_image_path: replacement.storage_path_grid,
+                        cover_image_thumb_path: replacement.storage_path_thumb,
+                        cover_image_blur_hash: replacement.blur_hash,
+                    })
+                    .eq("id", galleryId);
+
+                if (updateCoverError) {
+                    console.error("Error updating gallery cover:", updateCoverError);
+                    set({ error: updateCoverError.message });
+                    return false;
+                }
+
+                const { data: signed } = await supabase.storage
+                    .from(GALLERY_BUCKET)
+                    .createSignedUrl(
+                        replacement.storage_path_thumb,
+                        SIGN_TTL_SECONDS,
+                    );
+
+                set((state) => ({
+                    galleries: setGalleryCoverInList(
+                        state.galleries,
+                        galleryId,
+                        replacement,
+                        signed?.signedUrl ?? null,
+                    ),
+                }));
+            }
+        }
+
+        const storagePaths = Array.from(
+            new Set(
+                selectedRows
+                    .flatMap((row) => [
+                        row.storage_path_thumb,
+                        row.storage_path_grid,
+                        row.storage_path_orig,
+                    ])
+                    .filter(isNonEmptyString),
+            ),
+        );
+
+        for (const pathChunk of chunk(storagePaths, STORAGE_REMOVE_CHUNK_SIZE)) {
+            const { error: storageErr } = await supabase.storage
+                .from(GALLERY_BUCKET)
+                .remove(pathChunk);
+
+            if (storageErr) {
+                console.error(
+                    "Error deleting selected image paths from storage:",
+                    storageErr,
+                );
+            }
+        }
+
+        const { error: deleteRowsError } = await supabase
+            .from("date_images")
+            .delete()
+            .in("id", uniqueImageIds);
+
+        if (deleteRowsError) {
+            console.error("Error deleting selected image rows:", deleteRowsError);
+            set({ error: deleteRowsError.message });
+            return false;
+        }
+
+        set((state) => ({
+            imagesByGalleryId: removeImagesFromGalleryCache(
+                state.imagesByGalleryId,
+                galleryId,
+                selectedIdSet,
+            ),
+        }));
+
+        await replaceCachedGalleryImages(
+            galleryId,
+            get().imagesByGalleryId[galleryId] ?? [],
+        );
+
+        const spaceId =
+            (galleryData?.space_id as string | undefined) ?? (await getSpaceId());
+        if (spaceId && get().galleries.length > 0) {
+            await replaceCachedGalleries(spaceId, get().galleries);
+        }
 
         return true;
     },
 
-    deleteGallery: async (galleryId: string) => {
+    deleteGallery: async (
+        galleryId: string,
+        options: { showToast?: boolean } = {},
+    ) => {
         if (!getIsOnline()) {
             set({ error: "Gallery changes are unavailable offline." });
             return false;
@@ -1445,9 +1655,15 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
 
         set({ error: null });
 
-        const finalizeDelete = () => {
-            // Clear cached images for this gallery; list ordering is reloaded via refresh.
+        const finalizeDelete = async () => {
+            const deletedGallery = get().galleries.find(
+                (gallery) => gallery.id === galleryId,
+            );
+
             set((state) => ({
+                galleries: state.galleries.filter(
+                    (gallery) => gallery.id !== galleryId,
+                ),
                 imagesByGalleryId: omitRecordKey(
                     state.imagesByGalleryId,
                     galleryId,
@@ -1458,11 +1674,21 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
                 ),
             }));
 
-            toast.show({
-                title: "Success!",
-                message: "The gallery has been successfully deleted!",
-                durationMs: 2000,
-            });
+            await replaceCachedGalleryImages(galleryId, []);
+
+            const spaceId = deletedGallery?.space_id ?? (await getSpaceId());
+            if (spaceId) {
+                await replaceCachedGalleries(spaceId, get().galleries);
+            }
+
+            if (options.showToast !== false) {
+                toast.show({
+                    title: "Success!",
+                    message: "The gallery has been successfully deleted!",
+                    durationMs: 2000,
+                });
+            }
+
             return true;
         };
 
@@ -1473,7 +1699,7 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
 
         if (!functionErr) {
             if (functionData?.ok === true) {
-                return finalizeDelete();
+                return await finalizeDelete();
             }
 
             if (functionData?.ok === false) {
@@ -1528,7 +1754,7 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
                   >[]
                 | null) ?? [];
 
-        if (rows.length >= BULK_DELETE_THRESHOLD) {
+        if (rows.length > 0) {
             const storagePaths = Array.from(
                 new Set(
                     rows
@@ -1561,12 +1787,9 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
 
             if (delImagesErr) {
                 console.error("Error deleting gallery image rows:", delImagesErr);
+                set({ error: delImagesErr.message });
+                return false;
             }
-        } else if (rows.length > 0) {
-            await get().deleteMultipleGalleryImages(
-                galleryId,
-                rows.map((img) => String(img.id)),
-            );
         }
 
         // Delete gallery row
@@ -1580,6 +1803,6 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
             return false;
         }
 
-        return finalizeDelete();
+        return await finalizeDelete();
     },
 }));

@@ -358,11 +358,13 @@ Gallery list behavior:
 - Gallery pages are keyset-paginated with page size 10 using `date` and `id`.
 - Cover thumbnails are signed in batches through `sign-gallery-cover-urls`; per-path storage signing is used as fallback.
 - Gallery cards show cover thumbnail, location, title, and the selected gallery color as a translucent background.
+- The list shows explicit loading, empty-search, empty-gallery, and retry-by-refresh states.
 
 Create gallery behavior:
 
 - The add modal requires name, location, color, date, and at least one image.
-- It creates a `galleries` row, then uploads images.
+- It creates a `galleries` row, closes the modal, then uploads images in the background with toast progress.
+- If the initial background upload fails after the gallery row is created, the app rolls back the gallery with a silent delete and refreshes the list.
 - Date is sent as ISO string in `galleries.date`; `date_date` is also derived as `YYYY-MM-DD`.
 - Selected images are deduplicated by URI in the modal preview.
 
@@ -390,16 +392,21 @@ Gallery detail behavior:
 - Image rows are signed through `sign-gallery-urls` and merged with `url_thumb`, `url_grid`, and `url_orig`.
 - Tapping an image opens a full-screen zoomable viewer.
 - The viewer requests more images when the user nears the end.
+- The image grid can toggle newest-first or oldest-first ordering, and the viewer opens in the same visible order as the grid.
 - The detail controls include an edit button for gallery name, location, and date. The edit modal uses `InlineWheelDatePicker` for the date.
 - Long-press enters edit mode if online.
-- Selected images can be downloaded to a `BubuDudu` device album or deleted.
+- Selected images use the compact top-right selection indicator and can be downloaded to a `BubuDudu` device album or deleted.
+- Downloads request full photo-library access once per batch, create saved assets directly inside the `BubuDudu` album to avoid duplicate DCIM copies and Android per-photo modify prompts, and show a completion toast with the saved count.
+- The detail grid shows an explicit empty state when a gallery has no visible images.
 
 Delete behavior:
 
 - Deleting one image removes its three storage variants and deletes the `date_images` row.
 - If the deleted image is the gallery cover, the app selects the newest remaining image as replacement or clears the cover.
+- Deleting multiple images fetches the selected rows once, updates the cover once, removes selected storage paths in chunks, deletes selected rows in one database operation, and updates cache after success.
 - Deleting a gallery first invokes `delete-gallery` for server-side cleanup.
 - If the function is unavailable, the client falls back to deleting image storage paths, image rows, and finally the gallery row.
+- Gallery delete only navigates away after the store confirms success.
 
 Offline behavior:
 
