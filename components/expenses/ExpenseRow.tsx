@@ -89,20 +89,20 @@ export default function ExpenseRow({
 
 const styles = StyleSheet.create({
     row: {
-        minHeight: 84,
+        minHeight: 70,
         borderRadius: 15,
         backgroundColor: Colors.white,
         flexDirection: "row",
         alignItems: "center",
         paddingHorizontal: 16,
-        paddingVertical: 14,
+        paddingVertical: 4,
         gap: 14,
         marginBottom: 12,
         shadowColor: Colors.black,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.12,
         shadowRadius: 3,
-        elevation: 2,
+        elevation: 1.5,
     },
     categoryMark: {
         width: 46,
