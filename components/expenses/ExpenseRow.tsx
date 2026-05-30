@@ -66,8 +66,8 @@ export default function ExpenseRow({
                     numberOfLines={1}
                     ellipsizeMode="tail"
                 >
-                    {formatExpenseTime(expense.paid_at)} - Paid by {payerName} -{" "}
-                    {expense.category_name}
+                    {formatExpenseTime(expense.created_at)} - Paid by{" "}
+                    {payerName} - {expense.category_name}
                 </CustomText>
             </View>
             <View style={styles.amountBlock}>
@@ -94,14 +94,14 @@ export default function ExpenseRow({
 
 const styles = StyleSheet.create({
     row: {
-        minHeight: 70,
+        minHeight: 64,
         borderRadius: 15,
         backgroundColor: Colors.white,
         flexDirection: "row",
         alignItems: "center",
         paddingHorizontal: 16,
         paddingVertical: 4,
-        gap: 14,
+        gap: 10,
         marginBottom: 12,
         shadowColor: Colors.black,
         shadowOffset: { width: 0, height: 2 },
@@ -110,15 +110,15 @@ const styles = StyleSheet.create({
         elevation: 1.5,
     },
     categoryMark: {
-        width: 46,
-        height: 46,
-        borderRadius: 12,
+        width: 36,
+        height: 36,
+        borderRadius: 10,
         alignItems: "center",
         justifyContent: "center",
     },
     categoryInitial: {
         color: Colors.white,
-        fontSize: 20,
+        fontSize: 16,
     },
     rowBody: {
         flex: 1,

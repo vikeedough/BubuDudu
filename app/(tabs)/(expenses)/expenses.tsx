@@ -19,6 +19,7 @@ import CategoryManagerModal from "@/components/expenses/CategoryManagerModal";
 import ExpenseBreakdownView from "@/components/expenses/ExpenseBreakdownView";
 import ExpenseBudgetView from "@/components/expenses/ExpenseBudgetView";
 import ExpenseCategoryExpensesModal from "@/components/expenses/ExpenseCategoryExpensesModal";
+import ExpenseFloatingActionMenu from "@/components/expenses/ExpenseFloatingActionMenu";
 import ExpenseModal from "@/components/expenses/ExpenseModal";
 import ExpenseRow from "@/components/expenses/ExpenseRow";
 import { Colors } from "@/constants/colors";
@@ -31,16 +32,16 @@ import {
     normalizeHexColor,
 } from "@/utils/colors";
 import {
-    buildExpenseBudgetAnalytics,
     buildExpenseAnalytics,
-    getExpensesForBreakdownCategory,
-    getExpensePeriodLabel,
+    buildExpenseBudgetAnalytics,
     getExpenseMonthStart,
+    getExpensePeriodLabel,
+    getExpensesForBreakdownCategory,
     isExpenseInPeriod,
     shiftExpenseMonth,
     shiftExpensePeriod,
-    type ExpenseBudgetRow,
     type ExpenseBreakdownItem,
+    type ExpenseBudgetRow,
     type ExpenseLogPeriod,
     type ExpensePeriod,
     type ExpenseScope,
@@ -220,7 +221,10 @@ const Expenses = () => {
                 : null,
         [currentUserId, profiles],
     );
-    const currentUserColor = getProfileColor(currentUserProfile, Colors.darkBlue);
+    const currentUserColor = getProfileColor(
+        currentUserProfile,
+        Colors.darkBlue,
+    );
     const partnerColor = getProfileColor(partnerProfile, Colors.hotPink);
 
     const refreshProfiles = useCallback(async () => {
@@ -310,14 +314,7 @@ const Expenses = () => {
                 currentUserId,
                 anchorDate: budgetAnchorDate,
             }),
-        [
-            budgetAnchorDate,
-            budgets,
-            categories,
-            currentUserId,
-            expenses,
-            scope,
-        ],
+        [budgetAnchorDate, budgets, categories, currentUserId, expenses, scope],
     );
 
     const budgetModalCategories = useMemo(() => {
@@ -384,6 +381,14 @@ const Expenses = () => {
         setSelectedBudget(null);
         setIsExpenseModalOpen(false);
         setIsBudgetModalOpen(true);
+    };
+
+    const handleOpenCategories = () => {
+        setSelectedExpense(null);
+        setSelectedBreakdownCategory(null);
+        setIsExpenseModalOpen(false);
+        setIsBudgetModalOpen(false);
+        setIsCategoryModalOpen(true);
     };
 
     const handleSaveExpense = async (input: {
@@ -499,15 +504,6 @@ const Expenses = () => {
     const handleBudgetRowPress = (row: ExpenseBudgetRow) => {
         setSelectedBudget(row.budget);
         setIsBudgetModalOpen(true);
-    };
-
-    const handleFloatingAction = () => {
-        if (viewMode === "budget") {
-            handleOpenBudgetCreate();
-            return;
-        }
-
-        handleOpenCreate();
     };
 
     const handleOpenExpenseDetails = (expense: Expense) => {
@@ -646,19 +642,6 @@ const Expenses = () => {
                                 )
                             }
                         />
-                        <View style={styles.logActionRow}>
-                            <TouchableOpacity
-                                style={styles.manageCategoriesButton}
-                                onPress={() => setIsCategoryModalOpen(true)}
-                            >
-                                <CustomText
-                                    weight="semibold"
-                                    style={styles.manageCategoriesButtonText}
-                                >
-                                    Categories
-                                </CustomText>
-                            </TouchableOpacity>
-                        </View>
                     </View>
                     {isLoadingExpenses && visibleExpenses.length === 0 ? (
                         <View style={styles.loadingState}>
@@ -756,16 +739,35 @@ const Expenses = () => {
                     />
                 </ScrollView>
             )}
-            <TouchableOpacity
-                style={styles.floatingAddButton}
-                onPress={handleFloatingAction}
-                accessibilityRole="button"
-                accessibilityLabel={
-                    viewMode === "budget" ? "Add budget" : "Add expense"
-                }
-            >
-                <Plus />
-            </TouchableOpacity>
+            {viewMode === "budget" ? (
+                <TouchableOpacity
+                    style={styles.floatingAddButton}
+                    onPress={handleOpenBudgetCreate}
+                    accessibilityRole="button"
+                    accessibilityLabel="Add budget"
+                >
+                    <Plus />
+                </TouchableOpacity>
+            ) : (
+                <ExpenseFloatingActionMenu
+                    actions={[
+                        {
+                            key: "expense",
+                            label: "Add expense",
+                            shortLabel: "E",
+                            accessibilityLabel: "Add expense",
+                            onPress: handleOpenCreate,
+                        },
+                        {
+                            key: "categories",
+                            label: "Categories",
+                            shortLabel: "C",
+                            accessibilityLabel: "Manage categories",
+                            onPress: handleOpenCategories,
+                        },
+                    ]}
+                />
+            )}
         </SafeAreaView>
     );
 };
@@ -821,23 +823,6 @@ const styles = StyleSheet.create({
     logPeriodControls: {
         gap: 10,
         marginBottom: 10,
-    },
-    logActionRow: {
-        flexDirection: "row",
-        justifyContent: "flex-end",
-    },
-    manageCategoriesButton: {
-        minWidth: 112,
-        height: 38,
-        borderRadius: 10,
-        backgroundColor: "#FFCC7D",
-        alignItems: "center",
-        justifyContent: "center",
-        paddingHorizontal: 14,
-    },
-    manageCategoriesButtonText: {
-        color: Colors.brownText,
-        fontSize: 13,
     },
     segmentedControl: {
         flexDirection: "row",

@@ -246,33 +246,35 @@ describe("stores/ExpenseStore", () => {
     expect(suggestions).toEqual(["McDonalds", "McD Cafe", "McD Delivery"]);
   });
 
-  it("sorts expenses newest first by paid timestamp", () => {
-    const morningExpense = {
+  it("sorts expenses newest first by paid date then keyed-in time", () => {
+    const localIso = (day: number, hour: number, minute = 0) =>
+      new Date(2026, 4, day, hour, minute).toISOString();
+    const earlierKeyedExpense = {
       ...EXPENSE_A,
-      id: "exp-morning",
-      paid_at: "2026-05-11T08:00:00.000Z",
-      created_at: "2026-05-11T08:00:00.000Z",
+      id: "exp-earlier-keyed",
+      paid_at: localIso(11, 8),
+      created_at: localIso(11, 20),
     } as Expense;
-    const eveningExpense = {
+    const laterKeyedExpense = {
       ...EXPENSE_A,
-      id: "exp-evening",
-      paid_at: "2026-05-11T20:00:00.000Z",
-      created_at: "2026-05-11T20:00:00.000Z",
+      id: "exp-later-keyed",
+      paid_at: localIso(11, 20),
+      created_at: localIso(11, 20, 5),
     } as Expense;
-    const tiedPaidAtExpense = {
+    const newerDateExpense = {
       ...EXPENSE_A,
-      id: "exp-tied",
-      paid_at: "2026-05-11T20:00:00.000Z",
-      created_at: "2026-05-11T20:05:00.000Z",
+      id: "exp-newer-date",
+      paid_at: localIso(12, 8),
+      created_at: localIso(11, 8),
     } as Expense;
 
     expect(
       sortExpensesNewestFirst([
-        morningExpense,
-        eveningExpense,
-        tiedPaidAtExpense,
+        earlierKeyedExpense,
+        newerDateExpense,
+        laterKeyedExpense,
       ]).map((expense) => expense.id),
-    ).toEqual(["exp-tied", "exp-evening", "exp-morning"]);
+    ).toEqual(["exp-newer-date", "exp-later-keyed", "exp-earlier-keyed"]);
   });
 
   it("returns category expenses for the selected breakdown period newest first", () => {
