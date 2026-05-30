@@ -777,13 +777,13 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: Colors.backgroundPink,
         paddingTop: 20,
-        paddingHorizontal: 20,
+        paddingHorizontal: 25,
     },
     header: {
         flexDirection: "row",
         justifyContent: "space-between",
         alignItems: "center",
-        marginBottom: 16,
+        marginBottom: 20,
         gap: 14,
     },
     headerTitle: {

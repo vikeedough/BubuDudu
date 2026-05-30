@@ -14,6 +14,7 @@ The expense tracker is an offline-first tab for logging shared-space expenses. I
 - The add expense action is a bottom-right floating button and always opens the expense form; category loading or empty states are handled inside the category section of that form.
 - The log opens to the day view by default. When adding an expense from a selected log day, the expense form's date picker starts on that selected day.
 - The expense form date and time picker stores the selected timestamp in `paid_at`. The current day is labeled Today, and new expenses default to the current local time.
+- The expense form pauses the surrounding modal scroll while a date/time wheel is active so iOS can settle wheel selections reliably.
 - Expenses sort newest first by paid timestamp, then by creation timestamp when paid timestamps match.
 - The expense form category field is a dropdown beside the Category label.
 - Category management is opened from the Log tab's Categories button, outside the add-expense modal, to avoid nested modal/dropdown issues on iOS.

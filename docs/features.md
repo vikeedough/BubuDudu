@@ -249,6 +249,7 @@ Behavior:
 - The log opens to day view by default and can switch between day, week, and month views, with previous/next period navigation. The current day label is Today, and the selected log period uses the same yellow style as Breakdown.
 - Adding an expense while viewing a specific log day starts the expense form date picker on that selected day.
 - The expense form date and time picker labels the current day as Today and saves the selected timestamp in `paid_at`.
+- The expense form pauses modal scrolling while date/time wheels are active so iOS wheel selections settle reliably.
 - Expenses sort newest first by paid timestamp, then creation timestamp.
 - The category field in the expense form is a dropdown. Category management opens from the Log tab's Categories button so iOS does not need to stack the category manager from inside the add-expense modal.
 - Expense title suggestions show up to three prior expenses created by the current user, starting after two typed characters, with prefix matches ranked before contains matches.

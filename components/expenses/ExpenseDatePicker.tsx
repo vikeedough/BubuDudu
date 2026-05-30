@@ -63,6 +63,9 @@ type WheelProps<T extends string | number> = {
     textColor: string;
     dimTextColor: string;
     nestedScrollEnabled?: boolean;
+    onInteractionStart?: () => void;
+    onInteractionEnd?: () => void;
+    parentScrollRef?: React.RefObject<any>;
 };
 
 function Wheel<T extends string | number>({
@@ -74,14 +77,27 @@ function Wheel<T extends string | number>({
     textColor,
     dimTextColor,
     nestedScrollEnabled,
+    onInteractionStart,
+    onInteractionEnd,
+    parentScrollRef,
 }: WheelProps<T>) {
     const ref = useRef<ScrollView>(null);
+    const inGestureRef = useRef(false);
     const isDraggingRef = useRef(false);
     const isMomentumRef = useRef(false);
     const hasMountedRef = useRef(false);
     const finalizeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const touchEndTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const onInteractionStartRef = useRef(onInteractionStart);
+    const onInteractionEndRef = useRef(onInteractionEnd);
 
-    const nativeGesture = useMemo(() => Gesture.Native(), []);
+    const nativeGesture = useMemo(() => {
+        const gesture = Gesture.Native();
+        if (parentScrollRef) {
+            gesture.simultaneousWithExternalGesture(parentScrollRef);
+        }
+        return gesture;
+    }, [parentScrollRef]);
 
     const index = useMemo(() => {
         const found = data.findIndex((item) => item === value);
@@ -98,13 +114,63 @@ function Wheel<T extends string | number>({
         hasMountedRef.current = true;
     }, [index]);
 
+    useEffect(() => {
+        onInteractionStartRef.current = onInteractionStart;
+        onInteractionEndRef.current = onInteractionEnd;
+    }, [onInteractionEnd, onInteractionStart]);
+
     const clearFinalizeTimer = () => {
         if (!finalizeTimerRef.current) return;
         clearTimeout(finalizeTimerRef.current);
         finalizeTimerRef.current = null;
     };
 
-    useEffect(() => clearFinalizeTimer, []);
+    const clearTouchEndTimer = () => {
+        if (!touchEndTimerRef.current) return;
+        clearTimeout(touchEndTimerRef.current);
+        touchEndTimerRef.current = null;
+    };
+
+    const beginInteraction = () => {
+        clearTouchEndTimer();
+        if (inGestureRef.current) return;
+        inGestureRef.current = true;
+        onInteractionStartRef.current?.();
+    };
+
+    const endInteraction = () => {
+        if (!inGestureRef.current) return;
+        inGestureRef.current = false;
+        onInteractionEndRef.current?.();
+    };
+
+    const queueTouchEnd = () => {
+        clearTouchEndTimer();
+        touchEndTimerRef.current = setTimeout(() => {
+            if (!isDraggingRef.current && !isMomentumRef.current) {
+                endInteraction();
+            }
+            touchEndTimerRef.current = null;
+        }, 80);
+    };
+
+    useEffect(
+        () => () => {
+            if (finalizeTimerRef.current) {
+                clearTimeout(finalizeTimerRef.current);
+                finalizeTimerRef.current = null;
+            }
+            if (touchEndTimerRef.current) {
+                clearTimeout(touchEndTimerRef.current);
+                touchEndTimerRef.current = null;
+            }
+            if (inGestureRef.current) {
+                inGestureRef.current = false;
+                onInteractionEndRef.current?.();
+            }
+        },
+        [],
+    );
 
     const settleFromOffsetY = (offsetY: number) => {
         const nextIndex = clamp(
@@ -129,16 +195,23 @@ function Wheel<T extends string | number>({
                     snapToAlignment="start"
                     contentContainerStyle={styles.wheelContent}
                     nestedScrollEnabled={nestedScrollEnabled}
+                    simultaneousHandlers={parentScrollRef}
+                    onTouchStart={beginInteraction}
+                    onTouchEnd={queueTouchEnd}
+                    onTouchCancel={queueTouchEnd}
                     onScrollBeginDrag={() => {
                         isDraggingRef.current = true;
+                        beginInteraction();
                     }}
                     onMomentumScrollBegin={() => {
                         isMomentumRef.current = true;
                         clearFinalizeTimer();
+                        clearTouchEndTimer();
                     }}
                     onMomentumScrollEnd={(event) => {
                         isMomentumRef.current = false;
                         settleFromOffsetY(event.nativeEvent.contentOffset.y);
+                        endInteraction();
                     }}
                     onScrollEndDrag={(event) => {
                         isDraggingRef.current = false;
@@ -149,6 +222,7 @@ function Wheel<T extends string | number>({
 
                         if (velocityY < 0.05 && !isMomentumRef.current) {
                             settleFromOffsetY(offsetY);
+                            endInteraction();
                             return;
                         }
 
@@ -156,6 +230,7 @@ function Wheel<T extends string | number>({
                         finalizeTimerRef.current = setTimeout(() => {
                             if (!isMomentumRef.current) {
                                 settleFromOffsetY(offsetY);
+                                endInteraction();
                             }
                             finalizeTimerRef.current = null;
                         }, 45);
@@ -201,6 +276,9 @@ type ExpenseDatePickerProps = {
     highlightColor?: string;
     nestedScrollEnabled?: boolean;
     showTime?: boolean;
+    onInteractionStart?: () => void;
+    onInteractionEnd?: () => void;
+    parentScrollRef?: React.RefObject<any>;
 };
 
 export default function ExpenseDatePicker({
@@ -214,6 +292,9 @@ export default function ExpenseDatePicker({
     highlightColor = "#EEF0EB",
     nestedScrollEnabled = true,
     showTime = false,
+    onInteractionStart,
+    onInteractionEnd,
+    parentScrollRef,
 }: ExpenseDatePickerProps) {
     const selectedValue = useMemo(
         () => (Number.isNaN(value.getTime()) ? new Date() : value),
@@ -293,6 +374,9 @@ export default function ExpenseDatePicker({
                     textColor={textColor}
                     dimTextColor={dimTextColor}
                     nestedScrollEnabled={nestedScrollEnabled}
+                    onInteractionStart={onInteractionStart}
+                    onInteractionEnd={onInteractionEnd}
+                    parentScrollRef={parentScrollRef}
                 />
 
                 <Wheel
@@ -311,6 +395,9 @@ export default function ExpenseDatePicker({
                     textColor={textColor}
                     dimTextColor={dimTextColor}
                     nestedScrollEnabled={nestedScrollEnabled}
+                    onInteractionStart={onInteractionStart}
+                    onInteractionEnd={onInteractionEnd}
+                    parentScrollRef={parentScrollRef}
                 />
 
                 <Wheel
@@ -327,6 +414,9 @@ export default function ExpenseDatePicker({
                     textColor={textColor}
                     dimTextColor={dimTextColor}
                     nestedScrollEnabled={nestedScrollEnabled}
+                    onInteractionStart={onInteractionStart}
+                    onInteractionEnd={onInteractionEnd}
+                    parentScrollRef={parentScrollRef}
                 />
             </View>
             {showTime ? (
@@ -345,6 +435,9 @@ export default function ExpenseDatePicker({
                         textColor={textColor}
                         dimTextColor={dimTextColor}
                         nestedScrollEnabled={nestedScrollEnabled}
+                        onInteractionStart={onInteractionStart}
+                        onInteractionEnd={onInteractionEnd}
+                        parentScrollRef={parentScrollRef}
                     />
                     <CustomText weight="extrabold" style={styles.timeColon}>
                         :
@@ -363,6 +456,9 @@ export default function ExpenseDatePicker({
                         textColor={textColor}
                         dimTextColor={dimTextColor}
                         nestedScrollEnabled={nestedScrollEnabled}
+                        onInteractionStart={onInteractionStart}
+                        onInteractionEnd={onInteractionEnd}
+                        parentScrollRef={parentScrollRef}
                     />
                 </View>
             ) : null}

@@ -6,12 +6,12 @@ import {
     Modal,
     Platform,
     Pressable,
-    ScrollView,
     StyleSheet,
     TextInput,
     TouchableOpacity,
     View,
 } from "react-native";
+import { ScrollView } from "react-native-gesture-handler";
 
 import CustomText from "@/components/CustomText";
 import ExpenseDatePicker from "@/components/expenses/ExpenseDatePicker";
@@ -113,7 +113,10 @@ export default function ExpenseModal({
         top: number;
         left: number;
     } | null>(null);
-    const scrollViewRef = useRef<ScrollView>(null);
+    const [isDatePickerInteracting, setIsDatePickerInteracting] =
+        useState(false);
+    const scrollViewRef = useRef<React.ElementRef<typeof ScrollView>>(null);
+    const datePickerInteractionCountRef = useRef(0);
     const currencyButtonRef =
         useRef<React.ComponentRef<typeof TouchableOpacity>>(null);
     const categoryButtonRef =
@@ -162,6 +165,8 @@ export default function ExpenseModal({
         setCurrencyDropdownPosition(null);
         setIsCategoryDropdownOpen(false);
         setCategoryDropdownPosition(null);
+        datePickerInteractionCountRef.current = 0;
+        setIsDatePickerInteracting(false);
 
         requestAnimationFrame(() => {
             scrollViewRef.current?.scrollTo({ y: 0, animated: false });
@@ -194,6 +199,21 @@ export default function ExpenseModal({
     const closeDropdowns = () => {
         closeCurrencyDropdown();
         closeCategoryDropdown();
+    };
+
+    const handleDatePickerInteractionStart = () => {
+        datePickerInteractionCountRef.current += 1;
+        setIsDatePickerInteracting(true);
+    };
+
+    const handleDatePickerInteractionEnd = () => {
+        datePickerInteractionCountRef.current = Math.max(
+            0,
+            datePickerInteractionCountRef.current - 1,
+        );
+        if (datePickerInteractionCountRef.current === 0) {
+            setIsDatePickerInteracting(false);
+        }
     };
 
     const handleToggleCurrencyDropdown = () => {
@@ -324,6 +344,7 @@ export default function ExpenseModal({
                             ref={scrollViewRef}
                             keyboardShouldPersistTaps="handled"
                             nestedScrollEnabled
+                            scrollEnabled={!isDatePickerInteracting}
                             showsVerticalScrollIndicator={false}
                         >
                             <CustomText
@@ -479,6 +500,11 @@ export default function ExpenseModal({
                                 maxYear={new Date().getFullYear() + 1}
                                 nestedScrollEnabled
                                 showTime
+                                onInteractionStart={
+                                    handleDatePickerInteractionStart
+                                }
+                                onInteractionEnd={handleDatePickerInteractionEnd}
+                                parentScrollRef={scrollViewRef}
                             />
 
                             <CustomText weight="semibold" style={styles.label}>
