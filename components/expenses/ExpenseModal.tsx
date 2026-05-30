@@ -60,7 +60,6 @@ type ExpenseModalProps = {
     onClose: () => void;
     onSave: (input: ExpenseModalSaveInput) => Promise<void>;
     onDelete?: () => Promise<void>;
-    onManageCategories: () => void;
 };
 
 function getInitialDate(expense?: Expense | null, fallbackDate?: Date) {
@@ -96,7 +95,6 @@ export default function ExpenseModal({
     onClose,
     onSave,
     onDelete,
-    onManageCategories,
 }: ExpenseModalProps) {
     const [title, setTitle] = useState("");
     const [amount, setAmount] = useState("");
@@ -238,11 +236,6 @@ export default function ExpenseModal({
     const handleSelectCategory = (nextCategoryId: string) => {
         setCategoryId(nextCategoryId);
         closeCategoryDropdown();
-    };
-
-    const handleManageCategories = () => {
-        closeCategoryDropdown();
-        onManageCategories();
     };
 
     const handleSelectTitleSuggestion = (suggestion: string) => {
@@ -472,19 +465,20 @@ export default function ExpenseModal({
                                         weight="semibold"
                                         style={styles.categoryEmptyText}
                                     >
-                                        Open Manage Categories to add one.
+                                        No categories yet.
                                     </CustomText>
                                 </View>
                             ) : null}
 
                             <CustomText weight="semibold" style={styles.label}>
-                                Date
+                                Date and time
                             </CustomText>
                             <ExpenseDatePicker
                                 value={paidAt}
                                 onChange={setPaidAt}
                                 maxYear={new Date().getFullYear() + 1}
                                 nestedScrollEnabled
+                                showTime
                             />
 
                             <CustomText weight="semibold" style={styles.label}>
@@ -728,21 +722,6 @@ export default function ExpenseModal({
                                         </TouchableOpacity>
                                     ))
                                 )}
-                                <TouchableOpacity
-                                    style={[
-                                        styles.categoryOption,
-                                        styles.manageCategoriesOption,
-                                    ]}
-                                    onPress={handleManageCategories}
-                                >
-                                    <CustomText
-                                        weight="semibold"
-                                        style={styles.manageCategoriesText}
-                                        numberOfLines={1}
-                                    >
-                                        Manage Categories
-                                    </CustomText>
-                                </TouchableOpacity>
                             </ScrollView>
                         </View>
                     </>
@@ -968,14 +947,6 @@ const styles = StyleSheet.create({
     },
     selectedCategoryOptionText: {
         color: Colors.brownText,
-    },
-    manageCategoriesOption: {
-        borderTopWidth: 1,
-        borderTopColor: "#EBEAEC",
-    },
-    manageCategoriesText: {
-        color: Colors.darkBlue,
-        fontSize: 12,
     },
     paidByRow: {
         flexDirection: "row",

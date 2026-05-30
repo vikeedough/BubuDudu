@@ -3,7 +3,11 @@ import { StyleSheet, TouchableOpacity, View } from "react-native";
 
 import CustomText from "@/components/CustomText";
 import { Colors } from "@/constants/colors";
-import { DEFAULT_EXPENSE_CURRENCY, formatCurrency } from "@/utils/expenses";
+import {
+    DEFAULT_EXPENSE_CURRENCY,
+    formatCurrency,
+    formatExpenseTime,
+} from "@/utils/expenses";
 
 import type { Expense, Profile } from "@/api/endpoints/types";
 
@@ -62,7 +66,8 @@ export default function ExpenseRow({
                     numberOfLines={1}
                     ellipsizeMode="tail"
                 >
-                    Paid by {payerName} - {expense.category_name}
+                    {formatExpenseTime(expense.paid_at)} - Paid by {payerName} -{" "}
+                    {expense.category_name}
                 </CustomText>
             </View>
             <View style={styles.amountBlock}>

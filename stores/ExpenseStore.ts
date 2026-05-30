@@ -9,6 +9,7 @@ import {
     normalizeCurrencyCode,
     roundMoney,
     shiftExpenseMonth,
+    sortExpensesNewestFirst,
 } from "@/utils/expenses";
 import { createLocalId } from "@/utils/offline/id";
 import {
@@ -108,12 +109,7 @@ type ExpenseStore = {
 };
 
 function sortExpenses(expenses: Expense[]) {
-    return expenses.slice().sort((a, b) => {
-        const paidDiff =
-            new Date(b.paid_at).getTime() - new Date(a.paid_at).getTime();
-        if (paidDiff !== 0) return paidDiff;
-        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-    });
+    return sortExpensesNewestFirst(expenses);
 }
 
 function sortCategories(categories: ExpenseCategory[]) {

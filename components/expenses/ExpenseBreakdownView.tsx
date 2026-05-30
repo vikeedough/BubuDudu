@@ -19,6 +19,7 @@ type ExpenseBreakdownViewProps = {
     onPeriodChange: (period: ExpensePeriod) => void;
     onPreviousPeriod: () => void;
     onNextPeriod: () => void;
+    onCategoryPress: (category: ExpenseAnalytics["breakdown"][number]) => void;
 };
 
 const PERIODS: { value: ExpensePeriod; label: string }[] = [
@@ -42,6 +43,7 @@ export default function ExpenseBreakdownView({
     onPeriodChange,
     onPreviousPeriod,
     onNextPeriod,
+    onCategoryPress,
 }: ExpenseBreakdownViewProps) {
     const chartData = analytics.breakdown.map((item) => ({
         value: item.total,
@@ -221,7 +223,12 @@ export default function ExpenseBreakdownView({
 
             <View style={styles.legend}>
                 {analytics.breakdown.map((item) => (
-                    <View key={item.key} style={styles.legendRow}>
+                    <TouchableOpacity
+                        key={item.key}
+                        style={styles.legendRow}
+                        onPress={() => onCategoryPress(item)}
+                        activeOpacity={0.8}
+                    >
                         <View
                             style={[
                                 styles.legendDot,
@@ -240,7 +247,7 @@ export default function ExpenseBreakdownView({
                                 DEFAULT_EXPENSE_CURRENCY,
                             )}
                         </CustomText>
-                    </View>
+                    </TouchableOpacity>
                 ))}
             </View>
         </View>
