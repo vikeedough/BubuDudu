@@ -5,12 +5,14 @@ import { queueFrom, queueFromSingle, supabaseMock } from "@/tests/mocks/supabase
 import {
   buildExpenseAnalytics,
   buildExpenseBudgetAnalytics,
+  getExpensesForBreakdownCategory,
   getExpensePeriodLabel,
   getExpenseTitleSuggestions,
+  sortExpensesNewestFirst,
 } from "@/utils/expenses";
 import { setIsOnline } from "@/utils/offline/network";
 
-import type { ExpenseBudget, ExpenseCategory } from "@/api/endpoints/types";
+import type { Expense, ExpenseBudget, ExpenseCategory } from "@/api/endpoints/types";
 
 const CATEGORY_A: ExpenseCategory = {
   id: "cat-1",
@@ -242,6 +244,78 @@ describe("stores/ExpenseStore", () => {
     });
 
     expect(suggestions).toEqual(["McDonalds", "McD Cafe", "McD Delivery"]);
+  });
+
+  it("sorts expenses newest first by paid timestamp", () => {
+    const morningExpense = {
+      ...EXPENSE_A,
+      id: "exp-morning",
+      paid_at: "2026-05-11T08:00:00.000Z",
+      created_at: "2026-05-11T08:00:00.000Z",
+    } as Expense;
+    const eveningExpense = {
+      ...EXPENSE_A,
+      id: "exp-evening",
+      paid_at: "2026-05-11T20:00:00.000Z",
+      created_at: "2026-05-11T20:00:00.000Z",
+    } as Expense;
+    const tiedPaidAtExpense = {
+      ...EXPENSE_A,
+      id: "exp-tied",
+      paid_at: "2026-05-11T20:00:00.000Z",
+      created_at: "2026-05-11T20:05:00.000Z",
+    } as Expense;
+
+    expect(
+      sortExpensesNewestFirst([
+        morningExpense,
+        eveningExpense,
+        tiedPaidAtExpense,
+      ]).map((expense) => expense.id),
+    ).toEqual(["exp-tied", "exp-evening", "exp-morning"]);
+  });
+
+  it("returns category expenses for the selected breakdown period newest first", () => {
+    const foodMorning = {
+      ...EXPENSE_A,
+      id: "exp-food-morning",
+      paid_at: "2026-05-11T08:00:00.000Z",
+      created_at: "2026-05-11T08:00:00.000Z",
+    } as Expense;
+    const foodEvening = {
+      ...EXPENSE_A,
+      id: "exp-food-evening",
+      paid_at: "2026-05-11T14:00:00.000Z",
+      created_at: "2026-05-11T14:00:00.000Z",
+    } as Expense;
+    const partnerFood = {
+      ...EXPENSE_A,
+      id: "exp-partner-food",
+      paid_by: "partner-1",
+      paid_at: "2026-05-11T15:00:00.000Z",
+    } as Expense;
+    const transport = {
+      ...EXPENSE_A,
+      id: "exp-transport",
+      category_id: "cat-2",
+      category_name: "Transport",
+      paid_at: "2026-05-11T15:00:00.000Z",
+    } as Expense;
+
+    const categoryExpenses = getExpensesForBreakdownCategory({
+      expenses: [foodMorning, partnerFood, transport, foodEvening],
+      categories: [CATEGORY_A],
+      categoryKey: "cat-1",
+      period: "daily",
+      scope: "me",
+      currentUserId: "user-1",
+      anchorDate: new Date("2026-05-11T12:00:00.000Z"),
+    });
+
+    expect(categoryExpenses.map((expense) => expense.id)).toEqual([
+      "exp-food-evening",
+      "exp-food-morning",
+    ]);
   });
 
   it("sets a shared category budget online", async () => {

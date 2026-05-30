@@ -7,14 +7,17 @@ The expense tracker is an offline-first tab for logging shared-space expenses. I
 - The tab appears third in the bottom tab bar, between Gallery and Lists.
 - Expenses can be viewed for both partners together or filtered to expenses paid by the current user from the header scope control. The scope control shows Me on the left and Both on the right, with each option colored from the current user or partner avatar border color.
 - The main view switcher supports Log, Breakdown, and Budget.
-- Each expense has an amount, currency, title, category, and paid date.
+- Each expense has an amount, currency, title, category, and paid timestamp.
 - Each expense stores the creator and the payer. The payer can be the current user or partner.
 - The partner payer option is disabled until a partner profile exists in the active space.
 - The payer selector sits at the bottom of the expense form so the entry starts with expense details first. Payer buttons use each person's avatar border color, and the partner option shows the partner's profile name when available.
 - The add expense action is a bottom-right floating button and always opens the expense form; category loading or empty states are handled inside the category section of that form.
 - The log opens to the day view by default. When adding an expense from a selected log day, the expense form's date picker starts on that selected day.
-- The expense form date picker uses a single day wheel. The current day is labeled Today, with neighboring rows shown as full dates.
-- The expense form category field is a dropdown beside the Category label, with Manage Categories at the bottom of the dropdown.
+- The expense form date and time picker stores the selected timestamp in `paid_at`. The current day is labeled Today, and new expenses default to the current local time.
+- The expense form pauses the surrounding modal scroll while a date/time wheel is active so iOS can settle wheel selections reliably.
+- Expenses sort newest first by paid timestamp, then by creation timestamp when paid timestamps match.
+- The expense form category field is a dropdown beside the Category label.
+- Category management is opened from the Log tab's Categories button, outside the add-expense modal, to avoid nested modal/dropdown issues on iOS.
 - Expense titles suggest up to three previous titles created by the current user once at least two characters are typed. Prefix matches appear before contains matches.
 - Default currency is SGD.
 - The expense form keeps currency beside amount, with currency choices shown in a single scrollable overlay dropdown list.
@@ -25,6 +28,7 @@ The expense tracker is an offline-first tab for logging shared-space expenses. I
 - The log can switch between day, week, and month views and move to previous/next periods, using consistent spacing across the log/breakdown, period, and date controls. The current day is labeled as Today.
 - The log Day/Week/Month selector uses the same yellow selected state as the Breakdown period selector.
 - Expense breakdown can switch between daily, weekly, monthly, and yearly periods and move to previous/next periods. Weeks start on Monday.
+- Pressing a Breakdown category opens a modal with all expenses in that category for the selected period and Me/Both scope, sorted newest first.
 - Budgets are monthly and SGD-only. Shared budgets live under Both, while personal budgets live under Me and are scoped to the current user.
 - Budget rows show only categories with budgets, plus spent amount, budget amount, remaining/over amount, percentage used, and a visual progress bar.
 - When a month has no budgets for the selected scope, the app automatically copies the previous month's budgets for that same scope.

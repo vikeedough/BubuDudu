@@ -38,10 +38,6 @@ function clamp(value: number, min: number, max: number) {
     return Math.max(min, Math.min(max, value));
 }
 
-function dateOnly(date: Date) {
-    return new Date(date.getFullYear(), date.getMonth(), date.getDate());
-}
-
 function isToday(year: number, month: number, day: number) {
     const today = new Date();
     return (
@@ -55,6 +51,8 @@ const ITEM_H = 30;
 const VISIBLE_ROWS = 3;
 const WHEEL_H = ITEM_H * VISIBLE_ROWS;
 const PAD = ITEM_H;
+const HOURS = Array.from({ length: 24 }, (_, index) => index);
+const MINUTES = Array.from({ length: 60 }, (_, index) => index);
 
 type WheelProps<T extends string | number> = {
     data: T[];
@@ -65,6 +63,9 @@ type WheelProps<T extends string | number> = {
     textColor: string;
     dimTextColor: string;
     nestedScrollEnabled?: boolean;
+    onInteractionStart?: () => void;
+    onInteractionEnd?: () => void;
+    parentScrollRef?: React.RefObject<any>;
 };
 
 function Wheel<T extends string | number>({
@@ -76,14 +77,27 @@ function Wheel<T extends string | number>({
     textColor,
     dimTextColor,
     nestedScrollEnabled,
+    onInteractionStart,
+    onInteractionEnd,
+    parentScrollRef,
 }: WheelProps<T>) {
     const ref = useRef<ScrollView>(null);
+    const inGestureRef = useRef(false);
     const isDraggingRef = useRef(false);
     const isMomentumRef = useRef(false);
     const hasMountedRef = useRef(false);
     const finalizeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const touchEndTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const onInteractionStartRef = useRef(onInteractionStart);
+    const onInteractionEndRef = useRef(onInteractionEnd);
 
-    const nativeGesture = useMemo(() => Gesture.Native(), []);
+    const nativeGesture = useMemo(() => {
+        const gesture = Gesture.Native();
+        if (parentScrollRef) {
+            gesture.simultaneousWithExternalGesture(parentScrollRef);
+        }
+        return gesture;
+    }, [parentScrollRef]);
 
     const index = useMemo(() => {
         const found = data.findIndex((item) => item === value);
@@ -100,13 +114,63 @@ function Wheel<T extends string | number>({
         hasMountedRef.current = true;
     }, [index]);
 
+    useEffect(() => {
+        onInteractionStartRef.current = onInteractionStart;
+        onInteractionEndRef.current = onInteractionEnd;
+    }, [onInteractionEnd, onInteractionStart]);
+
     const clearFinalizeTimer = () => {
         if (!finalizeTimerRef.current) return;
         clearTimeout(finalizeTimerRef.current);
         finalizeTimerRef.current = null;
     };
 
-    useEffect(() => clearFinalizeTimer, []);
+    const clearTouchEndTimer = () => {
+        if (!touchEndTimerRef.current) return;
+        clearTimeout(touchEndTimerRef.current);
+        touchEndTimerRef.current = null;
+    };
+
+    const beginInteraction = () => {
+        clearTouchEndTimer();
+        if (inGestureRef.current) return;
+        inGestureRef.current = true;
+        onInteractionStartRef.current?.();
+    };
+
+    const endInteraction = () => {
+        if (!inGestureRef.current) return;
+        inGestureRef.current = false;
+        onInteractionEndRef.current?.();
+    };
+
+    const queueTouchEnd = () => {
+        clearTouchEndTimer();
+        touchEndTimerRef.current = setTimeout(() => {
+            if (!isDraggingRef.current && !isMomentumRef.current) {
+                endInteraction();
+            }
+            touchEndTimerRef.current = null;
+        }, 80);
+    };
+
+    useEffect(
+        () => () => {
+            if (finalizeTimerRef.current) {
+                clearTimeout(finalizeTimerRef.current);
+                finalizeTimerRef.current = null;
+            }
+            if (touchEndTimerRef.current) {
+                clearTimeout(touchEndTimerRef.current);
+                touchEndTimerRef.current = null;
+            }
+            if (inGestureRef.current) {
+                inGestureRef.current = false;
+                onInteractionEndRef.current?.();
+            }
+        },
+        [],
+    );
 
     const settleFromOffsetY = (offsetY: number) => {
         const nextIndex = clamp(
@@ -131,16 +195,23 @@ function Wheel<T extends string | number>({
                     snapToAlignment="start"
                     contentContainerStyle={styles.wheelContent}
                     nestedScrollEnabled={nestedScrollEnabled}
+                    simultaneousHandlers={parentScrollRef}
+                    onTouchStart={beginInteraction}
+                    onTouchEnd={queueTouchEnd}
+                    onTouchCancel={queueTouchEnd}
                     onScrollBeginDrag={() => {
                         isDraggingRef.current = true;
+                        beginInteraction();
                     }}
                     onMomentumScrollBegin={() => {
                         isMomentumRef.current = true;
                         clearFinalizeTimer();
+                        clearTouchEndTimer();
                     }}
                     onMomentumScrollEnd={(event) => {
                         isMomentumRef.current = false;
                         settleFromOffsetY(event.nativeEvent.contentOffset.y);
+                        endInteraction();
                     }}
                     onScrollEndDrag={(event) => {
                         isDraggingRef.current = false;
@@ -151,6 +222,7 @@ function Wheel<T extends string | number>({
 
                         if (velocityY < 0.05 && !isMomentumRef.current) {
                             settleFromOffsetY(offsetY);
+                            endInteraction();
                             return;
                         }
 
@@ -158,6 +230,7 @@ function Wheel<T extends string | number>({
                         finalizeTimerRef.current = setTimeout(() => {
                             if (!isMomentumRef.current) {
                                 settleFromOffsetY(offsetY);
+                                endInteraction();
                             }
                             finalizeTimerRef.current = null;
                         }, 45);
@@ -202,6 +275,10 @@ type ExpenseDatePickerProps = {
     cardColor?: string;
     highlightColor?: string;
     nestedScrollEnabled?: boolean;
+    showTime?: boolean;
+    onInteractionStart?: () => void;
+    onInteractionEnd?: () => void;
+    parentScrollRef?: React.RefObject<any>;
 };
 
 export default function ExpenseDatePicker({
@@ -214,16 +291,27 @@ export default function ExpenseDatePicker({
     cardColor = "#FFFFFF",
     highlightColor = "#EEF0EB",
     nestedScrollEnabled = true,
+    showTime = false,
+    onInteractionStart,
+    onInteractionEnd,
+    parentScrollRef,
 }: ExpenseDatePickerProps) {
-    const selectedValue = useMemo(() => dateOnly(value), [value]);
+    const selectedValue = useMemo(
+        () => (Number.isNaN(value.getTime()) ? new Date() : value),
+        [value],
+    );
     const [month, setMonth] = useState(selectedValue.getMonth());
     const [year, setYear] = useState(selectedValue.getFullYear());
     const [day, setDay] = useState(selectedValue.getDate());
+    const [hour, setHour] = useState(selectedValue.getHours());
+    const [minute, setMinute] = useState(selectedValue.getMinutes());
 
     useEffect(() => {
         setMonth(selectedValue.getMonth());
         setYear(selectedValue.getFullYear());
         setDay(selectedValue.getDate());
+        setHour(selectedValue.getHours());
+        setMinute(selectedValue.getMinutes());
     }, [selectedValue]);
 
     const years = useMemo(() => {
@@ -250,8 +338,14 @@ export default function ExpenseDatePicker({
         if (day > totalDays) setDay(totalDays);
     }, [day, month, year]);
 
-    const commit = (nextYear: number, nextMonth: number, nextDay: number) => {
-        onChange(new Date(nextYear, nextMonth, nextDay));
+    const commit = (
+        nextYear: number,
+        nextMonth: number,
+        nextDay: number,
+        nextHour = hour,
+        nextMinute = minute,
+    ) => {
+        onChange(new Date(nextYear, nextMonth, nextDay, nextHour, nextMinute));
     };
 
     return (
@@ -280,6 +374,9 @@ export default function ExpenseDatePicker({
                     textColor={textColor}
                     dimTextColor={dimTextColor}
                     nestedScrollEnabled={nestedScrollEnabled}
+                    onInteractionStart={onInteractionStart}
+                    onInteractionEnd={onInteractionEnd}
+                    parentScrollRef={parentScrollRef}
                 />
 
                 <Wheel
@@ -298,6 +395,9 @@ export default function ExpenseDatePicker({
                     textColor={textColor}
                     dimTextColor={dimTextColor}
                     nestedScrollEnabled={nestedScrollEnabled}
+                    onInteractionStart={onInteractionStart}
+                    onInteractionEnd={onInteractionEnd}
+                    parentScrollRef={parentScrollRef}
                 />
 
                 <Wheel
@@ -314,8 +414,54 @@ export default function ExpenseDatePicker({
                     textColor={textColor}
                     dimTextColor={dimTextColor}
                     nestedScrollEnabled={nestedScrollEnabled}
+                    onInteractionStart={onInteractionStart}
+                    onInteractionEnd={onInteractionEnd}
+                    parentScrollRef={parentScrollRef}
                 />
             </View>
+            {showTime ? (
+                <View style={styles.timeColumns}>
+                    <Wheel
+                        data={HOURS}
+                        value={hour}
+                        onPick={(pickedHour) => {
+                            setHour(pickedHour);
+                            commit(year, month, day, pickedHour, minute);
+                        }}
+                        width={74}
+                        renderText={(pickedHour) =>
+                            String(pickedHour).padStart(2, "0")
+                        }
+                        textColor={textColor}
+                        dimTextColor={dimTextColor}
+                        nestedScrollEnabled={nestedScrollEnabled}
+                        onInteractionStart={onInteractionStart}
+                        onInteractionEnd={onInteractionEnd}
+                        parentScrollRef={parentScrollRef}
+                    />
+                    <CustomText weight="extrabold" style={styles.timeColon}>
+                        :
+                    </CustomText>
+                    <Wheel
+                        data={MINUTES}
+                        value={minute}
+                        onPick={(pickedMinute) => {
+                            setMinute(pickedMinute);
+                            commit(year, month, day, hour, pickedMinute);
+                        }}
+                        width={74}
+                        renderText={(pickedMinute) =>
+                            String(pickedMinute).padStart(2, "0")
+                        }
+                        textColor={textColor}
+                        dimTextColor={dimTextColor}
+                        nestedScrollEnabled={nestedScrollEnabled}
+                        onInteractionStart={onInteractionStart}
+                        onInteractionEnd={onInteractionEnd}
+                        parentScrollRef={parentScrollRef}
+                    />
+                </View>
+            ) : null}
         </View>
     );
 }
@@ -334,6 +480,17 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         justifyContent: "center",
         gap: 10,
+    },
+    timeColumns: {
+        flexDirection: "row",
+        justifyContent: "center",
+        alignItems: "center",
+        gap: 6,
+        marginTop: 8,
+    },
+    timeColon: {
+        color: "#4C5A45",
+        fontSize: 18,
     },
     wheelContent: {
         paddingVertical: PAD,

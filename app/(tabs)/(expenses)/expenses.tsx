@@ -18,6 +18,7 @@ import BudgetModal from "@/components/expenses/BudgetModal";
 import CategoryManagerModal from "@/components/expenses/CategoryManagerModal";
 import ExpenseBreakdownView from "@/components/expenses/ExpenseBreakdownView";
 import ExpenseBudgetView from "@/components/expenses/ExpenseBudgetView";
+import ExpenseCategoryExpensesModal from "@/components/expenses/ExpenseCategoryExpensesModal";
 import ExpenseModal from "@/components/expenses/ExpenseModal";
 import ExpenseRow from "@/components/expenses/ExpenseRow";
 import { Colors } from "@/constants/colors";
@@ -32,12 +33,14 @@ import {
 import {
     buildExpenseBudgetAnalytics,
     buildExpenseAnalytics,
+    getExpensesForBreakdownCategory,
     getExpensePeriodLabel,
     getExpenseMonthStart,
     isExpenseInPeriod,
     shiftExpenseMonth,
     shiftExpensePeriod,
     type ExpenseBudgetRow,
+    type ExpenseBreakdownItem,
     type ExpenseLogPeriod,
     type ExpensePeriod,
     type ExpenseScope,
@@ -200,6 +203,8 @@ const Expenses = () => {
     const [selectedBudget, setSelectedBudget] = useState<ExpenseBudget | null>(
         null,
     );
+    const [selectedBreakdownCategory, setSelectedBreakdownCategory] =
+        useState<ExpenseBreakdownItem | null>(null);
 
     const partnerProfile = useMemo(
         () =>
@@ -345,8 +350,31 @@ const Expenses = () => {
         );
     }, [budgetAnalytics.rows, categories, selectedBudget]);
 
+    const selectedBreakdownExpenses = useMemo(() => {
+        if (!selectedBreakdownCategory) return [];
+
+        return getExpensesForBreakdownCategory({
+            expenses,
+            categories,
+            categoryKey: selectedBreakdownCategory.key,
+            period,
+            scope,
+            currentUserId,
+            anchorDate: breakdownAnchorDate,
+        });
+    }, [
+        breakdownAnchorDate,
+        categories,
+        currentUserId,
+        expenses,
+        period,
+        scope,
+        selectedBreakdownCategory,
+    ]);
+
     const handleOpenCreate = () => {
         setSelectedExpense(null);
+        setSelectedBreakdownCategory(null);
         setIsCategoryModalOpen(false);
         setIsBudgetModalOpen(false);
         setIsExpenseModalOpen(true);
@@ -482,15 +510,18 @@ const Expenses = () => {
         handleOpenCreate();
     };
 
+    const handleOpenExpenseDetails = (expense: Expense) => {
+        setSelectedExpense(expense);
+        setSelectedBreakdownCategory(null);
+        setIsExpenseModalOpen(true);
+    };
+
     const renderExpense = ({ item }: { item: Expense }) => (
         <ExpenseRow
             expense={item}
             currentUserId={currentUserId}
             partnerProfile={partnerProfile}
-            onPress={(expense) => {
-                setSelectedExpense(expense);
-                setIsExpenseModalOpen(true);
-            }}
+            onPress={handleOpenExpenseDetails}
         />
     );
 
@@ -518,7 +549,16 @@ const Expenses = () => {
                 }}
                 onSave={handleSaveExpense}
                 onDelete={selectedExpense ? handleDeleteExpense : undefined}
-                onManageCategories={() => setIsCategoryModalOpen(true)}
+            />
+            <ExpenseCategoryExpensesModal
+                isOpen={!!selectedBreakdownCategory}
+                category={selectedBreakdownCategory}
+                expenses={selectedBreakdownExpenses}
+                periodLabel={getExpensePeriodLabel(period, breakdownAnchorDate)}
+                currentUserId={currentUserId}
+                partnerProfile={partnerProfile}
+                onClose={() => setSelectedBreakdownCategory(null)}
+                onExpensePress={handleOpenExpenseDetails}
             />
             <CategoryManagerModal
                 isOpen={isCategoryModalOpen}
@@ -606,6 +646,19 @@ const Expenses = () => {
                                 )
                             }
                         />
+                        <View style={styles.logActionRow}>
+                            <TouchableOpacity
+                                style={styles.manageCategoriesButton}
+                                onPress={() => setIsCategoryModalOpen(true)}
+                            >
+                                <CustomText
+                                    weight="semibold"
+                                    style={styles.manageCategoriesButtonText}
+                                >
+                                    Categories
+                                </CustomText>
+                            </TouchableOpacity>
+                        </View>
                     </View>
                     {isLoadingExpenses && visibleExpenses.length === 0 ? (
                         <View style={styles.loadingState}>
@@ -670,6 +723,7 @@ const Expenses = () => {
                                 shiftExpensePeriod(current, period, 1),
                             )
                         }
+                        onCategoryPress={setSelectedBreakdownCategory}
                     />
                 </ScrollView>
             ) : (
@@ -723,13 +777,13 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: Colors.backgroundPink,
         paddingTop: 20,
-        paddingHorizontal: 20,
+        paddingHorizontal: 25,
     },
     header: {
         flexDirection: "row",
         justifyContent: "space-between",
         alignItems: "center",
-        marginBottom: 16,
+        marginBottom: 20,
         gap: 14,
     },
     headerTitle: {
@@ -767,6 +821,23 @@ const styles = StyleSheet.create({
     logPeriodControls: {
         gap: 10,
         marginBottom: 10,
+    },
+    logActionRow: {
+        flexDirection: "row",
+        justifyContent: "flex-end",
+    },
+    manageCategoriesButton: {
+        minWidth: 112,
+        height: 38,
+        borderRadius: 10,
+        backgroundColor: "#FFCC7D",
+        alignItems: "center",
+        justifyContent: "center",
+        paddingHorizontal: 14,
+    },
+    manageCategoriesButtonText: {
+        color: Colors.brownText,
+        fontSize: 13,
     },
     segmentedControl: {
         flexDirection: "row",

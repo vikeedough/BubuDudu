@@ -140,6 +140,32 @@ export function formatCurrency(
     }
 }
 
+function getExpenseTimestamp(value: string) {
+    const timestamp = new Date(value).getTime();
+    return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function compareExpensesNewestFirst(a: Expense, b: Expense) {
+    const paidDiff =
+        getExpenseTimestamp(b.paid_at) - getExpenseTimestamp(a.paid_at);
+    if (paidDiff !== 0) return paidDiff;
+
+    const createdDiff =
+        getExpenseTimestamp(b.created_at) - getExpenseTimestamp(a.created_at);
+    if (createdDiff !== 0) return createdDiff;
+
+    return b.id.localeCompare(a.id);
+}
+
+export function sortExpensesNewestFirst(expenses: Expense[]) {
+    return expenses.slice().sort(compareExpensesNewestFirst);
+}
+
+export function formatExpenseTime(value: string) {
+    const parsed = dayjs(value);
+    return parsed.isValid() ? parsed.format("HH:mm") : "--:--";
+}
+
 export function getExpenseTitleSuggestions(input: {
     expenses: Expense[];
     query: string;
@@ -340,6 +366,34 @@ function getCategoryDisplay(
         label: category?.name ?? expense.category_name,
         color: category?.color ?? expense.category_color,
     };
+}
+
+export function getExpensesForBreakdownCategory(input: {
+    expenses: Expense[];
+    categories: ExpenseCategory[];
+    categoryKey: string;
+    period: ExpensePeriod;
+    scope: ExpenseScope;
+    currentUserId: string | null;
+    anchorDate?: Date;
+}) {
+    const range = getPeriodRange(input.period, input.anchorDate);
+    const categoryById = new Map(input.categories.map((c) => [c.id, c]));
+
+    return sortExpensesNewestFirst(
+        input.expenses.filter((expense) => {
+            if (input.scope === "me") {
+                if (!input.currentUserId) return false;
+                if (expense.paid_by !== input.currentUserId) return false;
+            }
+
+            if (!isInRange(expense.paid_at, range.start, range.end)) {
+                return false;
+            }
+
+            return getCategoryDisplay(expense, categoryById).key === input.categoryKey;
+        }),
+    );
 }
 
 function percentChange(current: number, previous: number) {

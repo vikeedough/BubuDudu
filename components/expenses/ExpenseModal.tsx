@@ -6,12 +6,12 @@ import {
     Modal,
     Platform,
     Pressable,
-    ScrollView,
     StyleSheet,
     TextInput,
     TouchableOpacity,
     View,
 } from "react-native";
+import { ScrollView } from "react-native-gesture-handler";
 
 import CustomText from "@/components/CustomText";
 import ExpenseDatePicker from "@/components/expenses/ExpenseDatePicker";
@@ -24,8 +24,8 @@ import {
 import {
     DEFAULT_EXPENSE_CURRENCY,
     getExpenseTitleSuggestions,
-    POPULAR_CURRENCIES,
     parseExpenseAmount,
+    POPULAR_CURRENCIES,
 } from "@/utils/expenses";
 
 import type { Expense, ExpenseCategory, Profile } from "@/api/endpoints/types";
@@ -60,7 +60,6 @@ type ExpenseModalProps = {
     onClose: () => void;
     onSave: (input: ExpenseModalSaveInput) => Promise<void>;
     onDelete?: () => Promise<void>;
-    onManageCategories: () => void;
 };
 
 function getInitialDate(expense?: Expense | null, fallbackDate?: Date) {
@@ -96,7 +95,6 @@ export default function ExpenseModal({
     onClose,
     onSave,
     onDelete,
-    onManageCategories,
 }: ExpenseModalProps) {
     const [title, setTitle] = useState("");
     const [amount, setAmount] = useState("");
@@ -115,18 +113,25 @@ export default function ExpenseModal({
         top: number;
         left: number;
     } | null>(null);
-    const scrollViewRef = useRef<ScrollView>(null);
+    const [isDatePickerInteracting, setIsDatePickerInteracting] =
+        useState(false);
+    const scrollViewRef = useRef<React.ElementRef<typeof ScrollView>>(null);
+    const datePickerInteractionCountRef = useRef(0);
     const currencyButtonRef =
         useRef<React.ComponentRef<typeof TouchableOpacity>>(null);
     const categoryButtonRef =
         useRef<React.ComponentRef<typeof TouchableOpacity>>(null);
-    const titleBlurTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const currentUserColor = getProfileColor(currentUserProfile, Colors.darkBlue);
+    const titleBlurTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+        null,
+    );
+    const currentUserColor = getProfileColor(
+        currentUserProfile,
+        Colors.darkBlue,
+    );
     const partnerColor = getProfileColor(partnerProfile, Colors.hotPink);
     const currentUserTextColor = getReadableAccentTextColor(currentUserColor);
     const partnerTextColor = getReadableAccentTextColor(partnerColor);
-    const currentUserSelectedTextColor =
-        getReadableTextColor(currentUserColor);
+    const currentUserSelectedTextColor = getReadableTextColor(currentUserColor);
     const partnerSelectedTextColor = getReadableTextColor(partnerColor);
     const partnerLabel = getPartnerLabel(partnerProfile);
     const selectedCategory = useMemo(
@@ -160,6 +165,8 @@ export default function ExpenseModal({
         setCurrencyDropdownPosition(null);
         setIsCategoryDropdownOpen(false);
         setCategoryDropdownPosition(null);
+        datePickerInteractionCountRef.current = 0;
+        setIsDatePickerInteracting(false);
 
         requestAnimationFrame(() => {
             scrollViewRef.current?.scrollTo({ y: 0, animated: false });
@@ -192,6 +199,21 @@ export default function ExpenseModal({
     const closeDropdowns = () => {
         closeCurrencyDropdown();
         closeCategoryDropdown();
+    };
+
+    const handleDatePickerInteractionStart = () => {
+        datePickerInteractionCountRef.current += 1;
+        setIsDatePickerInteracting(true);
+    };
+
+    const handleDatePickerInteractionEnd = () => {
+        datePickerInteractionCountRef.current = Math.max(
+            0,
+            datePickerInteractionCountRef.current - 1,
+        );
+        if (datePickerInteractionCountRef.current === 0) {
+            setIsDatePickerInteracting(false);
+        }
     };
 
     const handleToggleCurrencyDropdown = () => {
@@ -234,11 +256,6 @@ export default function ExpenseModal({
     const handleSelectCategory = (nextCategoryId: string) => {
         setCategoryId(nextCategoryId);
         closeCategoryDropdown();
-    };
-
-    const handleManageCategories = () => {
-        closeCategoryDropdown();
-        onManageCategories();
     };
 
     const handleSelectTitleSuggestion = (suggestion: string) => {
@@ -327,6 +344,7 @@ export default function ExpenseModal({
                             ref={scrollViewRef}
                             keyboardShouldPersistTaps="handled"
                             nestedScrollEnabled
+                            scrollEnabled={!isDatePickerInteracting}
                             showsVerticalScrollIndicator={false}
                         >
                             <CustomText
@@ -356,9 +374,12 @@ export default function ExpenseModal({
                                     setIsTitleInputFocused(true);
                                 }}
                                 onBlur={() => {
-                                    titleBlurTimerRef.current = setTimeout(() => {
-                                        setIsTitleInputFocused(false);
-                                    }, 120);
+                                    titleBlurTimerRef.current = setTimeout(
+                                        () => {
+                                            setIsTitleInputFocused(false);
+                                        },
+                                        120,
+                                    );
                                 }}
                                 placeholder="What was it for?"
                                 placeholderTextColor={Colors.gray}
@@ -465,19 +486,25 @@ export default function ExpenseModal({
                                         weight="semibold"
                                         style={styles.categoryEmptyText}
                                     >
-                                        Open Manage Categories to add one.
+                                        No categories yet.
                                     </CustomText>
                                 </View>
                             ) : null}
 
                             <CustomText weight="semibold" style={styles.label}>
-                                Date
+                                Date and time
                             </CustomText>
                             <ExpenseDatePicker
                                 value={paidAt}
                                 onChange={setPaidAt}
                                 maxYear={new Date().getFullYear() + 1}
                                 nestedScrollEnabled
+                                showTime
+                                onInteractionStart={
+                                    handleDatePickerInteractionStart
+                                }
+                                onInteractionEnd={handleDatePickerInteractionEnd}
+                                parentScrollRef={scrollViewRef}
                             />
 
                             <CustomText weight="semibold" style={styles.label}>
@@ -488,15 +515,14 @@ export default function ExpenseModal({
                                     style={[
                                         styles.paidByButton,
                                         { borderColor: currentUserColor },
-                                        paidBy === currentUserId &&
-                                            {
-                                                backgroundColor:
-                                                    currentUserColor,
-                                            },
+                                        paidBy === currentUserId && {
+                                            backgroundColor: currentUserColor,
+                                        },
                                         !currentUserId && styles.disabledPaidBy,
                                     ]}
                                     onPress={() =>
-                                        currentUserId && setPaidBy(currentUserId)
+                                        currentUserId &&
+                                        setPaidBy(currentUserId)
                                     }
                                     disabled={!currentUserId}
                                 >
@@ -526,11 +552,11 @@ export default function ExpenseModal({
                                                 ? partnerColor
                                                 : "#EBEAEC",
                                         },
-                                        !partnerProfile && styles.disabledPaidBy,
-                                        paidBy === partnerProfile?.id &&
-                                            {
-                                                backgroundColor: partnerColor,
-                                            },
+                                        !partnerProfile &&
+                                            styles.disabledPaidBy,
+                                        paidBy === partnerProfile?.id && {
+                                            backgroundColor: partnerColor,
+                                        },
                                     ]}
                                     onPress={() =>
                                         partnerProfile &&
@@ -544,7 +570,8 @@ export default function ExpenseModal({
                                             styles.paidByText,
                                             {
                                                 color:
-                                                    paidBy === partnerProfile?.id
+                                                    paidBy ===
+                                                    partnerProfile?.id
                                                         ? partnerSelectedTextColor
                                                         : partnerProfile
                                                           ? partnerTextColor
@@ -636,7 +663,9 @@ export default function ExpenseModal({
                                             currency === code &&
                                                 styles.selectedCurrencyOption,
                                         ]}
-                                        onPress={() => handleSelectCurrency(code)}
+                                        onPress={() =>
+                                            handleSelectCurrency(code)
+                                        }
                                     >
                                         <CustomText
                                             weight="semibold"
@@ -699,14 +728,17 @@ export default function ExpenseModal({
                                                     styles.selectedCategoryOption,
                                             ]}
                                             onPress={() =>
-                                                handleSelectCategory(category.id)
+                                                handleSelectCategory(
+                                                    category.id,
+                                                )
                                             }
                                         >
                                             <CustomText
                                                 weight="semibold"
                                                 style={[
                                                     styles.categoryOptionText,
-                                                    categoryId === category.id &&
+                                                    categoryId ===
+                                                        category.id &&
                                                         styles.selectedCategoryOptionText,
                                                 ]}
                                                 numberOfLines={1}
@@ -716,21 +748,6 @@ export default function ExpenseModal({
                                         </TouchableOpacity>
                                     ))
                                 )}
-                                <TouchableOpacity
-                                    style={[
-                                        styles.categoryOption,
-                                        styles.manageCategoriesOption,
-                                    ]}
-                                    onPress={handleManageCategories}
-                                >
-                                    <CustomText
-                                        weight="semibold"
-                                        style={styles.manageCategoriesText}
-                                        numberOfLines={1}
-                                    >
-                                        Manage Categories
-                                    </CustomText>
-                                </TouchableOpacity>
                             </ScrollView>
                         </View>
                     </>
@@ -843,7 +860,8 @@ const styles = StyleSheet.create({
     },
     currencyChevron: {
         color: Colors.gray,
-        fontSize: 10,
+        fontSize: 14,
+        marginBottom: 2,
     },
     currencyDropdown: {
         position: "absolute",
@@ -955,14 +973,6 @@ const styles = StyleSheet.create({
     },
     selectedCategoryOptionText: {
         color: Colors.brownText,
-    },
-    manageCategoriesOption: {
-        borderTopWidth: 1,
-        borderTopColor: "#EBEAEC",
-    },
-    manageCategoriesText: {
-        color: Colors.darkBlue,
-        fontSize: 12,
     },
     paidByRow: {
         flexDirection: "row",
