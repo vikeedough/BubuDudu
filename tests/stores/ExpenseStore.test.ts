@@ -27,6 +27,14 @@ const CATEGORY_A: ExpenseCategory = {
   deleted_at: null,
 };
 
+const CATEGORY_B: ExpenseCategory = {
+  ...CATEGORY_A,
+  id: "cat-2",
+  name: "Transport",
+  color: "#F78C6A",
+  sort_order: 1,
+};
+
 const EXPENSE_A = {
   id: "exp-1",
   space_id: "space-1",
@@ -161,6 +169,31 @@ describe("stores/ExpenseStore", () => {
     await useExpenseStore.getState().deleteExpense("exp-1");
 
     expect(useExpenseStore.getState().expenses).toEqual([]);
+  });
+
+  it("updates an expense payer and category details", async () => {
+    queueFrom("expenses", "update", { data: null, error: null });
+    useExpenseStore.setState({
+      categories: [CATEGORY_A, CATEGORY_B],
+      expenses: [EXPENSE_A as any],
+    });
+
+    await useExpenseStore.getState().updateExpense("exp-1", {
+      title: "Taxi",
+      categoryId: "cat-2",
+      paidBy: "partner-1",
+      description: "Airport ride",
+    });
+
+    expect(useExpenseStore.getState().expenses[0]).toMatchObject({
+      id: "exp-1",
+      title: "Taxi",
+      paid_by: "partner-1",
+      category_id: "cat-2",
+      category_name: "Transport",
+      category_color: "#F78C6A",
+      description: "Airport ride",
+    });
   });
 
   it("filters analytics by current user when scope is me", () => {
@@ -320,6 +353,43 @@ describe("stores/ExpenseStore", () => {
     ]);
   });
 
+  it("uses expense category snapshots for breakdown category details after deletion", () => {
+    const historicalExpense = {
+      ...EXPENSE_A,
+      id: "exp-historical",
+      category_id: "deleted-cat",
+      category_name: "Snacks",
+      category_color: "#FFD167",
+    } as Expense;
+
+    const analytics = buildExpenseAnalytics({
+      expenses: [historicalExpense],
+      categories: [],
+      period: "daily",
+      scope: "space",
+      currentUserId: "user-1",
+      anchorDate: new Date("2026-05-11T12:00:00.000Z"),
+    });
+
+    expect(analytics.breakdown[0]).toMatchObject({
+      key: "deleted-cat",
+      label: "Snacks",
+      color: "#FFD167",
+      total: 12.5,
+    });
+    expect(
+      getExpensesForBreakdownCategory({
+        expenses: [historicalExpense],
+        categories: [],
+        categoryKey: "deleted-cat",
+        period: "daily",
+        scope: "space",
+        currentUserId: "user-1",
+        anchorDate: new Date("2026-05-11T12:00:00.000Z"),
+      }).map((expense) => expense.id),
+    ).toEqual(["exp-historical"]);
+  });
+
   it("sets a shared category budget online", async () => {
     secureStoreUtilsMock.getSpaceId.mockResolvedValueOnce("space-1");
     useExpenseStore.setState({ categories: [CATEGORY_A] });
@@ -337,6 +407,34 @@ describe("stores/ExpenseStore", () => {
 
     expect(created).toEqual(BUDGET_A);
     expect(useExpenseStore.getState().budgets[0]).toEqual(BUDGET_A);
+  });
+
+  it("updates an existing category budget instead of duplicating it", async () => {
+    secureStoreUtilsMock.getSpaceId.mockResolvedValueOnce("space-1");
+    useExpenseStore.setState({
+      categories: [CATEGORY_A],
+      budgets: [BUDGET_A],
+    });
+    queueFrom("expense_budgets", "update", { data: null, error: null });
+
+    const updated = await useExpenseStore.getState().setBudget({
+      scope: "space",
+      categoryId: "cat-1",
+      amount: 125.456,
+      month: "2026-05-15",
+    });
+
+    expect(updated).toMatchObject({
+      id: "budget-1",
+      amount: 125.456,
+      month: "2026-05-01",
+    });
+    expect(useExpenseStore.getState().budgets).toHaveLength(1);
+    expect(useExpenseStore.getState().budgets[0]).toMatchObject({
+      id: "budget-1",
+      amount: 125.456,
+      month: "2026-05-01",
+    });
   });
 
   it("builds personal budget analytics from expenses paid by current user", () => {
