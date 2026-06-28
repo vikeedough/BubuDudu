@@ -320,6 +320,79 @@ describe("stores/ExpenseStore", () => {
     ]);
   });
 
+  it("uses the expense category snapshot when breakdown category metadata is missing", () => {
+    const deletedCategoryExpense = {
+      ...EXPENSE_A,
+      id: "exp-deleted-category",
+      category_id: "cat-deleted",
+      category_name: "Old Snacks",
+      category_color: "#123456",
+    } as Expense;
+
+    const categoryExpenses = getExpensesForBreakdownCategory({
+      expenses: [deletedCategoryExpense],
+      categories: [CATEGORY_A],
+      categoryKey: "cat-deleted",
+      period: "monthly",
+      scope: "space",
+      currentUserId: "user-1",
+      anchorDate: new Date("2026-05-11T12:00:00.000Z"),
+    });
+
+    expect(categoryExpenses).toEqual([deletedCategoryExpense]);
+  });
+
+  it("counts pending conversions without adding them to converted analytics totals", () => {
+    const pendingForeignExpense = {
+      ...EXPENSE_A,
+      id: "exp-pending",
+      title: "Hotel",
+      amount: 250,
+      currency: "GBP",
+      base_amount: null,
+      exchange_rate: null,
+      exchange_rate_date: null,
+      conversion_status: "pending",
+    } as Expense;
+    const previousPeriodExpense = {
+      ...EXPENSE_A,
+      id: "exp-previous",
+      paid_at: "2026-04-11T10:00:00.000Z",
+      created_at: "2026-04-11T10:00:00.000Z",
+      amount: 20,
+      base_amount: 20,
+    } as Expense;
+
+    const analytics = buildExpenseAnalytics({
+      expenses: [
+        EXPENSE_A as Expense,
+        pendingForeignExpense,
+        previousPeriodExpense,
+      ],
+      categories: [CATEGORY_A],
+      period: "monthly",
+      scope: "space",
+      currentUserId: "user-1",
+      anchorDate: new Date("2026-05-11T12:00:00.000Z"),
+    });
+
+    expect(analytics.transactionCount).toBe(2);
+    expect(analytics.pendingConversionCount).toBe(1);
+    expect(analytics.total).toBe(12.5);
+    expect(analytics.previousTotal).toBe(20);
+    expect(analytics.largestExpense?.id).toBe("exp-1");
+    expect(analytics.breakdown).toEqual([
+      {
+        key: "cat-1",
+        label: "Food",
+        color: "#F04770",
+        total: 12.5,
+        percentage: 100,
+        count: 1,
+      },
+    ]);
+  });
+
   it("sets a shared category budget online", async () => {
     secureStoreUtilsMock.getSpaceId.mockResolvedValueOnce("space-1");
     useExpenseStore.setState({ categories: [CATEGORY_A] });
