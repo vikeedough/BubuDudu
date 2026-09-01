@@ -103,3 +103,151 @@ The Supabase SQL adds:
 These tables use member-scoped RLS through `public.is_member_of_space(space_id)`, `updated_at` triggers, `deleted_at` soft-delete columns, and indexes for space/time/sync queries.
 
 Budget RLS allows space members to read and write shared budgets, while personal budgets can only be read and written by their `owner_user_id`.
+
+## Automated Telegram Expense Reports
+
+The server sends one weekly and one monthly finance report to the Finances forum topic in the configured Telegram group. Supabase Cron invokes the `expense-report` Edge Function; no React Native background task is involved. Weekly and monthly data use the same calculator and plain-text formatter.
+
+Report contents:
+
+- Combined total and top five categories.
+- Dudu and Bubu totals and top five categories.
+- Five largest reportable expenses.
+- Combined, Dudu, and Bubu comparison with the immediately previous period.
+- Reportable transaction count, average per transaction, highest category, and highest-spending weekday.
+- No debt, splitting, settlement, balance, repayment, or who-owes-whom calculation.
+
+### Periods and Currency
+
+All boundaries and weekday grouping explicitly use `Asia/Singapore`:
+
+- Weekly reports cover the completed Monday 00:00 through the following Monday 00:00 half-open interval. The job runs Monday at 00:05 Singapore time (`5 16 * * 0` in UTC) and reports the week that just ended.
+- Monthly reports cover the completed calendar month. The job runs on the last UTC calendar day at 16:10, which is the first Singapore calendar day at 00:10 (`10 16 $ * *` in `pg_cron`).
+
+An expense is reportable in SGD when either:
+
+1. `conversion_status = 'converted'` and `base_amount` is numeric, in which case `base_amount` is used; or
+2. `currency = 'SGD'`, in which case `amount` is used.
+
+Unconverted foreign-currency expenses and soft-deleted expenses are excluded from totals, category rankings, largest expenses, transaction count, and average per transaction. Money uses the app's four-decimal internal rounding helper and displays with two SGD decimal places. Ownership always uses `paid_by`; configured IDs are never inferred from creator or profile name.
+
+Active categories are indexed by `category_id`. Their current name and data override the expense snapshot, matching app analytics after a rename. If there is no active category, the expense snapshot is used. Telegram symbols are defined only for the app's known default category names; custom and renamed categories use the safe fallback symbol.
+
+### Edge Function Configuration
+
+Required Edge Function secrets:
+
+- `EXPENSE_REPORT_CRON_SECRET`
+- `EXPENSE_REPORT_SPACE_ID`
+- `DUDU_USER_ID`
+- `BUBU_USER_ID`
+- `TELEGRAM_BOT_TOKEN`
+- `TELEGRAM_CHAT_ID`
+- `TELEGRAM_FINANCES_THREAD_ID`
+
+Hosted Supabase also supplies `SUPABASE_URL` and `SUPABASE_SECRET_KEYS`. The function parses the `default` entry from `SUPABASE_SECRET_KEYS` for RLS-bypassing server access. `SUPABASE_SERVICE_ROLE_KEY` is accepted only as a compatibility fallback for environments without the new secret-key dictionary.
+
+Set application secrets through the Dashboard or CLI without committing a secrets file. For example, from a locally ignored environment file:
+
+```sh
+supabase secrets set --env-file ./supabase/functions/.env --project-ref YOUR_PROJECT_REF
+```
+
+The endpoint accepts only authenticated `POST` requests with `x-expense-report-secret` and one of these bodies:
+
+```json
+{"mode":"weekly"}
+```
+
+```json
+{"mode":"monthly"}
+```
+
+There is no `force` option. A manual request for an already-sent period is a successful no-op. Use the same request for a controlled manual test or to retry a row currently marked `failed`.
+
+After applying the migration, deploying the function, and setting its secrets, invoke a mode manually with non-secret local substitutions:
+
+```sh
+curl --request POST 'https://YOUR_PROJECT_REF.supabase.co/functions/v1/expense-report' \
+  --header 'Content-Type: application/json' \
+  --header 'apikey: YOUR_PUBLISHABLE_KEY' \
+  --header 'x-expense-report-secret: YOUR_LONG_RANDOM_CRON_SECRET' \
+  --data '{"mode":"weekly"}'
+```
+
+Use `{"mode":"monthly"}` for the monthly path. Confirm the JSON result, the Finances topic message, and the matching `expense_report_deliveries` row before enabling Cron.
+
+### Telegram IDs
+
+Add the bot to the target forum-enabled group and grant it permission to post. Send a message in the Finances topic, then inspect the bot's `getUpdates` response:
+
+- `message.chat.id` is `TELEGRAM_CHAT_ID` (group IDs are commonly negative).
+- `message.message_thread_id` is `TELEGRAM_FINANCES_THREAD_ID`.
+
+If the bot already uses a webhook, inspect the equivalent incoming webhook update instead of `getUpdates`. Do not put the token, IDs, or returned update payload into source control. The Edge Function sends plain text through Bot API `sendMessage` with `chat_id`, `message_thread_id`, and `text`, then saves the returned `message_id`.
+
+### Delivery Ledger and Retries
+
+`public.expense_report_deliveries` has one unique row per space, report type, and half-open period. A new invocation inserts `sending`. Existing states behave as follows:
+
+- `sent`: return a successful no-op.
+- `sending`: return a successful no-op so concurrent callers cannot send again.
+- `failed`: one caller conditionally changes it to `sending`, increments `attempt_count`, clears the error, and retries. Concurrent reclaim attempts cannot both match `status = 'failed'`.
+
+A definite Telegram rejection sets `failed`. A transport failure without a readable Telegram response is ambiguous, so the row stays `sending` and blocks automatic retries. Inspect the Telegram topic before manually changing such a row to `failed`. Telegram can accept a request while its HTTP response is lost, so strict mathematical exactly-once delivery cannot be guaranteed across that network boundary.
+
+### Cron and Vault Setup
+
+Cron definitions are intentionally environment-specific and are not in the migration. Enable `pg_cron` and `pg_net`, then create these Vault entries in the target project:
+
+- `expense_report_project_url`: the project base URL, without a trailing slash.
+- `expense_report_publishable_key`: a project publishable key used only for the scheduled gateway request's `apikey` header.
+- `expense_report_cron_secret`: the exact value also configured as `EXPENSE_REPORT_CRON_SECRET`.
+
+Create Vault values in the SQL editor using local values in place of the examples:
+
+```sql
+select vault.create_secret('YOUR_PROJECT_URL', 'expense_report_project_url');
+select vault.create_secret('YOUR_PUBLISHABLE_KEY', 'expense_report_publishable_key');
+select vault.create_secret('YOUR_LONG_RANDOM_CRON_SECRET', 'expense_report_cron_secret');
+```
+
+After the Vault entries exist, create the jobs:
+
+```sql
+select cron.schedule(
+    'bubududu-weekly-expense-report',
+    '5 16 * * 0',
+    $weekly$
+    select net.http_post(
+        url := (select decrypted_secret from vault.decrypted_secrets where name = 'expense_report_project_url') || '/functions/v1/expense-report',
+        headers := jsonb_build_object(
+            'Content-Type', 'application/json',
+            'apikey', (select decrypted_secret from vault.decrypted_secrets where name = 'expense_report_publishable_key'),
+            'x-expense-report-secret', (select decrypted_secret from vault.decrypted_secrets where name = 'expense_report_cron_secret')
+        ),
+        body := '{"mode":"weekly"}'::jsonb,
+        timeout_milliseconds := 10000
+    ) as request_id;
+    $weekly$
+);
+
+select cron.schedule(
+    'bubududu-monthly-expense-report',
+    '10 16 $ * *',
+    $monthly$
+    select net.http_post(
+        url := (select decrypted_secret from vault.decrypted_secrets where name = 'expense_report_project_url') || '/functions/v1/expense-report',
+        headers := jsonb_build_object(
+            'Content-Type', 'application/json',
+            'apikey', (select decrypted_secret from vault.decrypted_secrets where name = 'expense_report_publishable_key'),
+            'x-expense-report-secret', (select decrypted_secret from vault.decrypted_secrets where name = 'expense_report_cron_secret')
+        ),
+        body := '{"mode":"monthly"}'::jsonb,
+        timeout_milliseconds := 10000
+    ) as request_id;
+    $monthly$
+);
+```
+
+Monitor `cron.job_run_details`, `net._http_response`, Edge Function logs, and `expense_report_deliveries` after the first manual and scheduled runs.

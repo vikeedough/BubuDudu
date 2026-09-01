@@ -622,6 +622,30 @@ Current live RLS shape:
 | `date_images` | Members of the parent gallery's space can select, insert, update, and delete. |
 | `storage.objects` for `gallery-private` | Authenticated members of the space encoded in the object path can select, insert, update, and delete. |
 
+### `expense_report_deliveries`
+
+Purpose:
+
+- Provides idempotency and retry state for scheduled Telegram expense reports.
+
+Key fields:
+
+- `space_id`, `report_type`, `period_start`, and exclusive `period_end` uniquely identify a report.
+- `status` is `sending`, `sent`, or `failed`.
+- `attempt_count`, `last_attempt_at`, and `error` record retry state.
+- `telegram_message_id` and `sent_at` record successful delivery.
+
+Security and behavior:
+
+- RLS is enabled with no client policies or client grants.
+- The scheduled `expense-report` Edge Function accesses the table with the RLS-bypassing backend secret key.
+- Failed rows may be conditionally reclaimed; sent and sending rows suppress duplicate delivery.
+- An ambiguous Telegram transport failure remains `sending` because Telegram may have accepted the message before the response was lost.
+
+Migration:
+
+- `supabase/migrations/20260901000000_expense_report_deliveries.sql`
+
 ## Edge Functions
 
 ### `sign-gallery-urls`
@@ -693,6 +717,39 @@ Behavior:
 - Deletes `date_images` rows.
 - Deletes the `galleries` row.
 - Returns structured success/failure metadata.
+
+### `expense-report`
+
+Files:
+
+- `supabase/functions/expense-report/index.ts`
+- `supabase/functions/expense-report/report.ts`
+- `supabase/functions/expense-report/telegram.ts`
+
+Input:
+
+```json
+{"mode":"weekly"}
+```
+
+or:
+
+```json
+{"mode":"monthly"}
+```
+
+Behavior:
+
+- Requires `POST` and a matching `x-expense-report-secret` header; JWT verification is disabled because this is a Cron endpoint rather than a user endpoint.
+- Uses the `default` key from `SUPABASE_SECRET_KEYS`, with `SUPABASE_SERVICE_ROLE_KEY` as a legacy compatibility fallback.
+- Validates configured Dudu and Bubu profiles and membership in the configured space.
+- Calculates the just-completed weekly or monthly period with explicit `Asia/Singapore` boundaries.
+- Excludes soft-deleted and unreportable foreign-currency expenses, and uses `paid_by` for Dudu/Bubu ownership.
+- Uses active category data first and stored expense snapshots as fallback.
+- Claims `expense_report_deliveries`, formats both modes through one formatter, and sends plain text to the configured Telegram `message_thread_id`.
+- Saves Telegram's returned `message_id` after success.
+
+Scheduling and operations are documented in `docs/expense-tracker.md`. Cron jobs are configured after environment-specific project URL, publishable key, and Cron secret values are stored in Supabase Vault.
 
 ## Local SQLite Cache
 
