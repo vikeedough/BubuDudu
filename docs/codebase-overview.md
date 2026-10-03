@@ -47,7 +47,7 @@ app/
     initial.tsx                     Home dashboard
     (gallery)/gallery.tsx           Gallery list
     (gallery)/galleryContent.tsx    Gallery detail and images
-    (lists)/lists.tsx               Notes/lists
+    (calendar)/calendar.tsx         Shared Calendar
     (wheel)/wheel.tsx               Decision wheel
   (settings)/
     index.tsx                       Settings menu and avatar colour
@@ -63,7 +63,7 @@ app/
 - `api/endpoints/`
   Thin domain API functions for auth, profiles, quotes, and invite codes.
 - `stores/`
-  Zustand stores for lists, wheels, milestone, gallery, sync status, and toast state.
+  Zustand stores for Calendar, wheels, expenses, milestone, gallery, sync status, and toast state.
 - `providers/`
   Auth and offline providers that wrap the app.
 - `utils/offline/`
@@ -71,7 +71,7 @@ app/
 - `utils/`
   Feature utilities for images, gallery downloads, dates, secure storage, space management, and concurrency.
 - `components/`
-  UI components grouped by auth, gallery, home, lists, settings, toast, wheel, and common modal controls.
+  UI components grouped by auth, gallery, home, calendar, settings, toast, wheel, and common modal controls.
 - `supabase/functions/`
   Edge Functions for private gallery URL signing and server-side gallery deletion.
 - `supabase/sql/`
@@ -84,7 +84,8 @@ app/
 Most feature screens read and write through stores or endpoint helpers:
 
 - `AuthProvider` owns the Supabase session and the current user's `profiles` row.
-- `useListStore` owns notes/lists and their offline outbox operations.
+- `useCalendarStore` owns the bounded Calendar window; its API and realtime hook refresh shared events and exceptions. See `docs/calendar.md`.
+- Lists routes/store are retained under `archive/lists/` and have no production imports.
 - `useWheelStore` owns wheels and their offline outbox operations.
 - `useMilestoneStore` owns the one shared milestone for the active space.
 - `useGalleryStore` owns gallery list paging, image paging, upload/delete state, and signed image URLs.

@@ -3,7 +3,7 @@ import { Alert } from "react-native";
 
 import { List } from "@/api/endpoints/types";
 import ConfirmModal from "@/components/common/ConfirmModal";
-import { useListStore } from "@/stores/ListStore";
+import { useListStore } from "@/archive/lists/ListStore";
 
 interface DeleteListModalProps {
     isOpen: boolean;

@@ -60,6 +60,12 @@ erDiagram
     GALLERIES ||--o{ DATE_IMAGES : contains
 ```
 
+## Shared Calendar (2026-10-03)
+
+See `docs/calendar.md` for full schema and deployment notes. New tables are `calendar_events`, `calendar_event_exceptions`, `calendar_digest_deliveries`, and `calendar_reminder_deliveries`. Events/exceptions use the existing `is_member_of_space` membership helper and are published to `supabase_realtime`. Ledger tables and the claim RPC are service-only. Calendar deletes are soft deletes. The `calendar-digest` function reuses the Finance Telegram sender and Vault values; the new cron runs at 05:00 Singapore after operator activation.
+
+Historical Lists policy/sync descriptions below are superseded: Calendar's migration revokes application/backend Lists grants and removes its RLS policies, preserving the table and all data. The shared SQLite compatibility helpers remain, but no runtime feature imports archived Lists code or sends Lists outbox entries.
+
 ## Public Tables
 
 ### `profiles`
@@ -253,7 +259,7 @@ Notes:
 - Shared milestone is offline-writeable through an outbox `upsert`.
 - Live RLS allows space members to select, insert, and update milestones. No delete policy was returned.
 
-### `lists`
+### `lists` (archived)
 
 Purpose:
 
@@ -276,8 +282,8 @@ Used fields:
 
 Code paths:
 
-- `stores/ListStore.ts`
-- `app/(tabs)/(lists)/lists.tsx`
+- `archive/lists/ListStore.ts`
+- `archive/lists/routes/lists.tsx`
 
 Notes:
 
@@ -613,7 +619,7 @@ Current live RLS shape:
 | `space_invites` | Space creators can insert invite rows for their own spaces. Any authenticated user can select invite rows. |
 | `quotes` | Public select access. |
 | `milestones` | Space members can select, insert, and update. |
-| `lists` | Space members can select, insert, update, and delete. |
+| `lists` | Archived: policies removed; anon, authenticated, and service_role access revoked. Rows retained. |
 | `expense_categories` | Space members can select, insert, and update; app deletes use soft-delete updates. |
 | `expenses` | Space members can select, insert, update, and delete; app deletes use soft-delete updates. |
 | `expense_budgets` | Space members can read/write shared budgets; users can read/write only their own personal budgets. |

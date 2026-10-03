@@ -2,6 +2,10 @@
 
 This document describes each user-facing feature and the code/backend pieces that implement it.
 
+## Shared Calendar
+
+Calendar replaces Lists in the fourth tab. It supports shared event CRUD, all-day/timed events, recurrence and individual exceptions, day-based reminders, realtime refresh, and a 05:00 Singapore Telegram digest. See `docs/calendar.md` for architecture, operation, and deployment. All Lists descriptions below are historical: routes/source are archived, backend access is revoked, and queued Lists writes are retained without syncing.
+
 ## Authentication
 
 Routes:

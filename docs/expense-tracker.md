@@ -108,6 +108,8 @@ Budget RLS allows space members to read and write shared budgets, while personal
 
 The server sends one weekly and one monthly finance report to the Finances forum topic in the configured Telegram group. Supabase Cron invokes the `expense-report` Edge Function; no React Native background task is involved. Weekly and monthly data use the same calculator and plain-text formatter.
 
+Calendar now reuses this function's `telegram.ts` sender, bot/chat secrets, cron authentication and Vault values, with a separate `TELEGRAM_CALENDAR_THREAD_ID`. The sender's optional document fallback is enabled only by Calendar for oversized digests; Finance retains its existing plain-text behaviour and thread routing. See `docs/calendar.md`.
+
 Report contents:
 
 - Combined total and top five categories.

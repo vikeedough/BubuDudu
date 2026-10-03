@@ -64,6 +64,8 @@ Use this guide before creating or changing UI components. It captures the curren
 
 ## Feature-Specific Notes
 
+- Calendar event colours store semantic `Colors` keys: `pink`, `orange`, `yellow`, `green`, `lightBlue`, and `darkBlue`. Use those same tokens for month dots, agenda accents, and editor swatches.
+
 - Settings should use the same soft app background, dark-green headings, white setting cards, yellow save/copy actions, and compact rounded controls found in onboarding, home, notes, and expenses.
 - Expense controls can use avatar colours as accents, but selected state text must remain readable for arbitrary custom colours.
 - Onboarding and gallery can continue to use the fixed `listColorsArray` palette unless a feature specifically requires custom colours.

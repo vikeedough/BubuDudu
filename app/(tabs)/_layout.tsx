@@ -3,14 +3,14 @@ import React, { useEffect, useRef } from "react";
 import { Animated, Pressable, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import FocusedCalendarIcon from "@/assets/svgs/nav-bar/calendar-focused.svg";
+import CalendarIcon from "@/assets/svgs/nav-bar/calendar.svg";
 import FocusedExpensesIcon from "@/assets/svgs/nav-bar/expenses-focused.svg";
 import ExpensesIcon from "@/assets/svgs/nav-bar/expenses.svg";
 import FocusedGalleryIcon from "@/assets/svgs/nav-bar/gallery-focused.svg";
 import GalleryIcon from "@/assets/svgs/nav-bar/gallery.svg";
 import FocusedHomeIcon from "@/assets/svgs/nav-bar/home-focused.svg";
 import HomeIcon from "@/assets/svgs/nav-bar/home.svg";
-import FocusedListsIcon from "@/assets/svgs/nav-bar/lists-focused.svg";
-import ListsIcon from "@/assets/svgs/nav-bar/lists.svg";
 import FocusedWheelIcon from "@/assets/svgs/nav-bar/wheel-focused.svg";
 import WheelIcon from "@/assets/svgs/nav-bar/wheel.svg";
 import { Colors } from "@/constants/colors";
@@ -21,7 +21,7 @@ type TabRouteName =
     | "initial"
     | "(gallery)"
     | "(expenses)"
-    | "(lists)"
+    | "(calendar)"
     | "(wheel)";
 
 interface AnimatedTabIconProps {
@@ -52,10 +52,10 @@ const TAB_CONFIG: Record<
         ActiveIcon: FocusedExpensesIcon,
         InactiveIcon: ExpensesIcon,
     },
-    "(lists)": {
-        label: "Lists",
-        ActiveIcon: FocusedListsIcon,
-        InactiveIcon: ListsIcon,
+    "(calendar)": {
+        label: "Calendar",
+        ActiveIcon: FocusedCalendarIcon,
+        InactiveIcon: CalendarIcon,
     },
     "(wheel)": {
         label: "Wheel",
@@ -223,8 +223,8 @@ export default function TabLayout() {
                 options={{ title: TAB_CONFIG["(expenses)"].label }}
             />
             <Tabs.Screen
-                name="(lists)"
-                options={{ title: TAB_CONFIG["(lists)"].label }}
+                name="(calendar)"
+                options={{ title: TAB_CONFIG["(calendar)"].label }}
             />
             <Tabs.Screen
                 name="(wheel)"
