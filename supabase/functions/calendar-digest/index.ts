@@ -109,16 +109,17 @@ Deno.serve(async (request: Request) => {
                     if (error) throw new Error("Could not claim Calendar digest");
                     return data as string | null;
                 },
-                send: (text) =>
+                send: (text, plainText) =>
                     sendTelegramMessage({
                         botToken,
                         chatId,
                         messageThreadId,
                         text,
+                        parseMode: "HTML",
                         overflowDocument: {
                             filename: `calendar-${today}.txt`,
-                            caption:
-                                `Calendar · ${today}\nFull daily digest attached · Singapore time`,
+                            caption: `${plainText.split("\n")[0]}\nFull daily digest attached`,
+                            text: plainText,
                         },
                     }),
                 sent: async (id, messageId) => {

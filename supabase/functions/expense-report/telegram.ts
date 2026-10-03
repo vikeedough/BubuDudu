@@ -15,9 +15,10 @@ export async function sendTelegramMessage(input: {
     chatId: string;
     messageThreadId: number;
     text: string;
+    parseMode?: "HTML";
     // Calendar can opt into one document message for a digest that exceeds the
     // text limit. Existing Finance callers retain their exact sendMessage path.
-    overflowDocument?: { filename: string; caption: string };
+    overflowDocument?: { filename: string; caption: string; text?: string };
     fetcher?: typeof fetch;
 }) {
     const oversized = input.text.length > TELEGRAM_MESSAGE_LIMIT;
@@ -37,6 +38,7 @@ export async function sendTelegramMessage(input: {
             chat_id: input.chatId,
             message_thread_id: input.messageThreadId,
             text: input.text,
+            ...(input.parseMode ? { parse_mode: input.parseMode } : {}),
         }),
     };
     if (oversized && input.overflowDocument) {
@@ -47,7 +49,7 @@ export async function sendTelegramMessage(input: {
         body.set("caption", input.overflowDocument.caption);
         body.set(
             "document",
-            new Blob([input.text], { type: "text/plain;charset=utf-8" }),
+            new Blob([input.overflowDocument.text ?? input.text], { type: "text/plain;charset=utf-8" }),
             input.overflowDocument.filename,
         );
         request = { method: "POST", body };
