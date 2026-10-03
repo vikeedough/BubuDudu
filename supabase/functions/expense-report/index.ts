@@ -57,24 +57,33 @@ function requiredEnv(name: string) {
 
 function getBackendKey() {
     const secretKeysJson = Deno.env.get("SUPABASE_SECRET_KEYS")?.trim();
+
     if (secretKeysJson) {
         let secretKeys: Record<string, unknown>;
+
         try {
             secretKeys = JSON.parse(secretKeysJson) as Record<string, unknown>;
         } catch {
             throw new Error("SUPABASE_SECRET_KEYS is not valid JSON");
         }
+
         const defaultKey = secretKeys.default;
-        if (typeof defaultKey !== "string" || !defaultKey.trim()) {
-            throw new Error("SUPABASE_SECRET_KEYS does not contain a default key");
+
+        if (typeof defaultKey === "string" && defaultKey.trim()) {
+            return defaultKey;
         }
-        return defaultKey;
     }
 
+    // Compatibility fallback for projects still exposing the legacy
+    // service-role key.
     const legacyKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")?.trim();
-    if (legacyKey) return legacyKey;
+
+    if (legacyKey) {
+        return legacyKey;
+    }
+
     throw new Error(
-        "Missing SUPABASE_SECRET_KEYS and compatibility SUPABASE_SERVICE_ROLE_KEY",
+        "No usable Supabase backend key found in SUPABASE_SECRET_KEYS or SUPABASE_SERVICE_ROLE_KEY",
     );
 }
 
