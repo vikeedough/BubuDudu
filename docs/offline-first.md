@@ -2,6 +2,8 @@
 
 This document explains the offline-first layer added to BubuDudu and how to build future features, especially expense tracking, on top of it.
 
+Calendar update (2026-10-03): Calendar V1 reads/writes online and keeps the current window in memory. Realtime, foreground/reconnect refresh, and pull-to-refresh keep it current. Lists is archived; its cache and outbox rows are retained, but excluded from pending sync counts and flushing. Lists behaviour below describes the historical implementation retained for restoration; no normal user can open or sync it. Existing sign-out cache clearing is unchanged. See `docs/calendar.md`.
+
 Related docs:
 
 - `docs/features.md` describes how each feature uses the offline layer.

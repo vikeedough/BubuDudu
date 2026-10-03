@@ -8,6 +8,7 @@ Start future codebase-reading chats with:
 
 - `docs/README.md` - documentation index and reading order.
 - `docs/codebase-overview.md` - architecture, routes, folders, state, and tests.
+- `docs/calendar.md` - shared Calendar, Telegram digest, Lists archival, and deployment.
 - `docs/features.md` - every current app feature and where it lives.
 - `docs/backend-data-model.md` - Supabase tables, storage, Edge Functions, and local SQLite cache.
 - `docs/offline-first.md` - detailed offline-first behavior and extension pattern.

@@ -27,11 +27,11 @@ The main feature areas are:
 - Space creation, invite-code joining, and shared membership.
 - Home dashboard with quotes, birthday countdowns, shared milestone, avatars, and status notes.
 - Settings for profile details, shared milestone, invite code, and sign out.
-- Notes/lists with offline create, edit, and delete.
+- Shared Calendar with recurring events, realtime updates, and a daily Telegram digest. See `docs/calendar.md`. Lists is archived.
 - Expense tracking with offline create/edit/delete, category management, currency conversion, and breakdown metrics.
 - Decision wheel with offline wheel/title/choice changes and animated spin results.
 - Gallery with private images, generated variants, signed URLs, pagination, image viewer, downloads, and deletes.
-- Offline cache and sync outbox for lists, wheels, expenses, shared milestone, and profile notes.
+- Offline cache and sync outbox for wheels, expenses, shared milestone, and profile notes. Retired Lists rows/outbox are preserved but not synced.
 
 ## Backend Knowledge
 

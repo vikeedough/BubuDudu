@@ -1,0 +1,17 @@
+{
+    "extends": "./tsconfig.json",
+    "include": [
+        "app/(tabs)/(calendar)/**/*.tsx",
+        "components/calendar/**/*.tsx",
+        "api/endpoints/calendar.ts",
+        "stores/CalendarStore.ts",
+        "hooks/useCalendarRealtime.ts",
+        "types/**/*.d.ts",
+        "types/calendar.ts",
+        "utils/calendar.ts",
+        "tests/**/*calendar*.test.ts",
+        "tests/**/*calendar*.test.tsx",
+        "tests/stores/CalendarStore.test.ts",
+        "tests/hooks/useCalendarRealtime.test.ts"
+    ]
+}

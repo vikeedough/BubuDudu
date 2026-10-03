@@ -1039,14 +1039,14 @@ export async function enqueueOutbox(item: Omit<OutboxItem, "attempts" | "last_er
 export async function getPendingOutbox(): Promise<OutboxItem[]> {
     const db = await getOfflineDb();
     return await db.getAllAsync<OutboxItem>(
-        "SELECT * FROM sync_outbox ORDER BY created_at ASC",
+        "SELECT * FROM sync_outbox WHERE entity != 'lists' ORDER BY created_at ASC",
     );
 }
 
 export async function getPendingOutboxCount(): Promise<number> {
     const db = await getOfflineDb();
     const row = await db.getFirstAsync<{ count: number }>(
-        "SELECT COUNT(*) as count FROM sync_outbox",
+        "SELECT COUNT(*) as count FROM sync_outbox WHERE entity != 'lists'",
     );
     return row?.count ?? 0;
 }

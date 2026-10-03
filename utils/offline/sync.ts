@@ -15,34 +15,6 @@ function parsePayload<T>(item: OutboxItem): T {
     return JSON.parse(item.payload_json) as T;
 }
 
-async function syncListItem(item: OutboxItem) {
-    const payload = parsePayload<Record<string, unknown>>(item);
-
-    if (item.operation === "insert") {
-        const { error } = await supabase.from("lists").insert(payload);
-        if (error) throw error;
-        return;
-    }
-
-    if (item.operation === "update") {
-        const { id: _id, ...patch } = payload;
-        const { error } = await supabase
-            .from("lists")
-            .update(patch)
-            .eq("id", item.entity_id);
-        if (error) throw error;
-        return;
-    }
-
-    if (item.operation === "delete") {
-        const { error } = await supabase
-            .from("lists")
-            .delete()
-            .eq("id", item.entity_id);
-        if (error) throw error;
-    }
-}
-
 async function syncWheelItem(item: OutboxItem) {
     const payload = parsePayload<Record<string, unknown>>(item);
 
@@ -215,11 +187,6 @@ async function syncExpenseBudgetItem(item: OutboxItem) {
 }
 
 async function syncOutboxItem(item: OutboxItem) {
-    if (item.entity === "lists") {
-        await syncListItem(item);
-        return;
-    }
-
     if (item.entity === "wheel") {
         await syncWheelItem(item);
         return;
@@ -271,6 +238,8 @@ export async function flushOutbox() {
         let lastError: string | null = null;
 
         for (const item of items) {
+            // Preserve retired Lists outbox rows without sending or removing them.
+            if (item.entity === "lists") continue;
             try {
                 await syncOutboxItem(item);
                 await removeOutboxItem(item.id);

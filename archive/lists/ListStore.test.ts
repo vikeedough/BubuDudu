@@ -1,4 +1,4 @@
-import { useListStore } from "@/stores/ListStore";
+import { useListStore } from "@/archive/lists/ListStore";
 import { resetAllStores } from "@/tests/helpers/resetStores";
 import { secureStoreUtilsMock } from "@/tests/mocks/secureStore";
 import { queueFrom, queueFromSingle, supabaseMock } from "@/tests/mocks/supabase";

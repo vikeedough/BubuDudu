@@ -1,6 +1,5 @@
 import { useGalleryStore } from "@/stores/GalleryStore";
 import { useExpenseStore } from "@/stores/ExpenseStore";
-import { useListStore } from "@/stores/ListStore";
 import { useMilestoneStore } from "@/stores/MilestoneStore";
 import { useSyncStore } from "@/stores/SyncStore";
 import { useToastStore } from "@/stores/ToastStore";
@@ -16,13 +15,6 @@ export function resetAllStores() {
     pendingCount: 0,
     lastSyncedAt: null,
     lastError: null,
-  });
-
-  useListStore.setState({
-    lists: [],
-    isLoadingLists: false,
-    draft: null,
-    isDraftOpen: false,
   });
 
   useWheelStore.setState({

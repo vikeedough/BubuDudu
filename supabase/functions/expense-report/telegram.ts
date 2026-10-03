@@ -15,9 +15,13 @@ export async function sendTelegramMessage(input: {
     chatId: string;
     messageThreadId: number;
     text: string;
+    // Calendar can opt into one document message for a digest that exceeds the
+    // text limit. Existing Finance callers retain their exact sendMessage path.
+    overflowDocument?: { filename: string; caption: string };
     fetcher?: typeof fetch;
 }) {
-    if (input.text.length > TELEGRAM_MESSAGE_LIMIT) {
+    const oversized = input.text.length > TELEGRAM_MESSAGE_LIMIT;
+    if (oversized && !input.overflowDocument) {
         throw new TelegramSendError(
             `Telegram message exceeds ${TELEGRAM_MESSAGE_LIMIT} characters`,
             true,
@@ -25,19 +29,34 @@ export async function sendTelegramMessage(input: {
     }
 
     const fetcher = input.fetcher ?? fetch;
+    let endpoint = "sendMessage";
+    let request: RequestInit = {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            chat_id: input.chatId,
+            message_thread_id: input.messageThreadId,
+            text: input.text,
+        }),
+    };
+    if (oversized && input.overflowDocument) {
+        endpoint = "sendDocument";
+        const body = new FormData();
+        body.set("chat_id", input.chatId);
+        body.set("message_thread_id", String(input.messageThreadId));
+        body.set("caption", input.overflowDocument.caption);
+        body.set(
+            "document",
+            new Blob([input.text], { type: "text/plain;charset=utf-8" }),
+            input.overflowDocument.filename,
+        );
+        request = { method: "POST", body };
+    }
     let response: Response;
     try {
         response = await fetcher(
-            `https://api.telegram.org/bot${input.botToken}/sendMessage`,
-            {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    chat_id: input.chatId,
-                    message_thread_id: input.messageThreadId,
-                    text: input.text,
-                }),
-            },
+            `https://api.telegram.org/bot${input.botToken}/${endpoint}`,
+            request,
         );
     } catch {
         throw new TelegramSendError(

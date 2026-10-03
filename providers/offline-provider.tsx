@@ -3,7 +3,6 @@ import { PropsWithChildren, useEffect, useRef } from "react";
 
 import { useExpenseStore } from "@/stores/ExpenseStore";
 import { useGalleryStore } from "@/stores/GalleryStore";
-import { useListStore } from "@/stores/ListStore";
 import { useMilestoneStore } from "@/stores/MilestoneStore";
 import { useSyncStore } from "@/stores/SyncStore";
 import { useWheelStore } from "@/stores/WheelStore";
@@ -17,7 +16,6 @@ const SYNC_TOAST_ID = "sync-status";
 
 async function refreshStoresAfterSync() {
     await Promise.allSettled([
-        useListStore.getState().fetchLists(),
         useWheelStore.getState().fetchWheels(),
         useExpenseStore.getState().refreshAll(),
         useMilestoneStore.getState().fetchMilestone(),

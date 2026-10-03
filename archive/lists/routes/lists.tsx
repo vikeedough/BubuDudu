@@ -19,10 +19,10 @@ import { List } from "@/api/endpoints/types";
 import DebonHeart from "@/assets/svgs/debon-heart.svg";
 import TrashIcon from "@/assets/svgs/trash-bin.svg";
 import CustomText from "@/components/CustomText";
-import DeleteListModal from "@/components/lists/DeleteListModal";
+import DeleteListModal from "@/archive/lists/DeleteListModal";
 import { Colors, listColorsArray } from "@/constants/colors";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
-import { useListStore } from "@/stores/ListStore";
+import { useListStore } from "@/archive/lists/ListStore";
 import { getToday } from "@/utils/home";
 
 interface ListLabelItemProps {
