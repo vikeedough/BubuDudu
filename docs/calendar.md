@@ -14,13 +14,13 @@ Calendar colours are semantic keys into `constants/colors.ts`, not user-entered 
 
 - `app/(tabs)/(calendar)/calendar.tsx`: fourth tab, month navigation, a 42-day grid, selected-day agenda, event detail, and edit/delete scope selection.
 - `components/calendar/`: month grid, Singapore-today header and compact event editor using CustomText, the existing Expenses date wheel, shared time wheels, CenteredModal and ModalActionButtons, colour tokens, radii, and shadows.
-- `api/endpoints/calendar.ts`: paginated Supabase queries and writes. `stores/CalendarStore.ts`: Zustand window state, loading/errors, stale-request protection, and mutations.
+- `api/endpoints/calendar.ts`: paginated Supabase queries and writes. `stores/CalendarStore.ts`: Zustand session window cache, loading/errors, stale-request protection, and mutations.
 - `hooks/useCalendarRealtime.ts`: space-filtered subscriptions on both Calendar tables. Refresh on subscription/reconnection, app foreground, network recovery, and pull-to-refresh. Auth cleanup clears the store and removes subscriptions.
 - `supabase/functions/_shared/calendar.ts`: dependency-free types, validation, Singapore date arithmetic, RRULE expansion and digest selection, shared by Expo and Deno. `types/calendar.ts` and `utils/calendar.ts` expose it to the app.
 
 `CalendarEvent` is the persisted master. `CalendarOccurrence` is derived for a date range after exceptions. A day may show multiple occurrences of a long recurring event; these are distinct logical occurrences, not duplicate rows. All-day end dates are inclusive; timed ends are exclusive. Timed events always need an end later than the start.
 
-Calendar V1 uses `Asia/Singapore` throughout (including when the device is abroad). Timezone is stored and constrained. It is online-writeable; there is no Calendar outbox or persistent offline cache. Existing features' offline behaviour is unchanged. Failed writes keep the editor open. Current window data stays in memory during an offline refresh; changing windows while offline shows an explicit connection message.
+Calendar V1 uses `Asia/Singapore` throughout (including when the device is abroad). Timezone is stored and constrained. It is online-writeable; there is no Calendar outbox or persistent offline cache. Existing features' offline behaviour is unchanged. Failed writes keep the editor open. Valid cached windows can be revisited offline without a request. Uncached/stale windows need a connection; failed refreshes retain cached content and show an explicit connection message.
 
 The Calendar header follows Expenses spacing/type and shows today's Singapore date as `Sunday, 4th October 2026`, independent of the selected day; it updates at Singapore midnight and on app foreground. The same shared `FloatingAddButton` drives Calendar's direct add action and Expenses' existing budget/menu controls. Empty days say `No events planned!`.
 
@@ -30,9 +30,13 @@ Month navigation uses a clipped, measured-width three-page pager: previous/curre
 
 Horizontal intent activates after 5% of width (bounded to 12–24px); the same pre-activation vertical threshold lets normal screen scrolling win. Release commits at 28% of width, or a flick travelling at least 6% of width with same-direction velocity of two widths/second. Vertical-dominant/tiny/cancelled drags snap back without changing month/selection/agenda. Both commit and snap-back use a non-overshooting 220ms cubic-out timing animation. Arrows use the same transition; before initial width measurement they retain direct navigation.
 
-Only a completed transition calls the existing canonical `changeMonth`, selecting the destination month's first day and updating the agenda. Shared idle/drag/settle/await-reset phases block conflicting arrows, date taps and repeated pans. Transition tickets and source month/width checks reject duplicate or stale completion, including after external navigation/resize/unmount. New month pages render centered while the internal reset worklet clears the outgoing offset; neighbors are rebuilt around the canonical month. Adjacent-month date-cell taps retain the existing month/selection update.
+Only a completed transition calls the canonical `changeMonth`, selecting the destination month's first day and updating the agenda through one month/selected-date state update. Neighbor previews already highlight their deterministic first-day selection, so the incoming page does not acquire its highlight after settling. Shared idle/drag/settle/await-reset phases block conflicting arrows, date taps and repeated pans. Transition tickets and source month/width checks reject duplicate or stale completion, including after external navigation/resize/unmount. Adjacent-month date-cell taps retain the existing month/selection update.
 
-`useCalendarMonthPages` prefetches the two neighboring 42-day windows through the existing paginated/RLS-protected API, independently of canonical store/agenda loading. Each query remains within the existing RPC limit; recurrence/CRUD/backend code is unchanged. Previews refresh when the canonical store data is replaced after realtime/pull-to-refresh and ignore stale requests after month/space changes. Until preview data arrives, known overlapping indicators are retained with a small loading indicator; the normal store handles failures when that month is opened.
+Pages use stable month keys in three fixed physical slots (absolute month number modulo three). Their visual previous/current/next positions are UI-thread translations, rather than React child reordering. At completion, the destination remains in its original physical slot and the track stays at its settled offset while React commits month/selection/agenda and replaces the offscreen neighbor. After that layout commit, one worklet changes the centered-slot value and clears the drag offset together. The destination's screen position and highlight remain identical before/after reset. Arrows use this same path; timing, thresholds, cancellation and cache behavior are unchanged.
+
+`useCalendarMonthPages` prefetches the two neighboring 42-day windows through the existing paginated/RLS-protected API and shares `CalendarStore`'s cache with the active grid/agenda. Each entry is keyed by space ID plus exact from/to dates and stores masters, exceptions and expanded occurrences. Valid visited/prefetched windows render immediately, with no blocking loading state or repeated API request. Concurrent prefetch/navigation requests share one in-flight promise. Each query remains within the existing RPC limit; no whole-history query is introduced. Until an uncached preview arrives, known overlapping indicators are retained with the existing small loading indicator.
+
+Successful create/edit/delete operations (including exception edits/cancellations and future splits) and existing realtime, subscription reconnect, foreground, network recovery and pull-to-refresh triggers increment a cache generation. Because recurring masters and moved exceptions can affect arbitrary windows, all snapshots are conservatively marked stale rather than discarded. Active/neighbor windows revalidate immediately; other visited windows revalidate when needed. Cached indicators/agenda remain visible during refresh, including failures; only a window without a snapshot enters initial loading. Auth/screen cleanup clears private cache data and prevents older in-flight responses from repopulating it. Pager animation, selected-date navigation and backend semantics are unchanged.
 
 All Calendar dialog surfaces are white. The editor uses compact Start/End date-time rows, 24px palette swatches with 44px touch targets, and Expenses-style repeat/reminder dropdowns. Dropdown options render outside the form scroll area in the same native modal. Date/time/custom settings replace the editor surface while open; Cancel preserves the previous value, Confirm commits it. `ExpenseDatePicker` keeps its original defaults for Expenses and opts into compact widths and Singapore's Today label for Calendar. Its extracted `PickerWheel` also powers `WheelTimePicker` (00–23 hours, 00–59 minutes). `ModalActionButtons` has an opt-in Expenses-style Cancel/Save layout. The editor sizes naturally and retains scrolling only as a fallback for small screens/keyboards.
 
@@ -224,3 +228,31 @@ git diff --check
 ```
 
 Physical Android QA is still required for native rendering/scheduling: hold October, slowly drag right halfway and pause to see September/October proportionally; release past the threshold to settle September. Then drag left less than the threshold and release to return to September. Also verify fast flicks, repeated navigation, arrows, vertical scrolling, date taps, stable height, event-dot positioning and absence of a visible recenter flash. Unit tests exercise the worklet callbacks/decisions, not native frame delivery. No dependency, schema, backend, Telegram, Finance or cron changes/deployment are part of this refinement.
+
+## Month cache validation
+
+The cache regression tests count requests through Oct → Nov → Oct and Oct → Nov → Dec → Nov → Oct, verify in-flight request sharing and space/auth isolation, and exercise invalidation for create, series/exception edit/delete and future splits. Hook tests cover realtime event/exception changes, reconnect, foreground/network recovery and explicit pull-to-refresh while cached content remains visible. Screen tests verify cached indicators, selected-day agenda and absence of blocking spinners. Existing pager animation/state tests run unchanged apart from store mock fields.
+
+```sh
+npm test -- --runInBand tests/stores/CalendarStore.test.ts tests/hooks/useCalendarMonthPages.test.ts tests/hooks/useCalendarRealtime.test.ts tests/integration/calendar.screen.test.tsx tests/integration/calendar.swipe.test.tsx tests/integration/calendar.ui.test.tsx
+npx tsc --noEmit -p tsconfig.calendar.json
+npx eslint 'app/(tabs)/(calendar)/calendar.tsx' stores/CalendarStore.ts hooks/useCalendarMonthPages.ts tests/stores/CalendarStore.test.ts tests/hooks/useCalendarMonthPages.test.ts tests/hooks/useCalendarRealtime.test.ts tests/integration/calendar.screen.test.tsx tests/integration/calendar.swipe.test.tsx
+git diff --check
+```
+
+Validation: 102 targeted Jest tests in six suites passed; Calendar scoped TypeScript, scoped ESLint and `git diff --check` passed. This loading/cache fix requires only an updated Expo app; no backend deployment or operator configuration changes are required. Native device rendering remains a manual QA check.
+
+## Pager handoff validation
+
+The Calendar-only animation mock can defer JS completion and UI reset separately. Swipe and arrow tests verify the destination's prepared first-day highlight, unchanged screen position before/after React commit and recenter, retained page instance, atomic canonical month/selection renders, immediate cached agenda, correct rebuilt neighbor/range, cancellation and Oct → Nov → Oct request reuse. The cache store, prefetch hook and backend are unchanged by this handoff refinement.
+
+```sh
+npm test -- --runInBand tests/integration/calendar.swipe.test.tsx tests/integration/calendar.screen.test.tsx tests/integration/calendar.ui.test.tsx tests/hooks/useCalendarMonthPages.test.ts tests/hooks/useCalendarRealtime.test.ts tests/stores/CalendarStore.test.ts
+npx tsc --noEmit -p tsconfig.calendar.json
+npx eslint 'app/(tabs)/(calendar)/calendar.tsx' components/calendar/MonthCalendar.tsx tests/integration/calendar.swipe.test.tsx tests/mocks/calendarPager.ts
+git diff --check
+```
+
+Physical-device verification is required to confirm absence of a single-frame native rendering jitter; the tests exercise state/worklet order, not Fabric's native frame scheduling. Verify slow swipes, quick flicks, arrow navigation, snap-back and repeated Oct → Nov → Oct on Android, watching the destination's first-day highlight and agenda at the final settling frame. No backend deployment is required.
+
+Validation: 104 targeted Jest tests in six suites passed, including both delayed swipe/arrow handoffs and the existing cache regression suite. Calendar scoped TypeScript, scoped ESLint and `git diff --check` passed. No physical-device verification was performed.

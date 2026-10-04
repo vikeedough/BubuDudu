@@ -8,6 +8,8 @@ import { Colors } from "@/constants/colors";
 import { addDays, dateInSingapore, occurrenceEnd, occurrenceStart } from "@/utils/calendar";
 
 import type { CalendarOccurrence } from "@/types/calendar";
+import type { ReactNode } from "react";
+import type { SharedValue } from "react-native-reanimated";
 
 export function monthWindow(month: string) {
     const first = month + "-01";
@@ -18,6 +20,9 @@ export function offsetMonth(month: string, offset: number) {
     const date = new Date(month + "-01T00:00:00Z");
     date.setUTCMonth(date.getUTCMonth() + offset);
     return date.toISOString().slice(0, 7);
+}
+export function monthPageSlot(month: string) {
+    return (Number(month.slice(0, 4)) * 12 + Number(month.slice(5, 7)) - 1) % 3;
 }
 export function monthSwipeDirection(x: number, y: number, velocityX: number, width: number) {
     "worklet";
@@ -38,7 +43,8 @@ export default function MonthCalendar({ month, selected, occurrences, adjacentOc
     const phase = useSharedValue(0);
     const ticket = useSharedValue(0);
     const renderKey = `${month}:${width}`;
-    const centeredKey = useSharedValue(renderKey);
+    const currentSlot = monthPageSlot(month);
+    const centeredSlot = useSharedValue(currentSlot);
     const latest = useRef({ renderKey, onMonth });
     latest.current = { renderKey, onMonth };
     const committedTicket = useRef(-1);
@@ -54,10 +60,10 @@ export default function MonthCalendar({ month, selected, occurrences, adjacentOc
             ticket.value++;
             cancelAnimation(drag);
             drag.value = 0;
-            centeredKey.value = renderKey;
+            centeredSlot.value = currentSlot;
             phase.value = 0;
         })();
-    }, [renderKey, centeredKey, drag, phase, ticket]);
+    }, [renderKey, currentSlot, centeredSlot, drag, phase, ticket]);
     useLayoutEffect(() => {
         mounted.current = true;
         return () => { mounted.current = false; cancelAnimation(drag); };
@@ -99,21 +105,31 @@ export default function MonthCalendar({ month, selected, occurrences, adjacentOc
         })
         .onFinalize(() => { if (phase.value === 1) settle(0); });
     const trackStyle = useAnimatedStyle(() => ({
-        // New page content always starts centered, even before the reset worklet
-        // runs. Never paint rebuilt months with the outgoing page's offset.
-        transform: [{ translateX: -width + (centeredKey.value === renderKey ? drag.value : 0) }],
+        // Slots stay in place across React commit. Only the reset worklet moves
+        // their positions and this offset together, leaving the same pixels.
+        transform: [{ translateX: -width + drag.value }],
     }));
     const months = [offsetMonth(month, -1), month, offsetMonth(month, 1)];
     return <GestureDetector gesture={swipe}><View testID="calendar-month-viewport" style={styles.viewport}
         onLayout={(event) => { const next = event.nativeEvent.layout.width; if (next > 0) setWidth(next); }}>
         {width ? <Animated.View testID="calendar-month-track" style={[styles.track, { width: width * 3 }, trackStyle]}>
-            {months.map((pageMonth) => <View key={pageMonth} testID={`calendar-page-slot-${pageMonth}`} style={{ width }} pointerEvents={pageMonth === month ? "auto" : "none"}
-                accessibilityElementsHidden={pageMonth !== month} importantForAccessibility={pageMonth === month ? "auto" : "no-hide-descendants"}>
-                <MonthPage month={pageMonth} selected={selected} occurrences={pageMonth === month ? occurrences : adjacentOccurrences[pageMonth] ?? occurrences}
+            {months.sort((a, b) => monthPageSlot(a) - monthPageSlot(b)).map((pageMonth) => <MonthSlot key={pageMonth} month={pageMonth}
+                slot={monthPageSlot(pageMonth)} width={width} centeredSlot={centeredSlot} current={pageMonth === month}>
+                <MonthPage month={pageMonth} selected={pageMonth === month ? selected : pageMonth + "-01"} occurrences={pageMonth === month ? occurrences : adjacentOccurrences[pageMonth] ?? occurrences}
                     loading={pageMonth !== month && !adjacentOccurrences[pageMonth]} onSelect={selectDate} onMonth={navigate} />
-            </View>)}
+            </MonthSlot>)}
         </Animated.View> : <MonthPage month={month} selected={selected} occurrences={occurrences} onSelect={selectDate} onMonth={navigate} />}
     </View></GestureDetector>;
+}
+function MonthSlot({ month, slot, width, centeredSlot, current, children }: {
+    month: string; slot: number; width: number; centeredSlot: SharedValue<number>; current: boolean; children: ReactNode;
+}) {
+    const position = useAnimatedStyle(() => {
+        const index = (slot - centeredSlot.value + 4) % 3;
+        return { transform: [{ translateX: (index - slot) * width }] };
+    });
+    return <Animated.View testID={`calendar-page-slot-${month}`} style={[{ width }, position]} pointerEvents={current ? "auto" : "none"}
+        accessibilityElementsHidden={!current} importantForAccessibility={current ? "auto" : "no-hide-descendants"}>{children}</Animated.View>;
 }
 function MonthPage({ month, selected, occurrences, loading, onSelect, onMonth }: {
     month: string; selected: string; occurrences: CalendarOccurrence[]; loading?: boolean;

@@ -5,7 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import CalendarEventDetails from "@/components/calendar/CalendarEventDetails";
 import CalendarEventModal from "@/components/calendar/CalendarEventModal";
 import CalendarHeader from "@/components/calendar/CalendarHeader";
-import MonthCalendar, { monthWindow } from "@/components/calendar/MonthCalendar";
+import MonthCalendar, { monthWindow, offsetMonth } from "@/components/calendar/MonthCalendar";
 import FloatingAddButton from "@/components/common/FloatingAddButton";
 import CustomText from "@/components/CustomText";
 import { Colors } from "@/constants/colors";
@@ -14,7 +14,7 @@ import { useAuthContext } from "@/hooks/useAuthContext";
 import { useCalendarMonthPages } from "@/hooks/useCalendarMonthPages";
 import { useCalendarRealtime } from "@/hooks/useCalendarRealtime";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
-import { useCalendarStore } from "@/stores/CalendarStore";
+import { calendarWindowKey, useCalendarStore } from "@/stores/CalendarStore";
 import { dateInSingapore, expandOccurrences, occurrenceEnd, occurrenceStart, timeInSingapore } from "@/utils/calendar";
 import { getSpaceId } from "@/utils/secure-store";
 
@@ -24,15 +24,18 @@ export default function CalendarScreen() {
     const { session } = useAuthContext();
     const userId = session?.user.id;
     const [spaceId, setSpaceId] = useState<string | null>(null);
-    const [selected, setSelected] = useState(dateInSingapore());
-    const [month, setMonth] = useState(selected.slice(0, 7));
+    const [{ selected, month }, setCalendarDate] = useState(() => {
+        const selected = dateInSingapore();
+        return { selected, month: selected.slice(0, 7) };
+    });
     const [detail, setDetail] = useState<CalendarOccurrence | null>(null);
     const [action, setAction] = useState<"edit" | "delete" | null>(null);
     const [editor, setEditor] = useState<{ event?: CalendarEvent; occurrence?: CalendarOccurrence; scope?: CalendarScope } | null>(null);
     const [busy, setBusy] = useState(false);
     const [actionError, setActionError] = useState<string | null>(null);
-    const { events, exceptions, loading, error, load, refresh, save, remove, clear } = useCalendarStore();
+    const { events, exceptions, cache, loading, error, load, refresh, save, remove, clear } = useCalendarStore();
     const { from, to } = monthWindow(month);
+    const cached = spaceId ? cache?.[calendarWindowKey(spaceId, from, to)] : undefined;
     useEffect(() => {
         let active = true;
         clear(); setSpaceId(null); setDetail(null); setEditor(null);
@@ -42,18 +45,18 @@ export default function CalendarScreen() {
     useEffect(() => { if (spaceId) void load(spaceId, from, to); }, [spaceId, from, to, load]);
     useCalendarRealtime(spaceId);
     const { refreshing, onRefresh } = usePullToRefresh(refresh);
-    const occurrences = useMemo(() => expandOccurrences(events, exceptions, from, to), [events, exceptions, from, to]);
-    const adjacentOccurrences = useCalendarMonthPages(spaceId, month, events, exceptions);
+    const occurrences = useMemo(() => cached?.occurrences ?? expandOccurrences(events, exceptions, from, to), [cached, events, exceptions, from, to]);
+    const adjacentOccurrences = useCalendarMonthPages(spaceId, month);
     const agenda = occurrences.filter((e) => occurrenceStart(e) <= selected && occurrenceEnd(e) >= selected);
     const changeMonth = useCallback((offset: number) => {
-        const date = new Date(month + "-01T00:00:00Z");
-        date.setUTCMonth(date.getUTCMonth() + offset);
-        const next = date.toISOString().slice(0, 7);
-        setMonth(next); setSelected(next + "-01");
-    }, [month]);
+        setCalendarDate((current) => {
+            const month = offsetMonth(current.month, offset);
+            return { month, selected: month + "-01" };
+        });
+    }, []);
     const act = async (scope: CalendarScope, editing = action === "edit") => {
         if (!detail) return;
-        const event = events.find((e) => e.id === detail.event_id);
+        const event = (cached?.events ?? events).find((e) => e.id === detail.event_id);
         if (!event) { setActionError("This event has changed. Close and refresh Calendar."); return; }
         if (editing) {
             setEditor({ event, scope, ...(scope !== "all" ? { occurrence: detail } : {}) }); setDetail(null); setAction(null); return;
@@ -68,13 +71,13 @@ export default function CalendarScreen() {
         finally { setBusy(false); }
     };
     return <SafeAreaView style={styles.root}>
-        <CalendarHeader onToday={() => { const today = dateInSingapore(); setMonth(today.slice(0, 7)); setSelected(today); }} />
+        <CalendarHeader onToday={() => { const selected = dateInSingapore(); setCalendarDate({ month: selected.slice(0, 7), selected }); }} />
         <ScrollView contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
             {error && <CustomText accessibilityRole="alert" style={styles.error}>{error}</CustomText>}
-            <MonthCalendar month={month} selected={selected} occurrences={occurrences} adjacentOccurrences={adjacentOccurrences} onMonth={changeMonth} onSelect={(date) => { setMonth(date.slice(0, 7)); setSelected(date); }} />
+            <MonthCalendar month={month} selected={selected} occurrences={occurrences} adjacentOccurrences={adjacentOccurrences} onMonth={changeMonth} onSelect={(selected) => { setCalendarDate({ month: selected.slice(0, 7), selected }); }} />
             <CustomText weight="bold" style={styles.agendaTitle}>{new Date(selected + "T00:00:00Z").toLocaleDateString("en-SG", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" })}</CustomText>
-            {loading && <ActivityIndicator color={Colors.darkGreenText} />}
-            {!loading && !error && agenda.length === 0 && <CustomText style={styles.subtitle}>No events planned!</CustomText>}
+            {loading && !cached && <ActivityIndicator color={Colors.darkGreenText} />}
+            {(!loading || !!cached) && !error && agenda.length === 0 && <CustomText style={styles.subtitle}>No events planned!</CustomText>}
             {agenda.map((event) => <TouchableOpacity key={event.key} accessibilityLabel={`Open ${event.title}`} onPress={() => { setDetail(event); setAction(null); setActionError(null); }} style={[styles.event, { borderLeftColor: Colors[event.colour] }]}>
                 <CustomText weight="bold" style={styles.eventTitle}>{event.title}</CustomText>
                 <CustomText style={styles.subtitle}>{event.is_all_day ? "All day" : `${timeInSingapore(event.starts_at!)} – ${timeInSingapore(event.ends_at!)}`}{event.recurrence_rule ? " · Repeats" : ""}</CustomText>

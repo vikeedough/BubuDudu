@@ -1,7 +1,7 @@
 import { act } from "@testing-library/react-native";
 
 import { changeCalendarFuture, deleteCalendarEvent, fetchCalendar, saveCalendarEvent, saveCalendarException } from "@/api/endpoints/calendar";
-import { useCalendarStore } from "@/stores/CalendarStore";
+import { calendarWindowKey, useCalendarStore } from "@/stores/CalendarStore";
 import { setIsOnline } from "@/utils/offline/network";
 
 import type { CalendarDraft, CalendarEvent, CalendarOccurrence } from "@/types/calendar";
@@ -60,4 +60,80 @@ it("clears private data on auth cleanup and displays offline errors", async () =
     setIsOnline(false);
     await useCalendarStore.getState().load("space", "2026-10-01", "2026-10-31");
     expect(useCalendarStore.getState().error).toContain("internet connection");
+});
+it("loads a new window, then immediately reuses cached events, exceptions and occurrences", async () => {
+    let resolve!: (value: unknown) => void;
+    fetchMock.mockReturnValueOnce(new Promise((done) => { resolve = done; }));
+    const state = useCalendarStore.getState();
+    const first = state.load("space", "2026-10-01", "2026-10-31");
+    expect(useCalendarStore.getState().loading).toBe(true);
+    resolve({ events: [master], exceptions: [] }); await first;
+    const cached = useCalendarStore.getState().cache[calendarWindowKey("space", "2026-10-01", "2026-10-31")];
+    expect(cached.occurrences).toHaveLength(5);
+    await state.load("space", "2026-11-01", "2026-11-30");
+    const revisit = state.load("space", "2026-10-01", "2026-10-31");
+    expect(useCalendarStore.getState()).toMatchObject({ loading: false, events: cached.events, exceptions: cached.exceptions });
+    await revisit;
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+});
+it("deduplicates an in-flight prefetch and active load for the same window", async () => {
+    let resolve!: (value: unknown) => void;
+    fetchMock.mockReturnValueOnce(new Promise((done) => { resolve = done; }));
+    const state = useCalendarStore.getState();
+    const prefetch = state.prefetch("space", "2026-10-01", "2026-10-31");
+    const load = state.load("space", "2026-10-01", "2026-10-31");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    resolve({ events: [master], exceptions: [] }); await Promise.all([prefetch, load]);
+    expect(useCalendarStore.getState()).toMatchObject({ loading: false, events: [master] });
+});
+it.each(["create", "series edit", "exception edit", "split", "series delete", "exception delete", "future delete"])("%s invalidates cached windows without wiping snapshots", async (mutation) => {
+    const state = useCalendarStore.getState();
+    await state.load("space", "2026-10-01", "2026-10-31");
+    await state.load("space", "2026-11-01", "2026-11-30");
+    await state.load("space", "2026-10-01", "2026-10-31");
+    const key = calendarWindowKey("space", "2026-11-01", "2026-11-30");
+    const cached = useCalendarStore.getState().cache[key];
+    if (mutation === "create") await state.save(draft);
+    else if (mutation === "series edit") await state.save(draft, master);
+    else if (mutation === "exception edit") await state.save(draft, master, occurrence);
+    else if (mutation === "split") await state.save(draft, master, occurrence, "future");
+    else if (mutation === "series delete") await state.remove(master);
+    else if (mutation === "exception delete") await state.remove(master, occurrence);
+    else await state.remove(master, occurrence, "future");
+    expect(useCalendarStore.getState().cache[key]).toBe(cached);
+    expect(cached.version).toBeLessThan(useCalendarStore.getState().cacheVersion);
+    const revisit = state.load("space", "2026-11-01", "2026-11-30");
+    expect(useCalendarStore.getState()).toMatchObject({ loading: false, events: cached.events });
+    await revisit;
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(useCalendarStore.getState().cache[key].version).toBe(useCalendarStore.getState().cacheVersion);
+});
+it("keeps cached content after refresh failure and reuses valid cached windows offline", async () => {
+    const state = useCalendarStore.getState();
+    await state.load("space", "2026-10-01", "2026-10-31");
+    setIsOnline(false);
+    await state.load("space", "2026-10-01", "2026-10-31");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(useCalendarStore.getState()).toMatchObject({ loading: false, events: [master], error: null });
+    await state.refresh();
+    expect(useCalendarStore.getState()).toMatchObject({ loading: false, events: [master] });
+    expect(useCalendarStore.getState().error).toContain("internet connection");
+    setIsOnline(true); fetchMock.mockRejectedValueOnce(new Error("Refresh failed"));
+    await state.refresh();
+    expect(useCalendarStore.getState()).toMatchObject({ loading: false, events: [master], error: "Refresh failed" });
+});
+it("rejects stale in-flight cache writes after clear without disturbing a newer request", async () => {
+    let oldResolve!: (value: unknown) => void, newResolve!: (value: unknown) => void;
+    fetchMock.mockReturnValueOnce(new Promise((done) => { oldResolve = done; })).mockReturnValueOnce(new Promise((done) => { newResolve = done; }));
+    const state = useCalendarStore.getState();
+    const old = state.prefetch("space", "2026-10-01", "2026-10-31");
+    state.clear();
+    const fresh = state.prefetch("space", "2026-10-01", "2026-10-31");
+    oldResolve({ events: [master], exceptions: [] }); await old;
+    expect(useCalendarStore.getState().cache).toEqual({});
+    const load = state.load("space", "2026-10-01", "2026-10-31");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    newResolve({ events: [], exceptions: [] }); await Promise.all([fresh, load]);
+    expect(Object.keys(useCalendarStore.getState().cache)).toHaveLength(1);
+    expect(useCalendarStore.getState()).toMatchObject({ loading: false, events: [] });
 });
