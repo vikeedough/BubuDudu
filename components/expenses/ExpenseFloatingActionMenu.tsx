@@ -8,6 +8,7 @@ import {
 } from "react-native";
 
 import Plus from "@/assets/svgs/plus.svg";
+import FloatingAddButton from "@/components/common/FloatingAddButton";
 import CustomText from "@/components/CustomText";
 import { Colors } from "@/constants/colors";
 
@@ -161,13 +162,8 @@ export default function ExpenseFloatingActionMenu({
                     </View>
                 </Animated.View>
             ) : null}
-            <TouchableOpacity
-                activeOpacity={0.86}
-                accessibilityRole="button"
-                accessibilityLabel="Expense actions"
-                onPress={handleToggle}
-                style={styles.mainButton}
-            >
+            <FloatingAddButton floating={false} activeOpacity={0.86}
+                accessibilityLabel="Expense actions" onPress={handleToggle}>
                 <View
                     style={[
                         styles.plusIcon,
@@ -176,7 +172,7 @@ export default function ExpenseFloatingActionMenu({
                 >
                     <Plus />
                 </View>
-            </TouchableOpacity>
+            </FloatingAddButton>
         </View>
     );
 }
@@ -199,19 +195,6 @@ const styles = StyleSheet.create({
         left: 0,
         right: 0,
         gap: ACTION_GAP,
-    },
-    mainButton: {
-        width: 54,
-        height: 54,
-        borderRadius: 999,
-        backgroundColor: "#FFCC7D",
-        alignItems: "center",
-        justifyContent: "center",
-        shadowColor: Colors.black,
-        shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: 0.22,
-        shadowRadius: 5,
-        elevation: 6,
     },
     plusIcon: {
         transform: [{ rotate: "0deg" }],

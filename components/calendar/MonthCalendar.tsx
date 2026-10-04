@@ -1,4 +1,5 @@
 import { StyleSheet, TouchableOpacity, View } from "react-native";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 
 import CustomText from "@/components/CustomText";
 import { Colors } from "@/constants/colors";
@@ -11,13 +12,22 @@ export function monthWindow(month: string) {
     const from = addDays(first, -new Date(first + "T00:00:00Z").getUTCDay());
     return { from, to: addDays(from, 41) };
 }
+export function monthSwipeDirection(x: number, y: number, velocityX: number) {
+    if (Math.abs(x) <= Math.abs(y) * 1.5 || Math.abs(y) > 16) return 0;
+    if (Math.abs(x) < 48 && !(Math.abs(x) >= 24 && Math.abs(velocityX) >= 500)) return 0;
+    return x < 0 ? 1 : -1;
+}
 export default function MonthCalendar({ month, selected, occurrences, onSelect, onMonth }: {
     month: string; selected: string; occurrences: CalendarOccurrence[];
     onSelect: (date: string) => void; onMonth: (offset: number) => void;
 }) {
     const { from } = monthWindow(month);
     const title = new Date(month + "-01T00:00:00Z").toLocaleDateString("en-SG", { month: "long", year: "numeric", timeZone: "UTC" });
-    return <View style={styles.container}>
+    const swipe = Gesture.Pan().activeOffsetX([-24, 24]).failOffsetY([-16, 16]).runOnJS(true).onEnd((event) => {
+        const direction = monthSwipeDirection(event.translationX, event.translationY, event.velocityX);
+        if (direction) onMonth(direction);
+    });
+    return <GestureDetector gesture={swipe}><View style={styles.container}>
         <View style={styles.heading}>
             <TouchableOpacity accessibilityLabel="Previous month" onPress={() => onMonth(-1)} style={styles.arrow}><CustomText weight="bold">‹</CustomText></TouchableOpacity>
             <CustomText weight="bold" style={styles.title}>{title}</CustomText>
@@ -34,7 +44,7 @@ export default function MonthCalendar({ month, selected, occurrences, onSelect, 
                 <View style={styles.dots}>{events.slice(0, 3).map((event) => <View key={event.key} style={[styles.dot, { backgroundColor: Colors[event.colour] }]} />)}{events.length > 3 && <CustomText style={styles.more}>+</CustomText>}</View>
             </TouchableOpacity>;
         })}</View>
-    </View>;
+    </View></GestureDetector>;
 }
 const styles = StyleSheet.create({
     container: { backgroundColor: Colors.white, borderRadius: 15, padding: 8 },

@@ -18,6 +18,7 @@ interface ModalActionButtonsProps {
     cancelLabel?: string;
     isConfirming?: boolean;
     containerStyle?: StyleProp<ViewStyle>;
+    formLayout?: boolean;
 }
 
 const ModalActionButtons: React.FC<ModalActionButtonsProps> = ({
@@ -27,11 +28,12 @@ const ModalActionButtons: React.FC<ModalActionButtonsProps> = ({
     cancelLabel = "No",
     isConfirming = false,
     containerStyle,
+    formLayout = false,
 }) => {
     return (
-        <View style={[styles.modalButtons, containerStyle]}>
+        <View style={[styles.modalButtons, formLayout && styles.formButtons, containerStyle]}>
             <TouchableOpacity
-                style={styles.yesButton}
+                style={[styles.yesButton, formLayout && styles.formButton]}
                 onPress={onConfirm}
                 disabled={isConfirming}
             >
@@ -44,7 +46,7 @@ const ModalActionButtons: React.FC<ModalActionButtonsProps> = ({
                 )}
             </TouchableOpacity>
             <TouchableOpacity
-                style={styles.noButton}
+                style={[styles.noButton, formLayout && styles.formButton]}
                 onPress={onCancel}
                 disabled={isConfirming}
             >
@@ -59,6 +61,8 @@ const ModalActionButtons: React.FC<ModalActionButtonsProps> = ({
 export default ModalActionButtons;
 
 const styles = StyleSheet.create({
+    formButtons: { flexDirection: "row-reverse", justifyContent: "flex-start", gap: 10, marginTop: 8 },
+    formButton: { borderRadius: 10, minWidth: 88, width: undefined, height: 40, paddingHorizontal: 14 },
     modalButtons: {
         flexDirection: "row",
         gap: 25,

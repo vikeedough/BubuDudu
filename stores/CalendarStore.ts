@@ -1,9 +1,9 @@
 import { create } from "zustand";
 
-import { deleteCalendarEvent, fetchCalendar, saveCalendarEvent, saveCalendarException } from "@/api/endpoints/calendar";
+import { changeCalendarFuture, deleteCalendarEvent, fetchCalendar, saveCalendarEvent, saveCalendarException } from "@/api/endpoints/calendar";
 import { getIsOnline } from "@/utils/offline/network";
 
-import type { CalendarDraft, CalendarEvent, CalendarException, CalendarOccurrence } from "@/types/calendar";
+import type { CalendarDraft, CalendarEvent, CalendarException, CalendarOccurrence, CalendarScope } from "@/types/calendar";
 
 interface CalendarState {
     spaceId: string | null;
@@ -15,8 +15,8 @@ interface CalendarState {
     error: string | null;
     load: (spaceId: string, from: string, to: string) => Promise<void>;
     refresh: () => Promise<void>;
-    save: (draft: CalendarDraft, event?: CalendarEvent, occurrence?: CalendarOccurrence) => Promise<void>;
-    remove: (event: CalendarEvent, occurrence?: CalendarOccurrence) => Promise<void>;
+    save: (draft: CalendarDraft, event?: CalendarEvent, occurrence?: CalendarOccurrence, scope?: CalendarScope) => Promise<void>;
+    remove: (event: CalendarEvent, occurrence?: CalendarOccurrence, scope?: CalendarScope) => Promise<void>;
     clear: () => void;
 }
 let request = 0;
@@ -40,17 +40,25 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
         const { spaceId, from, to } = get();
         if (spaceId) await get().load(spaceId, from, to);
     },
-    save: async (draft, event, occurrence) => {
+    save: async (draft, event, occurrence, scope) => {
         const spaceId = get().spaceId;
         if (!spaceId) throw new Error("No active space.");
-        if (occurrence) await saveCalendarException(spaceId, occurrence, draft);
+        if (scope === "future") {
+            if (!event || !occurrence) throw new Error("Choose a recurring occurrence.");
+            await changeCalendarFuture(spaceId, event, occurrence, draft);
+        }
+        else if (occurrence) await saveCalendarException(spaceId, occurrence, draft);
         else await saveCalendarEvent(spaceId, draft, event?.id);
         await get().refresh();
     },
-    remove: async (event, occurrence) => {
+    remove: async (event, occurrence, scope) => {
         const spaceId = get().spaceId;
         if (!spaceId) throw new Error("No active space.");
-        if (occurrence) await saveCalendarException(spaceId, occurrence, null);
+        if (scope === "future") {
+            if (!occurrence) throw new Error("Choose a recurring occurrence.");
+            await changeCalendarFuture(spaceId, event, occurrence, null);
+        }
+        else if (occurrence) await saveCalendarException(spaceId, occurrence, null);
         else await deleteCalendarEvent(spaceId, event.id);
         await get().refresh();
     },

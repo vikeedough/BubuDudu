@@ -13,7 +13,7 @@ Calendar colours are semantic keys into `constants/colors.ts`, not user-entered 
 ## Architecture and UI
 
 - `app/(tabs)/(calendar)/calendar.tsx`: fourth tab, month navigation, a 42-day grid, selected-day agenda, event detail, and edit/delete scope selection.
-- `components/calendar/`: month grid and event editor using CustomText, native date/time pickers, the existing CenteredModal and ModalActionButtons, colour tokens, radii, and shadows.
+- `components/calendar/`: month grid, Singapore-today header and compact event editor using CustomText, the existing Expenses date wheel, shared time wheels, CenteredModal and ModalActionButtons, colour tokens, radii, and shadows.
 - `api/endpoints/calendar.ts`: paginated Supabase queries and writes. `stores/CalendarStore.ts`: Zustand window state, loading/errors, stale-request protection, and mutations.
 - `hooks/useCalendarRealtime.ts`: space-filtered subscriptions on both Calendar tables. Refresh on subscription/reconnection, app foreground, network recovery, and pull-to-refresh. Auth cleanup clears the store and removes subscriptions.
 - `supabase/functions/_shared/calendar.ts`: dependency-free types, validation, Singapore date arithmetic, RRULE expansion and digest selection, shared by Expo and Deno. `types/calendar.ts` and `utils/calendar.ts` expose it to the app.
@@ -21,6 +21,16 @@ Calendar colours are semantic keys into `constants/colors.ts`, not user-entered 
 `CalendarEvent` is the persisted master. `CalendarOccurrence` is derived for a date range after exceptions. A day may show multiple occurrences of a long recurring event; these are distinct logical occurrences, not duplicate rows. All-day end dates are inclusive; timed ends are exclusive. Timed events always need an end later than the start.
 
 Calendar V1 uses `Asia/Singapore` throughout (including when the device is abroad). Timezone is stored and constrained. It is online-writeable; there is no Calendar outbox or persistent offline cache. Existing features' offline behaviour is unchanged. Failed writes keep the editor open. Current window data stays in memory during an offline refresh; changing windows while offline shows an explicit connection message.
+
+The Calendar header follows Expenses spacing/type and shows today's Singapore date as `Sunday, 4th October 2026`, independent of the selected day; it updates at Singapore midnight and on app foreground. The same shared `FloatingAddButton` drives Calendar's direct add action and Expenses' existing budget/menu controls. Empty days say `No events planned!`.
+
+The white `CalendarEventDetails` modal groups the title, weekday/ordinal English date (or multi-day range), 24-hour times/All day, repeat/end metadata and advance reminder. It exposes Edit/Delete, with no colour, description or Close control. Backdrop and Android Back dismiss; the backdrop is a sibling behind the content so inside taps do not dismiss. Other `CenteredModal` callers keep their previous dismissal behaviour.
+
+Month arrows and horizontal swipes call the same `changeMonth` callback, selecting the destination month's first day and updating its agenda. Adjacent-month date-cell taps update both month and selection. The existing React Native Gesture Handler pan activates after 24px horizontally, fails after 16px vertically, and navigates only for 48px travel or at least 24px with 500px/s velocity. Tiny/vertical gestures leave the month unchanged; there is no new dependency.
+
+All Calendar dialog surfaces are white. The editor uses compact Start/End date-time rows, 24px palette swatches with 44px touch targets, and Expenses-style repeat/reminder dropdowns. Dropdown options render outside the form scroll area in the same native modal. Date/time/custom settings replace the editor surface while open; Cancel preserves the previous value, Confirm commits it. `ExpenseDatePicker` keeps its original defaults for Expenses and opts into compact widths and Singapore's Today label for Calendar. Its extracted `PickerWheel` also powers `WheelTimePicker` (00–23 hours, 00–59 minutes). `ModalActionButtons` has an opt-in Expenses-style Cancel/Save layout. The editor sizes naturally and retains scrolling only as a fallback for small screens/keyboards.
+
+Descriptions are hidden throughout Calendar and saved as `null` on create/edit, without migrating existing rows. Reminder presets are None, 1 day before, 2 days before, 1 week before and Custom; custom values must be whole days from 1 to 2147483647. A legacy reminder of 0 displays as None and is saved as `null`. Backend reminder/description compatibility, recurrence, delivery and schema semantics are unchanged.
 
 The range RPC accepts up to 93 days. The screen requests only its 42 visible days, overlapping non-recurring events, required recurring masters, and exceptions whose original occurrence or overridden range overlaps. Exceptions moved into/out of a window are included. Both RPCs are SECURITY INVOKER and retain RLS. Reads paginate in batches of 500, avoiding Supabase's default result cap.
 
@@ -41,11 +51,28 @@ The migration removes every existing Lists policy and revokes Lists grants from 
 
 ## Recurrence and exceptions
 
-Stored RRULE subset: `FREQ=DAILY|WEEKLY|MONTHLY|YEARLY` with optional `;INTERVAL=1..9999`. UI options are Never, Daily, Weekly, Every 2 weeks, Monthly, Yearly and Custom (interval plus days/weeks/months/years). No arbitrary rule text, weekday sets, COUNT, UNTIL or “this and future” in V1. Invalid monthly/yearly dates are skipped (31st does not become the 28th; Feb 29 recurs only in leap years), following [RFC 5545](https://www.rfc-editor.org/rfc/rfc5545).
+Stored RRULE subset: `FREQ=DAILY|WEEKLY|MONTHLY|YEARLY` with optional `;INTERVAL=1..9999`. UI options are Never, Daily, Weekly, Every 2 weeks, Monthly, Yearly and Custom (interval plus days/weeks/months/years). No arbitrary rule text, weekday sets, COUNT or RRULE UNTIL. Invalid monthly/yearly dates are skipped (31st does not become the 28th; Feb 29 recurs only in leap years), following [RFC 5545](https://www.rfc-editor.org/rfc/rfc5545).
+
+`calendar_events.recurrence_end_date DATE NULL` is an inclusive cutoff for **original logical occurrence starts** in Singapore. A weekly series starting 5 Oct and ending 19 Oct generates 5, 12 and 19 Oct, never 26 Oct. Null means Never ends; migration `20261005000000_calendar_series_scopes.sql` has no default/backfill, so existing null-end series remain indefinite. A non-null end requires recurrence and cannot precede the master start. Repeat Never saves both recurrence fields as null.
+
+For a **new** event, enabling any repeat option defaults Ends to one calendar year after its current start; Feb 29 clamps to Feb 28 in the following year. The compact Ends control opens a white wheel-picker dialog with an explicit Never ends switch. Editing an existing series never silently adds an end. Specific dates before the start are rejected.
+
+The shared Expo/Deno engine clamps generated original dates to this cutoff, and both bounded range RPCs use it to filter expired masters/invalid exceptions. The digest uses the same engine without changing reminder selection. A valid original occurrence can still have an edited date beyond the cutoff; its logical identity is preserved. Likewise, a final multi-day occurrence may finish beyond the cutoff. Neither case generates a new recurrence start after the end.
 
 Occurrences are expanded on demand, with direct jumps to the requested range; no permanent occurrence rows are generated. The stable identity is `(event_id, original_date)` in Singapore, valid because the supported rules have at most one start per day. Moving an occurrence preserves that identity.
 
 “This event” edit creates/upserts a full typed exception snapshot. Null description/reminder is an explicit override, so a reminder can be removed for one occurrence. “This event” deletion writes a cancelled exception. “All events” edits the master or sets its `deleted_at`. Existing overrides retain their explicit values after a series edit; exceptions whose original dates no longer match the new rule are ignored. Disabling recurrence ignores all exceptions. No exceptions or series history are physically deleted by app users.
+
+Recurring Edit and Delete offer exactly **This event**, **This event and future events**, and **All events**. Nonrecurring Edit opens directly; Delete has a simple confirmation.
+
+`change_calendar_future(space_id,event_id,original_date,expected_updated_at,draft)` performs a future change in one atomic, SECURITY INVOKER transaction under normal member RLS:
+
+- Locks the live recurring master and checks membership, the selected original date and the caller's master version. Stale splits fail with a refresh message instead of producing a second branch.
+- For edit, inserts a new master using the edited selected occurrence's fields, start, cadence and chosen end. The selected exception is absorbed into these values, not copied over to shadow the new master.
+- Reassigns later overrides/cancellations only when their original dates are valid on both old and new cadence/end. Their row IDs, original dates, explicit fields and creation timestamps survive. Prior exceptions stay old. Incompatible or selected exceptions stay stored with the old series and are ignored when no longer generated; no history is hard-deleted.
+- Ends the old master on selected original date minus one day. Future deletion uses the same RPC with a null draft and just truncates. First-occurrence edit soft-deletes/replaces the old master; first-occurrence deletion soft-deletes it.
+
+The exception-write trigger locks/checks the live parent and rejects writes for dates no longer generated, serializing writes against future operations. All updates roll back together on validation/RLS errors. Concurrent edits can require refresh/retry (including a PostgreSQL deadlock rollback); no compensating multi-write client workflow is used. Recurrence metadata is never written to an exception snapshot, and single-occurrence date validation does not treat the inherited series cutoff as a limit on its moved date.
 
 ## Daily Telegram digest
 
@@ -54,7 +81,7 @@ At **05:00 Asia/Singapore**, the backend selects:
 1. **Every event occurring today**, including ongoing multi-day events, even without a reminder.
 2. **Every future event whose configured reminder is due today** (`occurrence_start_date - reminder_days_before = today`).
 
-Exceptions are applied first. Cancelled and soft-deleted occurrences are excluded. Reminder `null` means no advance reminder; `0` means event day. The digest deduplicates by logical occurrence, so a same-day reminder never creates a second listing. It has Today and Coming up sections, date/time ordering, and all-day precedence for the same start date. Descriptions are kept in the app; message lines contain each event's title/date/time.
+Exceptions are applied first, and only valid original occurrences up to the inclusive recurrence end can qualify. Cancelled and soft-deleted occurrences are excluded. Reminder `null` means no advance reminder; `0` means event day. The digest deduplicates by logical occurrence, so a same-day reminder never creates a second listing. It has Today and Coming up sections, date/time ordering, and all-day precedence for the same start date. Description data is retained in storage but hidden in the current UI; message lines contain each event's title/date/time.
 
 If neither set has events, **no Telegram message is sent** and no claim is created. One daily run sends **at most one Calendar Telegram digest**. Once a day's digest succeeds, further invocations that day do not send again, even if events are added afterward. An advance reminder and the event-day listing are intentionally separate daily deliveries.
 
@@ -106,6 +133,8 @@ npx supabase db push
 npx supabase functions deploy calendar-digest
 ```
 
+For the finite-series refinement, apply `20261005000000_calendar_series_scopes.sql` before releasing the updated app, and redeploy `calendar-digest` to include the updated shared recurrence engine. No new secrets, Finance changes or scheduler changes are required. Validate with `supabase/tests/calendar-series.sql`; its test space/events/exceptions use existing Auth users and are rolled back, without touching delivery ledgers.
+
 `20261003000001_calendar_digest_cron.sql` creates the reproducible job `bubududu-daily-calendar-digest` at UTC `0 21 * * *` (05:00 Singapore). It uses pg_cron/pg_net and the existing Vault names `expense_report_project_url`, `expense_report_publishable_key`, `expense_report_cron_secret`. No new Vault credential or bot stack is needed; this follows [Supabase's scheduled Edge Function pattern](https://supabase.com/docs/guides/functions/schedule-functions).
 
 The job is created **inactive**, because the Calendar topic is an operator-supplied destination. After deploying and setting the new topic secret, activate it with the checked-in script:
@@ -137,6 +166,16 @@ npx supabase db query --linked --file supabase/tests/calendar.sql
 
 The SQL test creates a temporary test space using three existing Auth users, sets transaction-local roles/claims, exercises RLS/constraints/claims, and rolls everything back. It never creates real accounts or sends Telegram messages. Before applying migrations, run the same test inside a transaction containing the migration SQL to validate against the actual baseline without persistent changes.
 
+For the current finite-series UI/API/store/recurrence regression suite:
+
+```sh
+npm test -- --runInBand tests/integration/calendar.ui.test.tsx tests/integration/calendar.screen.test.tsx tests/integration/calendar.details.test.tsx tests/integration/calendar.swipe.test.tsx tests/integration/calendar.expenses-ui.test.tsx tests/stores/CalendarStore.test.ts tests/hooks/useCalendarRealtime.test.ts tests/stores/ExpenseStore.test.ts tests/api/endpoints/calendar.test.ts tests/utils/calendar.test.ts
+npx tsc --noEmit -p tsconfig.calendar.json
+npx eslint 'app/(tabs)/(calendar)/calendar.tsx' components/calendar components/common/CenteredModal.tsx api/endpoints/calendar.ts stores/CalendarStore.ts types/calendar.ts utils/calendar.ts tests/integration/calendar*.test.tsx tests/api/endpoints/calendar.test.ts tests/utils/calendar.test.ts tests/stores/CalendarStore.test.ts
+npx supabase db query --linked --file supabase/tests/calendar-series.sql
+git diff --check
+```
+
 Deno checks (using the repository's existing Docker Deno workflow):
 
 ```sh
@@ -154,3 +193,13 @@ docker run --rm -v "${PWD}:/workspace" -w /workspace denoland/deno:2.5.6 deno li
 - Full `npm run lint` still reports existing errors in `app/(login)/create-account.tsx` (import order) and `app/(login)/index.tsx` (unescaped apostrophe), plus the existing unused `EmptyIcon` warning. These were not changed.
 - Full `npx tsc --noEmit` includes Deno sources in the Expo configuration and reports pre-existing wheel timer and pull-to-refresh test typing errors. `tsconfig.calendar.json` and Deno checks separately validate the new feature without refactoring unrelated configurations.
 - Two-device native visual/realtime testing and a real Calendar-topic delivery remain operator checks after the topic is configured and the updated app is installed. Automated UI interaction tests, realtime subscription tests, and live publication/RLS checks cover those paths without sending messages or creating persistent user data.
+
+## Finite-series refinement validation (2026-10-05)
+
+- Inspected the Calendar screen/grid/editor/detail/scope flow, API/store/types, shared recurrence and exception expansion, original schema/range RPCs and linked column/function/policy definitions, digest entrypoint/formatter/shared Telegram sender, existing Calendar tests and installed gesture patterns. Repository and linked schema matched before the change.
+- Migration and rollback SQL checks are committed as `808ee73`. Applied `20261005000000_calendar_series_scopes.sql` to linked project `hcrezrypvkmtzxldvsvm`; local/remote migration history matches. Ran rollback-only SQL validation both before and after deployment. It covers finite/legacy ends, supported cadence parity, partner access, outsider denial, constraints, failed/stale splits, future exception reassignment, truncation, first-occurrence replacement/deletion and final multi-day overlap. No fixture rows survive.
+- 126 targeted Jest tests in 10 suites passed, including editor defaults/Never ends/end validation, detail formatting/dismissal, all scopes, API/store RPC routing, arrows/swipes/day selection, recurrence/digest boundaries, realtime and Expenses regressions. Calendar scoped TypeScript and scoped ESLint passed; `git diff --check` passed.
+- 32 Deno tests passed (23 digest, 7 unchanged Finance, 2 shared recurrence). Deno check and lint passed. Docker's engine was unavailable, so the equivalent commands ran using `npx --yes deno@2.5.6` without changing project dependencies: `test supabase/functions/_shared/calendar.test.ts supabase/functions/calendar-digest/digest.test.ts supabase/functions/expense-report/report.test.ts`, `check --config supabase/functions/calendar-digest/deno.json supabase/functions/calendar-digest/index.ts`, and `lint --config supabase/functions/calendar-digest/deno.json supabase/functions/calendar-digest supabase/functions/_shared/calendar.ts supabase/functions/_shared/calendar.test.ts`.
+- Redeployed only `calendar-digest` via `npx supabase functions deploy calendar-digest --use-api`. Compared downloaded deployed source before deployment: entrypoint, formatter and shared Telegram helper already matched the repository, so formatting/routing/idempotency did not change. The recurrence engine is the only changed production Edge source.
+- Calendar cron was already active at `0 21 * * *` when inspected and remains unchanged. Finance weekly/monthly jobs remain active at their original schedules. No real Telegram invocation, operator secret edit or delivery-ledger manipulation occurred.
+- Release the updated Expo app for the new UI/scopes. Physical-device swipe/scroll and two-member native interaction remain manual QA; automated tests exercise callbacks, thresholds, selection state and realtime paths. No new operator configuration is required.

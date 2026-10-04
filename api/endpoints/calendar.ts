@@ -38,13 +38,23 @@ export async function saveCalendarEvent(spaceId: string, draft: CalendarDraft, i
 }
 export async function saveCalendarException(spaceId: string, occurrence: CalendarOccurrence, draft: CalendarDraft | null) {
     requireOnline();
-    if (draft) validateDraft(draft);
-    const { recurrence_rule: _rule, ...fields } = draft ?? { recurrence_rule: null };
+    if (draft) validateDraft({ ...draft, recurrence_end_date: null });
+    const { recurrence_rule: _rule, recurrence_end_date: _end, ...fields } = draft ?? { recurrence_rule: null, recurrence_end_date: null };
     const { error } = await supabase.from("calendar_event_exceptions").upsert({
         ...fields, event_id: occurrence.event_id, space_id: spaceId,
         original_date: occurrence.original_date, is_cancelled: draft === null,
     }, { onConflict: "event_id,original_date" });
     if (error) throw error;
+}
+export async function changeCalendarFuture(spaceId: string, event: CalendarEvent, occurrence: CalendarOccurrence, draft: CalendarDraft | null) {
+    requireOnline();
+    if (draft) validateDraft(draft);
+    const { data, error } = await supabase.rpc("change_calendar_future", {
+        p_space_id: spaceId, p_event_id: event.id, p_original_date: occurrence.original_date,
+        p_expected_updated_at: event.updated_at, p_draft: draft,
+    });
+    if (error) throw error;
+    return data as string;
 }
 export async function deleteCalendarEvent(spaceId: string, id: string) {
     requireOnline();
