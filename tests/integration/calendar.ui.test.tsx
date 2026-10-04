@@ -10,12 +10,14 @@ import ExpenseDatePicker from "@/components/expenses/ExpenseDatePicker";
 
 import type { CalendarDraft } from "@/types/calendar";
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+jest.mock("react-native-reanimated", () => require("../mocks/calendarPager").reanimatedMock);
 jest.mock("react-native-gesture-handler", () => ({
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     ScrollView: require("react-native").ScrollView,
     GestureDetector: ({ children }: { children: React.ReactNode }) => children,
     Gesture: { Native: () => ({ simultaneousWithExternalGesture: jest.fn() }), Pan: () => {
-        const gesture: Record<string, jest.Mock> = {}; for (const name of ["activeOffsetX", "failOffsetY", "runOnJS", "onEnd"]) gesture[name] = jest.fn(() => gesture); return gesture;
+        const gesture: Record<string, jest.Mock> = {}; for (const name of ["enabled", "maxPointers", "activeOffsetX", "failOffsetY", "onStart", "onUpdate", "onEnd", "onFinalize"]) gesture[name] = jest.fn(() => gesture); return gesture;
     } },
 }));
 const initial: CalendarDraft = {

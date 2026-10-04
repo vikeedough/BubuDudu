@@ -11,10 +11,23 @@ import { getSpaceId } from "@/utils/secure-store";
 import type { CalendarEvent } from "@/types/calendar";
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
+jest.mock("react-native-reanimated", () => require("../mocks/calendarPager").reanimatedMock);
+jest.mock("react-native-gesture-handler", () => ({
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    ScrollView: require("react-native").ScrollView,
+    GestureDetector: ({ children }: { children: React.ReactNode }) => children,
+    Gesture: { Native: () => ({ simultaneousWithExternalGesture: jest.fn() }), Pan: () => {
+        const gesture: Record<string, jest.Mock> = {};
+        for (const name of ["enabled", "maxPointers", "activeOffsetX", "failOffsetY", "onStart", "onUpdate", "onEnd", "onFinalize"]) gesture[name] = jest.fn(() => gesture);
+        return gesture;
+    } },
+}));
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 jest.mock("react-native-safe-area-context", () => ({ SafeAreaView: require("react-native").View }));
 jest.mock("@/assets/svgs/plus.svg", () => "SvgMock");
 jest.mock("@/hooks/useAuthContext", () => ({ useAuthContext: () => ({ session: { user: { id: "member" } } }) }));
 jest.mock("@/hooks/useCalendarRealtime", () => ({ useCalendarRealtime: jest.fn() }));
+jest.mock("@/hooks/useCalendarMonthPages", () => ({ useCalendarMonthPages: () => ({}) }));
 jest.mock("@/hooks/usePullToRefresh", () => ({ usePullToRefresh: () => ({ refreshing: false, onRefresh: jest.fn() }) }));
 const mockState = { events: [] as CalendarEvent[], exceptions: [], loading: false, error: null,
     load: jest.fn(), refresh: jest.fn(), save: jest.fn(), remove: jest.fn(), clear: jest.fn() };

@@ -11,6 +11,7 @@ import CustomText from "@/components/CustomText";
 import { Colors } from "@/constants/colors";
 import { shadowStyle } from "@/constants/shadows";
 import { useAuthContext } from "@/hooks/useAuthContext";
+import { useCalendarMonthPages } from "@/hooks/useCalendarMonthPages";
 import { useCalendarRealtime } from "@/hooks/useCalendarRealtime";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { useCalendarStore } from "@/stores/CalendarStore";
@@ -42,6 +43,7 @@ export default function CalendarScreen() {
     useCalendarRealtime(spaceId);
     const { refreshing, onRefresh } = usePullToRefresh(refresh);
     const occurrences = useMemo(() => expandOccurrences(events, exceptions, from, to), [events, exceptions, from, to]);
+    const adjacentOccurrences = useCalendarMonthPages(spaceId, month, events, exceptions);
     const agenda = occurrences.filter((e) => occurrenceStart(e) <= selected && occurrenceEnd(e) >= selected);
     const changeMonth = useCallback((offset: number) => {
         const date = new Date(month + "-01T00:00:00Z");
@@ -69,7 +71,7 @@ export default function CalendarScreen() {
         <CalendarHeader onToday={() => { const today = dateInSingapore(); setMonth(today.slice(0, 7)); setSelected(today); }} />
         <ScrollView contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
             {error && <CustomText accessibilityRole="alert" style={styles.error}>{error}</CustomText>}
-            <MonthCalendar month={month} selected={selected} occurrences={occurrences} onMonth={changeMonth} onSelect={(date) => { setMonth(date.slice(0, 7)); setSelected(date); }} />
+            <MonthCalendar month={month} selected={selected} occurrences={occurrences} adjacentOccurrences={adjacentOccurrences} onMonth={changeMonth} onSelect={(date) => { setMonth(date.slice(0, 7)); setSelected(date); }} />
             <CustomText weight="bold" style={styles.agendaTitle}>{new Date(selected + "T00:00:00Z").toLocaleDateString("en-SG", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" })}</CustomText>
             {loading && <ActivityIndicator color={Colors.darkGreenText} />}
             {!loading && !error && agenda.length === 0 && <CustomText style={styles.subtitle}>No events planned!</CustomText>}
