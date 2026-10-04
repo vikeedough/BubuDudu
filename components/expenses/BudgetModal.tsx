@@ -29,6 +29,9 @@ type BudgetModalSaveInput = {
 
 type BudgetModalProps = {
     isOpen: boolean;
+    isEditing?: boolean;
+    summary?: React.ReactNode;
+    refreshControl?: React.ComponentProps<typeof ScrollView>["refreshControl"];
     budget?: ExpenseBudget | null;
     categories: ExpenseCategory[];
     isSaving: boolean;
@@ -39,6 +42,9 @@ type BudgetModalProps = {
 
 export default function BudgetModal({
     isOpen,
+    isEditing = true,
+    summary,
+    refreshControl,
     budget,
     categories,
     isSaving,
@@ -50,10 +56,10 @@ export default function BudgetModal({
     const [amount, setAmount] = useState("");
 
     useEffect(() => {
-        if (!isOpen) return;
+        if (!isOpen || !isEditing) return;
         setCategoryId(budget?.category_id ?? categories[0]?.id ?? "");
         setAmount(budget ? String(budget.amount) : "");
-    }, [budget, categories, isOpen]);
+    }, [budget, categories, isEditing, isOpen]);
 
     const handleSave = async () => {
         const parsedAmount = parseExpenseAmount(amount);
@@ -99,9 +105,11 @@ export default function BudgetModal({
                 >
                     <View style={styles.modal}>
                         <ScrollView
+                            refreshControl={isEditing ? undefined : refreshControl}
                             keyboardShouldPersistTaps="handled"
                             showsVerticalScrollIndicator={false}
                         >
+                            {isEditing ? <>
                             <CustomText
                                 weight="extrabold"
                                 style={styles.modalTitle}
@@ -232,6 +240,7 @@ export default function BudgetModal({
                                     )}
                                 </TouchableOpacity>
                             </View>
+                            </> : summary}
                         </ScrollView>
                     </View>
                 </KeyboardAvoidingView>

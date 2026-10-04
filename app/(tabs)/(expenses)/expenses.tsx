@@ -51,7 +51,7 @@ import { getSpaceId } from "@/utils/secure-store";
 
 import type { Expense, ExpenseBudget, Profile } from "@/api/endpoints/types";
 
-type ViewMode = "log" | "breakdown" | "budget";
+type ViewMode = "log" | "breakdown";
 
 type SegmentOption<T extends string> = {
     value: T;
@@ -198,6 +198,7 @@ const Expenses = () => {
     const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
     const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
     const [isBudgetModalOpen, setIsBudgetModalOpen] = useState(false);
+    const [isBudgetEditorOpen, setIsBudgetEditorOpen] = useState(false);
     const [selectedExpense, setSelectedExpense] = useState<Expense | null>(
         null,
     );
@@ -254,7 +255,7 @@ const Expenses = () => {
     }, [refreshScreen]);
 
     useEffect(() => {
-        if (viewMode !== "budget" || isLoadingBudgets) return;
+        if (!isBudgetModalOpen || isLoadingBudgets) return;
 
         void ensureBudgetsForMonth(scope, budgetAnchorDate).catch((error) => {
             Alert.alert(
@@ -267,7 +268,7 @@ const Expenses = () => {
         ensureBudgetsForMonth,
         isLoadingBudgets,
         scope,
-        viewMode,
+        isBudgetModalOpen,
     ]);
 
     const visibleExpenses = useMemo(() => {
@@ -380,6 +381,7 @@ const Expenses = () => {
     const handleOpenBudgetCreate = () => {
         setSelectedBudget(null);
         setIsExpenseModalOpen(false);
+        setIsBudgetEditorOpen(true);
         setIsBudgetModalOpen(true);
     };
 
@@ -430,40 +432,19 @@ const Expenses = () => {
         }
     };
 
-    const handleAddCategory = async (name: string, color: string) => {
-        try {
-            await addCategory(name, color);
-        } catch (error: any) {
-            Alert.alert(
-                "Category failed",
-                error?.message ?? "Please try again later.",
-            );
-        }
+    const handleAddCategory = async (name: string, color: string, icon: string) => {
+        await addCategory(name, color, icon);
     };
 
     const handleUpdateCategory = async (
         categoryId: string,
-        patch: { name: string; color: string },
+        patch: { name: string; color: string; icon?: string | null },
     ) => {
-        try {
-            await updateCategory(categoryId, patch);
-        } catch (error: any) {
-            Alert.alert(
-                "Category failed",
-                error?.message ?? "Please try again later.",
-            );
-        }
+        await updateCategory(categoryId, patch);
     };
 
     const handleDeleteCategory = async (categoryId: string) => {
-        try {
-            await deleteCategory(categoryId);
-        } catch (error: any) {
-            Alert.alert(
-                "Category failed",
-                error?.message ?? "Please try again later.",
-            );
-        }
+        await deleteCategory(categoryId);
     };
 
     const handleSaveBudget = async (input: {
@@ -478,7 +459,7 @@ const Expenses = () => {
                 month: getExpenseMonthStart(budgetAnchorDate),
             });
             setSelectedBudget(null);
-            setIsBudgetModalOpen(false);
+            setIsBudgetEditorOpen(false);
         } catch (error: any) {
             Alert.alert(
                 "Budget failed",
@@ -492,7 +473,7 @@ const Expenses = () => {
         try {
             await deleteBudget(selectedBudget.id);
             setSelectedBudget(null);
-            setIsBudgetModalOpen(false);
+            setIsBudgetEditorOpen(false);
         } catch (error: any) {
             Alert.alert(
                 "Budget failed",
@@ -503,6 +484,7 @@ const Expenses = () => {
 
     const handleBudgetRowPress = (row: ExpenseBudgetRow) => {
         setSelectedBudget(row.budget);
+        setIsBudgetEditorOpen(true);
         setIsBudgetModalOpen(true);
     };
 
@@ -515,6 +497,7 @@ const Expenses = () => {
     const renderExpense = ({ item }: { item: Expense }) => (
         <ExpenseRow
             expense={item}
+            category={categories.find((category) => category.id === item.category_id)}
             currentUserId={currentUserId}
             partnerProfile={partnerProfile}
             onPress={handleOpenExpenseDetails}
@@ -550,6 +533,7 @@ const Expenses = () => {
                 isOpen={!!selectedBreakdownCategory}
                 category={selectedBreakdownCategory}
                 expenses={selectedBreakdownExpenses}
+                categories={categories}
                 periodLabel={getExpensePeriodLabel(period, breakdownAnchorDate)}
                 currentUserId={currentUserId}
                 partnerProfile={partnerProfile}
@@ -567,12 +551,36 @@ const Expenses = () => {
             />
             <BudgetModal
                 isOpen={isBudgetModalOpen}
+                isEditing={isBudgetEditorOpen}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+                summary={
+                    <>
+                        <CustomText weight="extrabold" style={styles.budgetTitle}>Budget</CustomText>
+                        <View style={styles.controls}>
+                        <SegmentedControl<ExpenseScope> value={scope} onChange={setScope}
+                            getOptionColor={(value) => value === "me" ? currentUserColor : partnerColor}
+                            options={[{ value: "me", label: "Me" }, { value: "space", label: "Both" }]} />
+                        </View>
+                        <ExpenseBudgetView embedded analytics={budgetAnalytics} anchorDate={budgetAnchorDate}
+                            isLoading={isLoadingBudgets}
+                            onPreviousMonth={() => setBudgetAnchorDate((current) => shiftExpenseMonth(current, -1))}
+                            onNextMonth={() => setBudgetAnchorDate((current) => shiftExpenseMonth(current, 1))}
+                            onAddBudget={handleOpenBudgetCreate} onEditBudget={handleBudgetRowPress} />
+                        <View style={styles.budgetFooter}>
+                            <TouchableOpacity onPress={() => setIsBudgetModalOpen(false)} style={styles.budgetDoneButton}>
+                                <CustomText weight="semibold" style={styles.segmentText}>Done</CustomText>
+                            </TouchableOpacity>
+                            <FloatingAddButton floating={false} onPress={handleOpenBudgetCreate} accessibilityLabel="Add budget" />
+                        </View>
+                    </>
+                }
                 budget={selectedBudget}
                 categories={budgetModalCategories}
                 isSaving={isSavingBudget}
                 onClose={() => {
                     setSelectedBudget(null);
-                    setIsBudgetModalOpen(false);
+                    if (isBudgetEditorOpen) setIsBudgetEditorOpen(false);
+                    else setIsBudgetModalOpen(false);
                 }}
                 onSave={handleSaveBudget}
                 onDelete={selectedBudget ? handleDeleteBudget : undefined}
@@ -603,46 +611,31 @@ const Expenses = () => {
             </View>
 
             <View style={styles.controls}>
-                <SegmentedControl<ViewMode>
-                    value={viewMode}
-                    onChange={setViewMode}
-                    options={[
-                        { value: "log", label: "Log" },
-                        { value: "breakdown", label: "Breakdown" },
-                        { value: "budget", label: "Budget" },
-                    ]}
+                <PeriodNavigator
+                    period={viewMode === "log" ? logPeriod : period}
+                    anchorDate={viewMode === "log" ? logAnchorDate : breakdownAnchorDate}
+                    onPrevious={() => viewMode === "log"
+                        ? setLogAnchorDate((current) => shiftExpensePeriod(current, logPeriod, -1))
+                        : setBreakdownAnchorDate((current) => shiftExpensePeriod(current, period, -1))}
+                    onNext={() => viewMode === "log"
+                        ? setLogAnchorDate((current) => shiftExpensePeriod(current, logPeriod, 1))
+                        : setBreakdownAnchorDate((current) => shiftExpensePeriod(current, period, 1))}
                 />
+                {viewMode === "log" ? (
+                    <SegmentedControl<ExpenseLogPeriod> value={logPeriod} onChange={setLogPeriod}
+                        selectedColor={Colors.yellow} selectedTextColor={Colors.brownText}
+                        options={[{ value: "daily", label: "Day" }, { value: "weekly", label: "Week" }, { value: "monthly", label: "Month" }]} />
+                ) : (
+                    <SegmentedControl<ExpensePeriod> value={period} onChange={setPeriod}
+                        selectedColor={Colors.yellow} selectedTextColor={Colors.brownText}
+                        options={[{ value: "daily", label: "Day" }, { value: "weekly", label: "Week" }, { value: "monthly", label: "Month" }, { value: "yearly", label: "Year" }]} />
+                )}
+                <SegmentedControl<ViewMode> value={viewMode} onChange={setViewMode}
+                    options={[{ value: "log", label: "Log" }, { value: "breakdown", label: "Breakdown" }]} />
             </View>
 
             {viewMode === "log" ? (
                 <View style={styles.listShell}>
-                    <View style={styles.logPeriodControls}>
-                        <SegmentedControl<ExpenseLogPeriod>
-                            value={logPeriod}
-                            onChange={setLogPeriod}
-                            selectedColor={Colors.yellow}
-                            selectedTextColor={Colors.brownText}
-                            options={[
-                                { value: "daily", label: "Day" },
-                                { value: "weekly", label: "Week" },
-                                { value: "monthly", label: "Month" },
-                            ]}
-                        />
-                        <PeriodNavigator
-                            period={logPeriod}
-                            anchorDate={logAnchorDate}
-                            onPrevious={() =>
-                                setLogAnchorDate((current) =>
-                                    shiftExpensePeriod(current, logPeriod, -1),
-                                )
-                            }
-                            onNext={() =>
-                                setLogAnchorDate((current) =>
-                                    shiftExpensePeriod(current, logPeriod, 1),
-                                )
-                            }
-                        />
-                    </View>
                     {isLoadingExpenses && visibleExpenses.length === 0 ? (
                         <View style={styles.loadingState}>
                             <ActivityIndicator size="large" />
@@ -680,7 +673,7 @@ const Expenses = () => {
                         />
                     )}
                 </View>
-            ) : viewMode === "breakdown" ? (
+            ) : (
                 <ScrollView
                     showsVerticalScrollIndicator={false}
                     refreshControl={
@@ -693,55 +686,10 @@ const Expenses = () => {
                 >
                     <ExpenseBreakdownView
                         analytics={analytics}
-                        period={period}
-                        onPeriodChange={setPeriod}
-                        anchorDate={breakdownAnchorDate}
-                        onPreviousPeriod={() =>
-                            setBreakdownAnchorDate((current) =>
-                                shiftExpensePeriod(current, period, -1),
-                            )
-                        }
-                        onNextPeriod={() =>
-                            setBreakdownAnchorDate((current) =>
-                                shiftExpensePeriod(current, period, 1),
-                            )
-                        }
                         onCategoryPress={setSelectedBreakdownCategory}
                     />
                 </ScrollView>
-            ) : (
-                <ScrollView
-                    showsVerticalScrollIndicator={false}
-                    refreshControl={
-                        <RefreshControl
-                            refreshing={refreshing}
-                            onRefresh={onRefresh}
-                        />
-                    }
-                    contentContainerStyle={styles.breakdownScroll}
-                >
-                    <ExpenseBudgetView
-                        analytics={budgetAnalytics}
-                        anchorDate={budgetAnchorDate}
-                        isLoading={isLoadingBudgets}
-                        onPreviousMonth={() =>
-                            setBudgetAnchorDate((current) =>
-                                shiftExpenseMonth(current, -1),
-                            )
-                        }
-                        onNextMonth={() =>
-                            setBudgetAnchorDate((current) =>
-                                shiftExpenseMonth(current, 1),
-                            )
-                        }
-                        onAddBudget={handleOpenBudgetCreate}
-                        onEditBudget={handleBudgetRowPress}
-                    />
-                </ScrollView>
             )}
-            {viewMode === "budget" ? (
-                <FloatingAddButton onPress={handleOpenBudgetCreate} accessibilityLabel="Add budget" />
-            ) : (
                 <ExpenseFloatingActionMenu
                     actions={[
                         {
@@ -758,9 +706,19 @@ const Expenses = () => {
                             accessibilityLabel: "Manage categories",
                             onPress: handleOpenCategories,
                         },
+                        {
+                            key: "budget",
+                            label: "Budget",
+                            shortLabel: "B",
+                            accessibilityLabel: "Open budget",
+                            onPress: () => {
+                                setSelectedBudget(null);
+                                setIsBudgetEditorOpen(false);
+                                setIsBudgetModalOpen(true);
+                            },
+                        },
                     ]}
                 />
-            )}
         </SafeAreaView>
     );
 };
@@ -768,6 +726,9 @@ const Expenses = () => {
 export default Expenses;
 
 const styles = StyleSheet.create({
+    budgetTitle: { color: Colors.darkGreenText, fontSize: 22, marginBottom: 16 },
+    budgetFooter: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 16 },
+    budgetDoneButton: { minWidth: 100, height: 38, borderRadius: 10, backgroundColor: "#AFAFAF", alignItems: "center", justifyContent: "center" },
     container: {
         flex: 1,
         backgroundColor: Colors.backgroundPink,
@@ -793,10 +754,6 @@ const styles = StyleSheet.create({
         width: 136,
     },
     controls: {
-        gap: 10,
-        marginBottom: 10,
-    },
-    logPeriodControls: {
         gap: 10,
         marginBottom: 10,
     },

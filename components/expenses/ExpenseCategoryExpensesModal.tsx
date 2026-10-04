@@ -17,12 +17,13 @@ import {
     type ExpenseBreakdownItem,
 } from "@/utils/expenses";
 
-import type { Expense, Profile } from "@/api/endpoints/types";
+import type { Expense, ExpenseCategory, Profile } from "@/api/endpoints/types";
 
 type ExpenseCategoryExpensesModalProps = {
     isOpen: boolean;
     category: ExpenseBreakdownItem | null;
     expenses: Expense[];
+    categories: ExpenseCategory[];
     periodLabel: string;
     currentUserId: string | null;
     partnerProfile: Profile | null;
@@ -34,6 +35,7 @@ export default function ExpenseCategoryExpensesModal({
     isOpen,
     category,
     expenses,
+    categories,
     periodLabel,
     currentUserId,
     partnerProfile,
@@ -126,6 +128,7 @@ export default function ExpenseCategoryExpensesModal({
                                 <ExpenseRow
                                     key={expense.id}
                                     expense={expense}
+                                    category={categories.find((item) => item.id === expense.category_id)}
                                     currentUserId={currentUserId}
                                     partnerProfile={partnerProfile}
                                     onPress={onExpensePress}

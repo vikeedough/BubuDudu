@@ -13,6 +13,7 @@ import {
 
 type ExpenseBudgetViewProps = {
     analytics: ExpenseBudgetAnalytics;
+    embedded?: boolean;
     anchorDate: Date;
     isLoading: boolean;
     onPreviousMonth: () => void;
@@ -28,6 +29,7 @@ function clampProgress(value: number) {
 
 export default function ExpenseBudgetView({
     analytics,
+    embedded = false,
     anchorDate,
     isLoading,
     onPreviousMonth,
@@ -36,7 +38,7 @@ export default function ExpenseBudgetView({
     onEditBudget,
 }: ExpenseBudgetViewProps) {
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, embedded && { paddingBottom: 0 }]}>
             <View style={styles.periodNavigator}>
                 <TouchableOpacity
                     style={styles.periodArrowButton}

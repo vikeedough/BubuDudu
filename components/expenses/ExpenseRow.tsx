@@ -1,18 +1,22 @@
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import React from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
 
 import CustomText from "@/components/CustomText";
 import { Colors } from "@/constants/colors";
+import { getReadableTextColor } from "@/utils/colors";
+import { getExpenseCategoryIcon } from "@/utils/expense-category-icons";
 import {
     DEFAULT_EXPENSE_CURRENCY,
     formatCurrency,
     formatExpenseTime,
 } from "@/utils/expenses";
 
-import type { Expense, Profile } from "@/api/endpoints/types";
+import type { Expense, ExpenseCategory, Profile } from "@/api/endpoints/types";
 
 type ExpenseRowProps = {
     expense: Expense;
+    category?: ExpenseCategory;
     currentUserId: string | null;
     partnerProfile: Profile | null;
     onPress: (expense: Expense) => void;
@@ -20,10 +24,12 @@ type ExpenseRowProps = {
 
 export default function ExpenseRow({
     expense,
+    category,
     currentUserId,
     partnerProfile,
     onPress,
 }: ExpenseRowProps) {
+    const categoryColor = category?.color ?? expense.category_color;
     const isMine = !!currentUserId && expense.paid_by === currentUserId;
     const partnerName = partnerProfile?.name?.trim() || "partner";
     const payerName = isMine ? "me" : partnerName;
@@ -44,12 +50,14 @@ export default function ExpenseRow({
             <View
                 style={[
                     styles.categoryMark,
-                    { backgroundColor: expense.category_color },
+                    { backgroundColor: categoryColor },
                 ]}
             >
-                <CustomText weight="extrabold" style={styles.categoryInitial}>
-                    {expense.category_name.slice(0, 1).toUpperCase()}
-                </CustomText>
+                <MaterialCommunityIcons
+                    name={getExpenseCategoryIcon(category?.icon, category?.name ?? expense.category_name)}
+                    size={22}
+                    color={getReadableTextColor(categoryColor)}
+                />
             </View>
             <View style={styles.rowBody}>
                 <CustomText
@@ -115,10 +123,6 @@ const styles = StyleSheet.create({
         borderRadius: 10,
         alignItems: "center",
         justifyContent: "center",
-    },
-    categoryInitial: {
-        color: Colors.white,
-        fontSize: 16,
     },
     rowBody: {
         flex: 1,

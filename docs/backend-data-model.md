@@ -310,6 +310,7 @@ Used fields:
 
 - `name`
 - `color`
+- `icon`, nullable text containing a stable MaterialCommunityIcons key.
 - `sort_order`
 - `is_default`
 - `created_at`
@@ -325,7 +326,8 @@ Code paths:
 Notes:
 
 - Default categories are Food, Health, Medical, Bills, and Transport.
-- Categories can be added, renamed, recolored, and soft-deleted.
+- Categories can be added, renamed, recolored, assigned an icon, and soft-deleted.
+- Migration `supabase/migrations/20261005000001_expense_category_icons.sql` adds `icon` without changing RLS or existing data. Clients resolve missing/null/invalid keys to deterministic name-based defaults or `tag-outline`; no server backfill is required. Apply before releasing clients that write icons.
 - Deleting a category does not delete historical expenses; expense rows keep `category_name` and `category_color` snapshots.
 - RLS should allow space members to select, insert, and update category rows for their space.
 
@@ -769,7 +771,8 @@ Database:
 
 Version:
 
-- `PRAGMA user_version = 3`
+- `PRAGMA user_version = 5`
+- Version 5 adds nullable `icon TEXT` to `expense_categories_cache`, preserving existing rows and outbox operations.
 
 Tables:
 
