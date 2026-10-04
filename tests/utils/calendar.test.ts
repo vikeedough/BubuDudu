@@ -1,17 +1,40 @@
 import { addDays, expandOccurrences, recurrenceDates, selectDigest, validateDraft } from "@/supabase/functions/_shared/calendar";
+import { oneCalendarYearAfter } from "@/utils/calendar";
 
 import type { CalendarEvent, CalendarException } from "@/types/calendar";
 
 export const event = (patch: Partial<CalendarEvent> = {}): CalendarEvent => ({
     id: "event", space_id: "space", created_by: "creator", title: "Together", description: null,
     colour: "pink", is_all_day: true, start_date: "2026-10-03", end_date: "2026-10-03", starts_at: null, ends_at: null,
-    timezone: "Asia/Singapore", recurrence_rule: null, reminder_days_before: null,
+    timezone: "Asia/Singapore", recurrence_rule: null, recurrence_end_date: null, reminder_days_before: null,
     created_at: "2026-10-01T00:00:00Z", updated_at: "2026-10-01T00:00:00Z", deleted_at: null, ...patch,
 });
 const exception = (patch: Partial<CalendarException> = {}): CalendarException => ({
     ...event(), id: "exception", event_id: "event", original_date: "2026-10-03", is_cancelled: false, ...patch,
 });
 describe("Calendar recurrence", () => {
+    it.each(["FREQ=DAILY", "FREQ=WEEKLY", "FREQ=WEEKLY;INTERVAL=2", "FREQ=MONTHLY", "FREQ=YEARLY", "FREQ=DAILY;INTERVAL=3"])("ends %s inclusively", (recurrence_rule) => {
+        const master = event({ start_date: "2026-10-05", end_date: "2026-10-05", recurrence_rule });
+        const dates = recurrenceDates(master, "2026-10-05", "2028-10-05");
+        const end = dates[1];
+        expect(recurrenceDates({ ...master, recurrence_end_date: end }, "2026-10-05", "2028-10-05")).toEqual(dates.slice(0, 2));
+        expect(recurrenceDates({ ...master, recurrence_end_date: end }, addDays(end, 1), "2028-10-05")).toEqual([]);
+    });
+    it("keeps null-end series indefinite and limits exceptions by original logical date", () => {
+        const master = event({ recurrence_rule: "FREQ=WEEKLY", recurrence_end_date: "2026-10-10" });
+        const cancelledLater = exception({ original_date: "2026-10-17", start_date: "2026-10-04", end_date: "2026-10-04" });
+        const movedPrior = exception({ original_date: "2026-10-03", start_date: "2026-11-05", end_date: "2026-11-05" });
+        expect(expandOccurrences([master], [cancelledLater], "2026-10-04", "2026-10-04")).toEqual([]);
+        expect(expandOccurrences([master], [movedPrior], "2026-11-05", "2026-11-05")[0].original_date).toBe("2026-10-03");
+        expect(recurrenceDates({ ...master, recurrence_end_date: null }, "2030-01-01", "2030-01-31")).not.toHaveLength(0);
+    });
+    it("retains duration of the final multi-day occurrence beyond its start cutoff", () => {
+        expect(expandOccurrences([event({ recurrence_rule: "FREQ=WEEKLY", end_date: "2026-10-05", recurrence_end_date: "2026-10-03" })], [], "2026-10-04", "2026-10-05")).toHaveLength(1);
+    });
+    it("defaults one calendar year later and clamps leap day", () => {
+        expect(oneCalendarYearAfter("2026-10-05")).toBe("2027-10-05");
+        expect(oneCalendarYearAfter("2024-02-29")).toBe("2025-02-28");
+    });
     test.each([
         ["FREQ=DAILY", ["2026-10-03", "2026-10-04", "2026-10-05", "2026-10-06", "2026-10-07", "2026-10-08", "2026-10-09", "2026-10-10", "2026-10-11", "2026-10-12", "2026-10-13", "2026-10-14", "2026-10-15", "2026-10-16", "2026-10-17"]],
         ["FREQ=WEEKLY", ["2026-10-03", "2026-10-10", "2026-10-17"]],
@@ -52,6 +75,13 @@ describe("Calendar recurrence", () => {
     });
 });
 describe("Calendar reminders", () => {
+    it("excludes past-cutoff Today, future reminders and moved invalid-original exceptions", () => {
+        const master = event({ recurrence_rule: "FREQ=WEEKLY", start_date: "2026-10-05", end_date: "2026-10-05", recurrence_end_date: "2026-10-19", reminder_days_before: 2 });
+        expect(selectDigest([master], [], "2026-10-19")).toHaveLength(1);
+        expect(selectDigest([master], [], "2026-10-26")).toEqual([]);
+        expect(selectDigest([master], [], "2026-10-24")).toEqual([]);
+        expect(selectDigest([master], [exception({ original_date: "2026-10-26", start_date: "2026-10-19", end_date: "2026-10-19" })], "2026-10-19")).toHaveLength(1);
+    });
     it("includes today with no reminder and deduplicates reminder zero", () => {
         expect(selectDigest([event(), event({ id: "zero", reminder_days_before: 0 })], [], "2026-10-03").map((x) => x.event_id)).toEqual(["event", "zero"]);
     });
@@ -64,7 +94,7 @@ describe("Calendar reminders", () => {
         expect(result[2].starts_at).toBe("2026-10-05T01:00:00Z");
     });
     it("honours removed reminders, cancellations, ongoing all-day events, and huge offsets", () => {
-        const master = event({ recurrence_rule: "FREQ=WEEKLY", reminder_days_before: 2 });
+        const master = event({ recurrence_rule: "FREQ=WEEKLY", recurrence_end_date: null, reminder_days_before: 2 });
         expect(selectDigest([master], [exception({ start_date: "2026-10-05", end_date: "2026-10-05", reminder_days_before: null })], "2026-10-03")).toEqual([]);
         expect(selectDigest([master], [exception({ is_cancelled: true })], "2026-10-03")).toEqual([]);
         expect(selectDigest([event({ start_date: "2026-10-01", reminder_days_before: 2147483647 })], [], "2026-10-03")).toHaveLength(1);
@@ -72,6 +102,10 @@ describe("Calendar reminders", () => {
     });
 });
 describe("Calendar form validation", () => {
+    it("rejects recurrence ends before start, malformed dates and ends on nonrecurring events", () => {
+        for (const patch of [{ recurrence_rule: "FREQ=WEEKLY", recurrence_end_date: "2026-10-02" }, { recurrence_end_date: "2026-10-03" }, { recurrence_rule: "FREQ=WEEKLY", recurrence_end_date: "2026-02-30" }]) expect(() => validateDraft(event(patch))).toThrow();
+        expect(() => validateDraft(event({ recurrence_rule: "FREQ=WEEKLY", recurrence_end_date: "2026-10-03" }))).not.toThrow();
+    });
     it("requires a timed end after start, valid all-day ranges, and nonnegative integer reminders", () => {
         expect(() => validateDraft(event())).not.toThrow();
         for (const patch of [{ title: " " }, { end_date: "2026-10-02" }, { start_date: "2026-02-30" }, { reminder_days_before: -1 }, { reminder_days_before: 1.5 }, { recurrence_rule: "FREQ=HOURLY" }, { recurrence_rule: "FREQ=DAILY;INTERVAL=0" }, { is_all_day: false, starts_at: "2026-10-03T01:00:00Z", ends_at: null, start_date: null, end_date: null }]) {

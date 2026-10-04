@@ -1,10 +1,10 @@
 import { supabase } from "@/api/clients/supabaseClient";
-import { deleteCalendarEvent, fetchCalendar, saveCalendarEvent, saveCalendarException } from "@/api/endpoints/calendar";
+import { changeCalendarFuture, deleteCalendarEvent, fetchCalendar, saveCalendarEvent, saveCalendarException } from "@/api/endpoints/calendar";
 import { setIsOnline } from "@/utils/offline/network";
 
-import type { CalendarDraft, CalendarOccurrence } from "@/types/calendar";
+import type { CalendarDraft, CalendarEvent, CalendarOccurrence } from "@/types/calendar";
 
-const draft: CalendarDraft = { title: " Plan ", description: null, colour: "green", is_all_day: true, starts_at: null, ends_at: null, start_date: "2026-10-03", end_date: "2026-10-03", timezone: "Asia/Singapore", recurrence_rule: "FREQ=WEEKLY", reminder_days_before: null };
+const draft: CalendarDraft = { title: " Plan ", description: null, colour: "green", is_all_day: true, starts_at: null, ends_at: null, start_date: "2026-10-03", end_date: "2026-10-03", timezone: "Asia/Singapore", recurrence_rule: "FREQ=WEEKLY", recurrence_end_date: null, reminder_days_before: null };
 beforeEach(() => setIsOnline(true));
 it("queries a bounded space window and paginates both result sets", async () => {
     const range = jest.fn().mockResolvedValueOnce({ data: Array.from({ length: 500 }, (_, id) => ({ id })), error: null })
@@ -30,12 +30,28 @@ it("uses explicit exception fields including null reminder and cancellation, and
     await saveCalendarException("space", occurrence, draft);
     expect(builder.upsert).toHaveBeenCalledWith(expect.objectContaining({ event_id: "event", original_date: "2026-10-03", reminder_days_before: null, is_cancelled: false }), { onConflict: "event_id,original_date" });
     expect(builder.upsert.mock.calls[0][0]).not.toHaveProperty("recurrence_rule");
+    expect(builder.upsert.mock.calls[0][0]).not.toHaveProperty("recurrence_end_date");
     await saveCalendarException("space", occurrence, null);
     expect(builder.upsert).toHaveBeenLastCalledWith(expect.objectContaining({ is_cancelled: true }), { onConflict: "event_id,original_date" });
     await deleteCalendarEvent("space", "event");
     expect(builder.update).toHaveBeenCalledWith({ deleted_at: expect.any(String) });
     expect(builder.eq).toHaveBeenCalledWith("space_id", "space");
     expect(builder.is).toHaveBeenCalledWith("deleted_at", null);
+});
+it("uses one optimistic RPC for future scope and propagates failures", async () => {
+    const master: CalendarEvent = { ...draft, id: "event", space_id: "space", created_by: "member", created_at: "", updated_at: "version", deleted_at: null };
+    const occurrence: CalendarOccurrence = { ...draft, event_id: "event", key: "event:2026-10-03", original_date: "2026-10-03", is_exception: false };
+    const client = supabase as unknown as { rpc: jest.Mock };
+    client.rpc = jest.fn().mockResolvedValue({ data: "new-id", error: null });
+    expect(await changeCalendarFuture("space", master, occurrence, draft)).toBe("new-id");
+    expect(client.rpc).toHaveBeenCalledWith("change_calendar_future", { p_space_id: "space", p_event_id: "event", p_original_date: "2026-10-03", p_expected_updated_at: "version", p_draft: draft });
+    await changeCalendarFuture("space", master, occurrence, null);
+    expect(client.rpc.mock.calls[1][1].p_draft).toBeNull();
+    client.rpc.mockResolvedValueOnce({ data: null, error: new Error("Refresh Calendar") });
+    await expect(changeCalendarFuture("space", master, occurrence, draft)).rejects.toThrow("Refresh Calendar");
+    setIsOnline(false);
+    await expect(changeCalendarFuture("space", master, occurrence, draft)).rejects.toThrow("internet");
+    expect(client.rpc).toHaveBeenCalledTimes(3);
 });
 it("does not send offline mutations", async () => {
     setIsOnline(false);

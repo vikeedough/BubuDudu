@@ -3,6 +3,7 @@ import {
     KeyboardAvoidingView,
     Modal,
     Platform,
+    Pressable,
     StyleProp,
     StyleSheet,
     View,
@@ -16,6 +17,8 @@ interface CenteredModalProps {
     useKeyboardAvoidingView?: boolean;
     keyboardVerticalOffset?: number;
     containerStyle?: StyleProp<ViewStyle>;
+    overlay?: React.ReactNode;
+    dismissOnBackdrop?: boolean;
 }
 
 const CenteredModal: React.FC<CenteredModalProps> = ({
@@ -25,6 +28,8 @@ const CenteredModal: React.FC<CenteredModalProps> = ({
     useKeyboardAvoidingView = false,
     keyboardVerticalOffset = 0,
     containerStyle,
+    overlay,
+    dismissOnBackdrop = false,
 }) => {
     const content = (
         <View style={[styles.modalContainer, containerStyle]}>{children}</View>
@@ -38,6 +43,7 @@ const CenteredModal: React.FC<CenteredModalProps> = ({
             animationType="fade"
         >
             <View style={styles.modalOverlay}>
+                {dismissOnBackdrop && <Pressable accessibilityLabel="Dismiss event details" style={StyleSheet.absoluteFill} onPress={onClose} />}
                 {useKeyboardAvoidingView ? (
                     <KeyboardAvoidingView
                         style={styles.centered}
@@ -47,8 +53,9 @@ const CenteredModal: React.FC<CenteredModalProps> = ({
                         {content}
                     </KeyboardAvoidingView>
                 ) : (
-                    <View style={styles.centered}>{content}</View>
+                    <View pointerEvents={dismissOnBackdrop ? "box-none" : "auto"} style={styles.centered}>{content}</View>
                 )}
+                {overlay}
             </View>
         </Modal>
     );

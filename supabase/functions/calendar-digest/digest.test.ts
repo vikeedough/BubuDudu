@@ -27,6 +27,7 @@ function event(id = "one"): CalendarEvent {
         timezone: "Asia/Singapore",
         reminder_days_before: null,
         recurrence_rule: null,
+        recurrence_end_date: null,
         deleted_at: null,
         created_at: "",
         updated_at: "",
@@ -150,6 +151,18 @@ Deno.test("empty sends nothing; many qualifying events send exactly once; succes
     assert(Number(state.calls) === 1 && state.manifested === 3);
     assert((await deliverCalendarDigest(input)).status === "already_claimed");
     assert(Number(state.calls) === 1);
+});
+Deno.test("finite recurrence sends the inclusive final occurrence and skips expired Today/Coming up without claiming", async () => {
+    const master = { ...event(), start_date: "2026-10-05", end_date: "2026-10-05", recurrence_rule: "FREQ=WEEKLY", recurrence_end_date: "2026-10-19", reminder_days_before: 2 };
+    for (const [today, status, calls] of [
+        ["2026-10-17", "sent", 1], ["2026-10-19", "sent", 1],
+        ["2026-10-24", "empty", 0], ["2026-10-26", "empty", 0],
+    ] as const) {
+        const { state, delivery } = ledger();
+        assertEquals((await deliverCalendarDigest({ events: [master], exceptions: [], today, delivery })).status, status);
+        assertEquals(state.calls, calls);
+        assertEquals(state.manifested, calls);
+    }
 });
 Deno.test("definite Telegram rejection stays eligible and does not complete occurrences", async () => {
     const { state, delivery } = ledger();

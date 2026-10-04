@@ -22,11 +22,14 @@ export interface CalendarFields {
     timezone: string;
     reminder_days_before: number | null;
 }
-export interface CalendarEvent extends CalendarFields {
+export interface CalendarRecurrence {
+    recurrence_rule: string | null;
+    recurrence_end_date: string | null;
+}
+export interface CalendarEvent extends CalendarFields, CalendarRecurrence {
     id: string;
     space_id: string;
     created_by: string;
-    recurrence_rule: string | null;
     created_at: string;
     updated_at: string;
     deleted_at: string | null;
@@ -40,14 +43,13 @@ export interface CalendarException extends CalendarFields {
     created_at: string;
     updated_at: string;
 }
-export interface CalendarOccurrence extends CalendarFields {
+export interface CalendarOccurrence extends CalendarFields, CalendarRecurrence {
     key: string;
     event_id: string;
     original_date: string;
-    recurrence_rule: string | null;
     is_exception: boolean;
 }
-export type CalendarDraft = CalendarFields & { recurrence_rule: string | null };
+export type CalendarDraft = CalendarFields & CalendarRecurrence;
 const DAY = 86400000;
 export function dateInSingapore(value: Date | string = new Date()): string {
     return new Date(new Date(value).getTime() + 8 * 3600000).toISOString().slice(0, 10);
@@ -113,6 +115,10 @@ export function validateDraft(event: CalendarDraft): void {
         }
     }
     parseRule(event.recurrence_rule);
+    if (event.recurrence_end_date != null && (
+        !event.recurrence_rule || !validDate(event.recurrence_end_date) ||
+        event.recurrence_end_date < occurrenceStart(event)
+    )) throw new Error("Recurrence end must be on or after the event start date.");
 }
 
 // The V1 RRULE subset has one occurrence per interval, anchored to DTSTART.
@@ -121,6 +127,8 @@ export function recurrenceDates(event: CalendarEvent, from: string, to: string):
     const anchor = occurrenceStart(event);
     const rule = parseRule(event.recurrence_rule);
     if (!rule) return anchor >= from && anchor <= to ? [anchor] : [];
+    if (event.recurrence_end_date && event.recurrence_end_date < to) to = event.recurrence_end_date;
+    if (to < from || to < anchor) return [];
     const [year, month, day] = anchor.split("-").map(Number);
     const [fromYear, fromMonth] = from.split("-").map(Number);
     const stepDays = rule.frequency === "DAILY" ? rule.interval : rule.interval * 7;
@@ -197,7 +205,7 @@ export function expandOccurrences(
             if (override?.is_cancelled) continue;
             const occurrence = atDate(event, date);
             const resolved = override
-                ? { ...occurrence, ...override, key: occurrence.key, is_exception: true }
+                ? { ...occurrence, ...override, key: occurrence.key, recurrence_rule: event.recurrence_rule, recurrence_end_date: event.recurrence_end_date ?? null, is_exception: true }
                 : occurrence;
             if (occurrenceStart(resolved) <= to && occurrenceEnd(resolved) >= from) {
                 result.set(resolved.key, resolved);

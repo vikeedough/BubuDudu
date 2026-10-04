@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { fetchProfiles } from "@/api/endpoints/profiles";
-import Plus from "@/assets/svgs/plus.svg";
+import FloatingAddButton from "@/components/common/FloatingAddButton";
 import CustomText from "@/components/CustomText";
 import BudgetModal from "@/components/expenses/BudgetModal";
 import CategoryManagerModal from "@/components/expenses/CategoryManagerModal";
@@ -740,14 +740,7 @@ const Expenses = () => {
                 </ScrollView>
             )}
             {viewMode === "budget" ? (
-                <TouchableOpacity
-                    style={styles.floatingAddButton}
-                    onPress={handleOpenBudgetCreate}
-                    accessibilityRole="button"
-                    accessibilityLabel="Add budget"
-                >
-                    <Plus />
-                </TouchableOpacity>
+                <FloatingAddButton onPress={handleOpenBudgetCreate} accessibilityLabel="Add budget" />
             ) : (
                 <ExpenseFloatingActionMenu
                     actions={[
@@ -798,23 +791,6 @@ const styles = StyleSheet.create({
     },
     headerScopeControl: {
         width: 136,
-    },
-    floatingAddButton: {
-        position: "absolute",
-        right: 22,
-        bottom: 120,
-        zIndex: 10,
-        width: 54,
-        height: 54,
-        borderRadius: 999,
-        backgroundColor: "#FFCC7D",
-        alignItems: "center",
-        justifyContent: "center",
-        shadowColor: Colors.black,
-        shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: 0.22,
-        shadowRadius: 5,
-        elevation: 6,
     },
     controls: {
         gap: 10,
