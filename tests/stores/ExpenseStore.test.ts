@@ -6,6 +6,7 @@ import {
   buildExpenseAnalytics,
   buildExpenseBudgetAnalytics,
   getExpensesForBreakdownCategory,
+  getPeriodRange,
   getExpensePeriodLabel,
   getExpenseTitleSuggestions,
   sortExpensesNewestFirst,
@@ -198,6 +199,19 @@ describe("stores/ExpenseStore", () => {
     ).toBe("11 May 2026");
   });
 
+  it("uses Monday as the weekly expense period boundary", () => {
+    const range = getPeriodRange(
+      "weekly",
+      new Date("2026-05-17T12:00:00.000Z"),
+    );
+
+    expect(range.start).toBe("2026-05-10T16:00:00.000Z");
+    expect(range.end).toBe("2026-05-17T16:00:00.000Z");
+    expect(range.previousStart).toBe("2026-05-03T16:00:00.000Z");
+    expect(range.previousEnd).toBe("2026-05-10T16:00:00.000Z");
+    expect(range.dayCount).toBe(7);
+  });
+
   it("suggests previous titles created by the current user", () => {
     const suggestions = getExpenseTitleSuggestions({
       expenses: [
@@ -366,6 +380,76 @@ describe("stores/ExpenseStore", () => {
     expect(analytics.totalBudget).toBe(100);
     expect(analytics.totalSpent).toBe(12.5);
     expect(analytics.rows[0].percentage).toBe(12.5);
+  });
+
+  it("excludes pending foreign-currency expenses from budget spend", () => {
+    const pendingForeignExpense = {
+      ...EXPENSE_A,
+      id: "exp-pending",
+      amount: 20,
+      currency: "USD",
+      base_amount: null,
+      exchange_rate: null,
+      exchange_rate_date: null,
+      conversion_status: "pending",
+    } as Expense;
+
+    const analytics = buildExpenseBudgetAnalytics({
+      expenses: [EXPENSE_A as any, pendingForeignExpense],
+      budgets: [BUDGET_A],
+      categories: [CATEGORY_A],
+      scope: "space",
+      currentUserId: "user-1",
+      anchorDate: new Date("2026-05-11T12:00:00.000Z"),
+    });
+
+    expect(analytics.totalSpent).toBe(12.5);
+    expect(analytics.rows[0]).toMatchObject({
+      spent: 12.5,
+      remaining: 87.5,
+      percentage: 12.5,
+    });
+  });
+
+  it("uses budget category snapshots and avoids division by zero", () => {
+    const zeroBudget: ExpenseBudget = {
+      ...BUDGET_A,
+      id: "budget-zero",
+      category_id: "deleted-cat",
+      category_name: "Archived",
+      category_color: "#123456",
+      amount: 0,
+    };
+    const archivedExpense = {
+      ...EXPENSE_A,
+      id: "exp-archived",
+      category_id: "deleted-cat",
+      category_name: "Archived",
+      category_color: "#123456",
+      amount: 10,
+      base_amount: 10,
+    } as Expense;
+
+    const analytics = buildExpenseBudgetAnalytics({
+      expenses: [archivedExpense],
+      budgets: [zeroBudget],
+      categories: [],
+      scope: "space",
+      currentUserId: "user-1",
+      anchorDate: new Date("2026-05-11T12:00:00.000Z"),
+    });
+
+    expect(analytics.totalBudget).toBe(0);
+    expect(analytics.totalSpent).toBe(10);
+    expect(analytics.percentage).toBe(0);
+    expect(analytics.rows[0]).toMatchObject({
+      categoryName: "Archived",
+      categoryColor: "#123456",
+      spent: 10,
+      remaining: -10,
+      percentage: 0,
+      isOverBudget: true,
+    });
   });
 
   it("copies previous month budgets when a month has none", async () => {
