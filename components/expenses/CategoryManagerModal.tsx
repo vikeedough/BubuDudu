@@ -1,21 +1,12 @@
-import React, { memo, useEffect, useState } from "react";
-import {
-    ActivityIndicator,
-    Alert,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    TextInput,
-    TouchableOpacity,
-    View,
-} from "react-native";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
+import React, { useEffect, useMemo, useState } from "react";
+import { Modal, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 
 import CustomText from "@/components/CustomText";
+import CategoryEditorModal from "@/components/expenses/CategoryEditorModal";
 import { Colors } from "@/constants/colors";
-import { EXPENSE_CATEGORY_COLORS } from "@/utils/expenses";
+import { getReadableTextColor } from "@/utils/colors";
+import { getExpenseCategoryIcon } from "@/utils/expense-category-icons";
 
 import type { ExpenseCategory } from "@/api/endpoints/types";
 
@@ -24,361 +15,124 @@ type CategoryManagerModalProps = {
     categories: ExpenseCategory[];
     isSaving: boolean;
     onClose: () => void;
-    onAddCategory: (name: string, color: string) => Promise<void>;
+    onAddCategory: (name: string, color: string, icon: string) => Promise<void>;
     onUpdateCategory: (
         categoryId: string,
-        patch: Pick<ExpenseCategory, "name" | "color">,
+        patch: Pick<ExpenseCategory, "name" | "color" | "icon">,
     ) => Promise<void>;
     onDeleteCategory: (categoryId: string) => Promise<void>;
 };
 
-type CategoryEditorProps = {
-    category: ExpenseCategory;
-    isSaving: boolean;
-    onUpdate: (
-        categoryId: string,
-        patch: Pick<ExpenseCategory, "name" | "color">,
-    ) => Promise<void>;
-    onDelete: (categoryId: string) => Promise<void>;
-};
-
-const CategoryEditor = memo(
-    ({ category, isSaving, onUpdate, onDelete }: CategoryEditorProps) => {
-        const [name, setName] = useState(category.name);
-        const [color, setColor] = useState(category.color);
-
-        useEffect(() => {
-            setName(category.name);
-            setColor(category.color);
-        }, [category]);
-
-        const isDirty = name.trim() !== category.name || color !== category.color;
-
-        const handleSave = async () => {
-            if (name.trim().length === 0) {
-                Alert.alert("Name needed", "Please enter a category name.");
-                return;
-            }
-            await onUpdate(category.id, { name: name.trim(), color });
-        };
-
-        const handleDelete = () => {
-            Alert.alert(
-                "Delete category?",
-                "Existing expenses will keep their category label.",
-                [
-                    { text: "Cancel", style: "cancel" },
-                    {
-                        text: "Delete",
-                        style: "destructive",
-                        onPress: () => {
-                            void onDelete(category.id);
-                        },
-                    },
-                ],
-            );
-        };
-
-        return (
-            <View style={styles.editor}>
-                <View style={styles.editorHeader}>
-                    <TextInput
-                        style={styles.nameInput}
-                        value={name}
-                        onChangeText={setName}
-                        placeholder="Category"
-                        placeholderTextColor={Colors.gray}
-                        allowFontScaling={false}
-                    />
-                    <TouchableOpacity
-                        onPress={handleDelete}
-                        disabled={isSaving}
-                        style={styles.deletePill}
-                    >
-                        <CustomText weight="semibold" style={styles.deleteText}>
-                            Delete
-                        </CustomText>
-                    </TouchableOpacity>
-                </View>
-                <View style={styles.colorRow}>
-                    {EXPENSE_CATEGORY_COLORS.map((item) => (
-                        <TouchableOpacity
-                            key={item}
-                            style={[
-                                styles.colorSwatch,
-                                { backgroundColor: item },
-                                color === item && styles.selectedSwatch,
-                            ]}
-                            onPress={() => setColor(item)}
-                        />
-                    ))}
-                    {isDirty ? (
-                        <TouchableOpacity
-                            style={styles.saveSmallButton}
-                            onPress={handleSave}
-                            disabled={isSaving}
-                        >
-                            <CustomText
-                                weight="semibold"
-                                style={styles.saveSmallText}
-                            >
-                                Save
-                            </CustomText>
-                        </TouchableOpacity>
-                    ) : null}
-                </View>
-            </View>
-        );
-    },
-);
-
-CategoryEditor.displayName = "CategoryEditor";
-
 export default function CategoryManagerModal({
-    isOpen,
-    categories,
-    isSaving,
-    onClose,
-    onAddCategory,
-    onUpdateCategory,
-    onDeleteCategory,
+    isOpen, categories, isSaving, onClose, onAddCategory, onUpdateCategory, onDeleteCategory,
 }: CategoryManagerModalProps) {
-    const [newName, setNewName] = useState("");
-    const [newColor, setNewColor] = useState<string>(EXPENSE_CATEGORY_COLORS[0]);
+    // Store identity only; the editor always receives the current category data.
+    const [editor, setEditor] = useState<{ categoryId: string | null } | null>(null);
+    const [isEditorBusy, setIsEditorBusy] = useState(false);
+    const selectedCategory = editor?.categoryId
+        ? categories.find((category) => category.id === editor.categoryId)
+        : undefined;
+    const sortedCategories = useMemo(() => categories.slice().sort((a, b) =>
+        a.name.localeCompare(b.name, "en", { sensitivity: "base" }) || a.id.localeCompare(b.id),
+    ), [categories]);
 
     useEffect(() => {
-        if (!isOpen) return;
-        setNewName("");
-        setNewColor(EXPENSE_CATEGORY_COLORS[0]);
+        if (!isOpen) setEditor(null);
     }, [isOpen]);
 
-    const handleAdd = async () => {
-        if (newName.trim().length === 0) {
-            Alert.alert("Name needed", "Please enter a category name.");
-            return;
-        }
+    useEffect(() => {
+        if (editor?.categoryId && !selectedCategory && !isEditorBusy) setEditor(null);
+    }, [editor, isEditorBusy, selectedCategory]);
 
-        await onAddCategory(newName.trim(), newColor);
-        setNewName("");
+    const closeEditor = () => setEditor(null);
+    const closeTopDialog = () => {
+        if (isEditorBusy || isSaving) return;
+        if (editor) closeEditor();
+        else onClose();
     };
 
     return (
-        <Modal
-            visible={isOpen}
-            onRequestClose={onClose}
-            transparent
-            animationType="fade"
-        >
+        <Modal visible={isOpen} onRequestClose={closeTopDialog} transparent animationType="fade">
             <View style={styles.overlay}>
-                <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-                <KeyboardAvoidingView
-                    style={styles.centered}
-                    behavior={Platform.OS === "ios" ? "padding" : undefined}
+                <Pressable accessibilityLabel="Dismiss category dialog" style={StyleSheet.absoluteFill} onPress={closeTopDialog} />
+                {/* Keep the list mounted while the editor is open, preserving its scroll position. */}
+                <View
+                    pointerEvents={editor ? "none" : "box-none"}
+                    style={[styles.centered, editor && styles.hidden]}
+                    accessibilityElementsHidden={!!editor}
+                    importantForAccessibility={editor ? "no-hide-descendants" : "auto"}
                 >
                     <View style={styles.modal}>
-                        <CustomText weight="extrabold" style={styles.title}>
-                            Categories
-                        </CustomText>
-                        <View style={styles.addPanel}>
-                            <TextInput
-                                style={styles.addInput}
-                                value={newName}
-                                onChangeText={setNewName}
-                                placeholder="New category"
-                                placeholderTextColor={Colors.gray}
-                                allowFontScaling={false}
-                            />
-                            <View style={styles.colorRow}>
-                                {EXPENSE_CATEGORY_COLORS.map((item) => (
-                                    <TouchableOpacity
-                                        key={item}
-                                        style={[
-                                            styles.colorSwatch,
-                                            { backgroundColor: item },
-                                            newColor === item &&
-                                                styles.selectedSwatch,
-                                        ]}
-                                        onPress={() => setNewColor(item)}
-                                    />
-                                ))}
-                            </View>
-                            <TouchableOpacity
-                                style={styles.addButton}
-                                onPress={handleAdd}
-                                disabled={isSaving}
-                            >
-                                {isSaving ? (
-                                    <ActivityIndicator size="small" />
-                                ) : (
-                                    <CustomText
-                                        weight="semibold"
-                                        style={styles.addButtonText}
-                                    >
-                                        Add
-                                    </CustomText>
-                                )}
-                            </TouchableOpacity>
-                        </View>
-                        <ScrollView
-                            style={styles.list}
-                            showsVerticalScrollIndicator={false}
-                            keyboardShouldPersistTaps="handled"
-                        >
-                            {categories.map((category) => (
-                                <CategoryEditor
+                        <CustomText weight="extrabold" style={styles.title}>Categories</CustomText>
+                        <ScrollView style={styles.list} showsVerticalScrollIndicator={false}>
+                            {sortedCategories.map((category) => (
+                                <TouchableOpacity
                                     key={category.id}
-                                    category={category}
-                                    isSaving={isSaving}
-                                    onUpdate={onUpdateCategory}
-                                    onDelete={onDeleteCategory}
-                                />
+                                    accessibilityRole="button"
+                                    accessibilityLabel={`Edit category ${category.name}`}
+                                    style={styles.row}
+                                    onPress={() => setEditor({ categoryId: category.id })}
+                                >
+                                    <View style={[styles.icon, { backgroundColor: category.color }]}>
+                                        <MaterialCommunityIcons
+                                            name={getExpenseCategoryIcon(category.icon, category.name)}
+                                            size={22}
+                                            color={getReadableTextColor(category.color)}
+                                        />
+                                    </View>
+                                    <CustomText weight="semibold" style={styles.name} numberOfLines={1}>
+                                        {category.name}
+                                    </CustomText>
+                                    <MaterialCommunityIcons name="chevron-right" size={22} color={Colors.brownText} />
+                                </TouchableOpacity>
                             ))}
+                            {categories.length === 0 && <CustomText style={styles.empty}>No categories yet.</CustomText>}
                         </ScrollView>
                         <TouchableOpacity
-                            style={styles.closeButton}
-                            onPress={onClose}
+                            accessibilityRole="button"
+                            accessibilityLabel="Add Category"
+                            style={styles.addButton}
+                            onPress={() => setEditor({ categoryId: null })}
                         >
-                            <CustomText
-                                weight="semibold"
-                                style={styles.closeText}
-                            >
-                                Done
-                            </CustomText>
+                            <CustomText weight="semibold" style={styles.buttonText}>Add Category</CustomText>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.closeButton} onPress={closeTopDialog}>
+                            <CustomText weight="semibold" style={styles.buttonText}>Done</CustomText>
                         </TouchableOpacity>
                     </View>
-                </KeyboardAvoidingView>
+                </View>
+                {editor && (
+                    <CategoryEditorModal
+                        key={editor.categoryId ?? "create"}
+                        mode={editor.categoryId ? "edit" : "create"}
+                        category={selectedCategory}
+                        isSaving={isSaving || isEditorBusy}
+                        onBusyChange={setIsEditorBusy}
+                        onClose={closeEditor}
+                        onSave={async (input) => {
+                            if (editor.categoryId) await onUpdateCategory(editor.categoryId, input);
+                            else await onAddCategory(input.name, input.color, input.icon);
+                        }}
+                        onDelete={editor.categoryId ? () => onDeleteCategory(editor.categoryId!) : undefined}
+                    />
+                )}
             </View>
         </Modal>
     );
 }
 
 const styles = StyleSheet.create({
-    overlay: {
-        flex: 1,
-        backgroundColor: "rgba(0,0,0,0.45)",
-    },
-    centered: {
-        flex: 1,
-        justifyContent: "center",
-        alignItems: "center",
-        paddingHorizontal: 18,
-    },
-    modal: {
-        width: "100%",
-        maxHeight: "86%",
-        backgroundColor: Colors.white,
-        borderRadius: 15,
-        padding: 22,
-    },
-    title: {
-        color: Colors.darkGreenText,
-        fontSize: 22,
-        marginBottom: 16,
-    },
-    addPanel: {
-        borderWidth: 1,
-        borderColor: "#EBEAEC",
-        borderRadius: 12,
-        padding: 12,
-        marginBottom: 14,
-        gap: 10,
-    },
-    addInput: {
-        color: Colors.black,
-        fontFamily: "Raleway-Regular",
-        fontSize: 14,
-        minHeight: 38,
-        paddingHorizontal: 10,
-        borderWidth: 1,
-        borderColor: "#EBEAEC",
-        borderRadius: 10,
-    },
-    list: {
-        maxHeight: 360,
-    },
-    editor: {
-        borderBottomWidth: 1,
-        borderBottomColor: "#EBEAEC",
-        paddingVertical: 12,
-        gap: 10,
-    },
-    editorHeader: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 10,
-    },
-    nameInput: {
-        flex: 1,
-        color: Colors.black,
-        fontFamily: "Raleway-SemiBold",
-        fontSize: 14,
-        minHeight: 38,
-        paddingHorizontal: 10,
-        borderWidth: 1,
-        borderColor: "#EBEAEC",
-        borderRadius: 10,
-    },
-    colorRow: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 9,
-        flexWrap: "wrap",
-    },
-    colorSwatch: {
-        width: 24,
-        height: 24,
-        borderRadius: 999,
-        opacity: 0.65,
-    },
-    selectedSwatch: {
-        opacity: 1,
-        borderWidth: 2,
-        borderColor: Colors.brownText,
-    },
-    addButton: {
-        alignSelf: "flex-start",
-        backgroundColor: "#FFCC7D",
-        height: 36,
-        borderRadius: 10,
-        minWidth: 82,
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    addButtonText: {
-        color: Colors.brownText,
-        fontSize: 14,
-    },
-    saveSmallButton: {
-        backgroundColor: "#FFCC7D",
-        height: 30,
-        borderRadius: 999,
-        paddingHorizontal: 13,
-        justifyContent: "center",
-    },
-    saveSmallText: {
-        color: Colors.brownText,
-        fontSize: 12,
-    },
-    deletePill: {
-        height: 32,
-        justifyContent: "center",
-    },
-    deleteText: {
-        color: Colors.red,
-        fontSize: 12,
-    },
-    closeButton: {
-        alignSelf: "center",
-        marginTop: 16,
-        backgroundColor: "#AFAFAF",
-        minWidth: 110,
-        height: 38,
-        borderRadius: 10,
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    closeText: {
-        color: Colors.brownText,
-        fontSize: 14,
-    },
+    overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.45)" },
+    centered: { flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 18 },
+    hidden: { display: "none" },
+    modal: { width: "100%", maxHeight: "86%", backgroundColor: Colors.white, borderRadius: 15, padding: 22 },
+    title: { color: Colors.darkGreenText, fontSize: 22, marginBottom: 16 },
+    list: { maxHeight: 360, flexShrink: 1 },
+    row: { minHeight: 60, flexDirection: "row", alignItems: "center", gap: 12, borderBottomWidth: 1, borderBottomColor: "#EBEAEC", paddingVertical: 10 },
+    icon: { width: 36, height: 36, borderRadius: 10, justifyContent: "center", alignItems: "center" },
+    name: { flex: 1, color: Colors.darkGreenText, fontSize: 14 },
+    empty: { color: Colors.gray, fontSize: 14, paddingVertical: 16 },
+    addButton: { backgroundColor: Colors.yellow, minHeight: 44, borderRadius: 10, justifyContent: "center", alignItems: "center", marginTop: 16 },
+    closeButton: { alignSelf: "center", backgroundColor: "#AFAFAF", minWidth: 110, minHeight: 44, borderRadius: 10, justifyContent: "center", alignItems: "center", marginTop: 10 },
+    buttonText: { color: Colors.brownText, fontSize: 14 },
 });

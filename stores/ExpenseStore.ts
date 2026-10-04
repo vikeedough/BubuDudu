@@ -1,6 +1,7 @@
 import { create } from "zustand";
 
 import { supabase } from "@/api/clients/supabaseClient";
+import { getExpenseCategoryIcon } from "@/utils/expense-category-icons";
 import {
     DEFAULT_EXPENSE_CATEGORIES,
     DEFAULT_EXPENSE_CURRENCY,
@@ -93,10 +94,10 @@ type ExpenseStore = {
     ) => Promise<void>;
     deleteExpense: (expenseId: string) => Promise<void>;
 
-    addCategory: (name: string, color?: string) => Promise<ExpenseCategory>;
+    addCategory: (name: string, color?: string, icon?: string) => Promise<ExpenseCategory>;
     updateCategory: (
         categoryId: string,
-        patch: Pick<ExpenseCategory, "name" | "color">,
+        patch: Pick<ExpenseCategory, "name" | "color" | "icon">,
     ) => Promise<void>;
     deleteCategory: (categoryId: string) => Promise<void>;
     setBudget: (input: BudgetDraftInput) => Promise<ExpenseBudget>;
@@ -140,6 +141,7 @@ function normalizeCategory(row: any): ExpenseCategory {
         created_by: row.created_by ?? null,
         name: String(row.name),
         color: String(row.color),
+        icon: getExpenseCategoryIcon(row.icon, String(row.name)),
         sort_order: Number(row.sort_order ?? 0),
         is_default: Boolean(row.is_default),
         created_at: String(row.created_at),
@@ -398,6 +400,7 @@ function buildDefaultCategories(spaceId: string, userId: string) {
         created_by: userId,
         name: category.name,
         color: category.color,
+        icon: getExpenseCategoryIcon(null, category.name),
         sort_order: index,
         is_default: true,
         created_at: now,
@@ -847,7 +850,7 @@ export const useExpenseStore = create<ExpenseStore>((set, get) => ({
         if (error) throw error;
     },
 
-    addCategory: async (name, color) => {
+    addCategory: async (name, color, icon) => {
         const spaceId = await getSpaceId();
         if (!spaceId) throw new Error("No active spaceId");
 
@@ -859,6 +862,7 @@ export const useExpenseStore = create<ExpenseStore>((set, get) => ({
             space_id: spaceId,
             created_by: userId,
             name: name.trim(),
+            icon: getExpenseCategoryIcon(icon, name),
             color:
                 color ??
                 EXPENSE_CATEGORY_COLORS[
@@ -915,6 +919,7 @@ export const useExpenseStore = create<ExpenseStore>((set, get) => ({
             ...existing,
             name: patch.name.trim(),
             color: patch.color,
+            icon: getExpenseCategoryIcon(patch.icon ?? existing.icon, patch.name),
             updated_at: new Date().toISOString(),
         };
 
@@ -931,6 +936,7 @@ export const useExpenseStore = create<ExpenseStore>((set, get) => ({
             id: categoryId,
             name: updated.name,
             color: updated.color,
+            icon: updated.icon,
         };
 
         if (!getIsOnline()) {

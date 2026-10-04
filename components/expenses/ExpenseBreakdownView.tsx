@@ -7,27 +7,13 @@ import { Colors } from "@/constants/colors";
 import {
     DEFAULT_EXPENSE_CURRENCY,
     formatCurrency,
-    getExpensePeriodLabel,
     type ExpenseAnalytics,
-    type ExpensePeriod,
 } from "@/utils/expenses";
 
 type ExpenseBreakdownViewProps = {
     analytics: ExpenseAnalytics;
-    period: ExpensePeriod;
-    anchorDate: Date;
-    onPeriodChange: (period: ExpensePeriod) => void;
-    onPreviousPeriod: () => void;
-    onNextPeriod: () => void;
     onCategoryPress: (category: ExpenseAnalytics["breakdown"][number]) => void;
 };
-
-const PERIODS: { value: ExpensePeriod; label: string }[] = [
-    { value: "daily", label: "Day" },
-    { value: "weekly", label: "Week" },
-    { value: "monthly", label: "Month" },
-    { value: "yearly", label: "Year" },
-];
 
 function formatPercentChange(value: number | null) {
     if (value === null) return "New";
@@ -38,11 +24,6 @@ function formatPercentChange(value: number | null) {
 
 export default function ExpenseBreakdownView({
     analytics,
-    period,
-    anchorDate,
-    onPeriodChange,
-    onPreviousPeriod,
-    onNextPeriod,
     onCategoryPress,
 }: ExpenseBreakdownViewProps) {
     const chartData = analytics.breakdown.map((item) => ({
@@ -53,64 +34,6 @@ export default function ExpenseBreakdownView({
 
     return (
         <View style={styles.container}>
-            <View style={styles.periodTabs}>
-                {PERIODS.map((item) => {
-                    const selected = period === item.value;
-                    return (
-                        <TouchableOpacity
-                            key={item.value}
-                            style={[
-                                styles.periodButton,
-                                selected && styles.selectedPeriodButton,
-                            ]}
-                            onPress={() => onPeriodChange(item.value)}
-                        >
-                            <CustomText
-                                weight="semibold"
-                                style={[
-                                    styles.periodText,
-                                    selected && styles.selectedPeriodText,
-                                ]}
-                            >
-                                {item.label}
-                            </CustomText>
-                        </TouchableOpacity>
-                    );
-                })}
-            </View>
-
-            <View style={styles.periodNavigator}>
-                <TouchableOpacity
-                    style={styles.periodArrowButton}
-                    onPress={onPreviousPeriod}
-                >
-                    <CustomText
-                        weight="extrabold"
-                        style={styles.periodArrowText}
-                    >
-                        {"<"}
-                    </CustomText>
-                </TouchableOpacity>
-                <CustomText
-                    weight="semibold"
-                    style={styles.periodLabel}
-                    numberOfLines={1}
-                >
-                    {getExpensePeriodLabel(period, anchorDate)}
-                </CustomText>
-                <TouchableOpacity
-                    style={styles.periodArrowButton}
-                    onPress={onNextPeriod}
-                >
-                    <CustomText
-                        weight="extrabold"
-                        style={styles.periodArrowText}
-                    >
-                        {">"}
-                    </CustomText>
-                </TouchableOpacity>
-            </View>
-
             <View style={styles.summaryBand}>
                 <View>
                     <CustomText weight="medium" style={styles.metricLabel}>
@@ -258,58 +181,6 @@ const styles = StyleSheet.create({
     container: {
         gap: 10,
         paddingBottom: 95,
-    },
-    periodTabs: {
-        flexDirection: "row",
-        backgroundColor: Colors.white,
-        borderRadius: 15,
-        padding: 4,
-        gap: 4,
-    },
-    periodButton: {
-        flex: 1,
-        height: 34,
-        borderRadius: 12,
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    selectedPeriodButton: {
-        backgroundColor: Colors.yellow,
-    },
-    periodText: {
-        color: Colors.darkGreenText,
-        fontSize: 12,
-    },
-    selectedPeriodText: {
-        color: Colors.brownText,
-    },
-    periodNavigator: {
-        height: 40,
-        borderRadius: 15,
-        backgroundColor: Colors.white,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        paddingHorizontal: 8,
-        gap: 8,
-    },
-    periodArrowButton: {
-        width: 34,
-        height: 32,
-        borderRadius: 999,
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: "#FFCC7D40",
-    },
-    periodArrowText: {
-        color: Colors.brownText,
-        fontSize: 16,
-    },
-    periodLabel: {
-        flex: 1,
-        color: Colors.darkGreenText,
-        fontSize: 13,
-        textAlign: "center",
     },
     summaryBand: {
         backgroundColor: Colors.white,

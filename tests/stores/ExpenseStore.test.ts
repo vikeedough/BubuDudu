@@ -10,6 +10,7 @@ import {
   getExpenseTitleSuggestions,
   sortExpensesNewestFirst,
 } from "@/utils/expenses";
+import * as localDb from "@/utils/offline/local-db";
 import { setIsOnline } from "@/utils/offline/network";
 
 import type { Expense, ExpenseBudget, ExpenseCategory } from "@/api/endpoints/types";
@@ -89,7 +90,7 @@ describe("stores/ExpenseStore", () => {
 
     await useExpenseStore.getState().fetchCategories();
 
-    expect(useExpenseStore.getState().categories).toEqual([CATEGORY_A]);
+    expect(useExpenseStore.getState().categories).toEqual([{ ...CATEGORY_A, icon: "silverware-fork-knife" }]);
     expect(useExpenseStore.getState().isLoadingCategories).toBe(false);
   });
 
@@ -106,6 +107,53 @@ describe("stores/ExpenseStore", () => {
       "Bills",
       "Transport",
     ]);
+  });
+
+  it("persists a selected category icon online and reads it back", async () => {
+    secureStoreUtilsMock.getSpaceId.mockResolvedValue("space-1");
+    const saved = { ...CATEGORY_A, icon: "gift" };
+    queueFromSingle("expense_categories", "insert", { data: saved, error: null });
+    const created = await useExpenseStore.getState().addCategory("Food", CATEGORY_A.color, "gift");
+    expect(created.icon).toBe("gift");
+    const insert = supabaseMock.from.mock.results.find((result) => result.value.insert.mock.calls.length)?.value.insert;
+    expect(insert).toHaveBeenCalledWith(expect.objectContaining({ icon: "gift", color: CATEGORY_A.color }));
+    useExpenseStore.setState({ categories: [] });
+    queueFrom("expense_categories", "select", { data: [saved], error: null });
+    await useExpenseStore.getState().fetchCategories();
+    expect(useExpenseStore.getState().categories[0]).toEqual(saved);
+  });
+
+  it("updates the icon without changing the category colour", async () => {
+    useExpenseStore.setState({ categories: [CATEGORY_A] });
+    queueFrom("expense_categories", "update", { data: null, error: null });
+    await useExpenseStore.getState().updateCategory(CATEGORY_A.id, { name: "Food", color: CATEGORY_A.color, icon: "coffee" });
+    const update = supabaseMock.from.mock.results.find((result) => result.value.update.mock.calls.length)?.value.update;
+    expect(update).toHaveBeenCalledWith({ name: "Food", color: CATEGORY_A.color, icon: "coffee" });
+    expect(useExpenseStore.getState().categories[0]).toMatchObject({ color: CATEGORY_A.color, icon: "coffee" });
+  });
+
+  it("retains icons in offline category insert/update payloads and the SQLite cache", async () => {
+    setIsOnline(false);
+    secureStoreUtilsMock.getSpaceId.mockResolvedValue("space-1");
+    const enqueue = jest.spyOn(localDb, "enqueueOutbox");
+    const db = await localDb.getOfflineDb();
+    const created = await useExpenseStore.getState().addCategory("Custom", CATEGORY_A.color, "gift");
+    await useExpenseStore.getState().updateCategory(created.id, { name: "Custom", color: CATEGORY_A.color, icon: "home" });
+    const payloads = enqueue.mock.calls.map(([item]) => JSON.parse(item.payload_json));
+    expect(payloads[0]).toMatchObject({ icon: "gift", color: CATEGORY_A.color });
+    expect(payloads[1]).toMatchObject({ icon: "home", color: CATEGORY_A.color });
+    const cached = useExpenseStore.getState().categories[0];
+    jest.spyOn(db, "getAllAsync").mockResolvedValueOnce([{ ...cached, is_default: 0 }]);
+    expect(await localDb.getCachedExpenseCategories("space-1")).toEqual([{ ...cached, is_default: false }]);
+    expect(db.runAsync).toHaveBeenCalledWith(expect.stringContaining("name, color, icon"), created.id, "space-1", "user-1", "Custom", CATEGORY_A.color, "home", 0, 0, expect.any(String), expect.any(String), null);
+    expect(supabaseMock.from).not.toHaveBeenCalled();
+  });
+
+  it.each([null, undefined, "invalid-legacy-icon"])("safely reads legacy category icon %s", async (icon) => {
+    secureStoreUtilsMock.getSpaceId.mockResolvedValueOnce("space-1");
+    queueFrom("expense_categories", "select", { data: [{ ...CATEGORY_A, icon }], error: null });
+    await useExpenseStore.getState().fetchCategories();
+    expect(useExpenseStore.getState().categories[0].icon).toBe("silverware-fork-knife");
   });
 
   it("adds an SGD expense online", async () => {
@@ -161,6 +209,17 @@ describe("stores/ExpenseStore", () => {
     await useExpenseStore.getState().deleteExpense("exp-1");
 
     expect(useExpenseStore.getState().expenses).toEqual([]);
+  });
+
+  it("soft deletes a referenced category while preserving historical expense snapshots", async () => {
+    useExpenseStore.setState({ categories: [CATEGORY_A], expenses: [EXPENSE_A as Expense] });
+    queueFrom("expense_categories", "update", { data: null, error: null });
+    await useExpenseStore.getState().deleteCategory(CATEGORY_A.id);
+    expect(useExpenseStore.getState().categories).toEqual([]);
+    expect(useExpenseStore.getState().expenses).toEqual([EXPENSE_A]);
+    const builder = supabaseMock.from.mock.results[0].value;
+    expect(builder.update).toHaveBeenCalledWith({ deleted_at: expect.any(String) });
+    expect(builder.delete).not.toHaveBeenCalled();
   });
 
   it("filters analytics by current user when scope is me", () => {

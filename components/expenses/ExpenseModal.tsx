@@ -1,7 +1,9 @@
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
+    Keyboard,
     KeyboardAvoidingView,
     Modal,
     Platform,
@@ -14,6 +16,7 @@ import {
 import { ScrollView } from "react-native-gesture-handler";
 
 import CustomText from "@/components/CustomText";
+import ExpenseAmountCalculator from "@/components/expenses/ExpenseAmountCalculator";
 import ExpenseDatePicker from "@/components/expenses/ExpenseDatePicker";
 import { Colors } from "@/constants/colors";
 import {
@@ -106,6 +109,7 @@ export default function ExpenseModal({
 }: ExpenseModalProps) {
     const [title, setTitle] = useState("");
     const [amount, setAmount] = useState("");
+    const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
     const [currency, setCurrency] = useState(DEFAULT_EXPENSE_CURRENCY);
     const [categoryId, setCategoryId] = useState("");
     const [paidBy, setPaidBy] = useState("");
@@ -164,6 +168,7 @@ export default function ExpenseModal({
 
         setTitle(expense?.title ?? "");
         setAmount(expense ? String(expense.amount) : "");
+        setIsCalculatorOpen(false);
         setCurrency(expense?.currency ?? DEFAULT_EXPENSE_CURRENCY);
         setCategoryId(expense?.category_id ?? "");
         setPaidBy(expense?.paid_by ?? currentUserId ?? "");
@@ -365,6 +370,61 @@ export default function ExpenseModal({
                             </CustomText>
 
                             <CustomText weight="semibold" style={styles.label}>
+                                Amount
+                            </CustomText>
+                            <View style={styles.amountField}>
+                                <View style={styles.amountRow}>
+                                    <TextInput
+                                        style={[
+                                            styles.input,
+                                            styles.amountInput,
+                                        ]}
+                                        value={amount}
+                                        onChangeText={setAmount}
+                                        placeholder="0.00"
+                                        placeholderTextColor={Colors.gray}
+                                        keyboardType="decimal-pad"
+                                        allowFontScaling={false}
+                                    />
+                                    <TouchableOpacity
+                                        accessibilityRole="button"
+                                        accessibilityLabel={isCalculatorOpen ? "Close calculator" : "Open calculator"}
+                                        accessibilityState={{ expanded: isCalculatorOpen }}
+                                        style={styles.calculatorButton}
+                                        onPress={() => {
+                                            closeDropdowns();
+                                            Keyboard.dismiss();
+                                            setIsCalculatorOpen(!isCalculatorOpen);
+                                        }}
+                                    >
+                                        <MaterialCommunityIcons name="calculator" size={24} color={Colors.brownText} />
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        ref={currencyButtonRef}
+                                        style={styles.currencyDropdownButton}
+                                        onPress={handleToggleCurrencyDropdown}
+                                    >
+                                        <CustomText
+                                            weight="extrabold"
+                                            style={styles.currencyDropdownText}
+                                        >
+                                            {currency}
+                                        </CustomText>
+                                        <CustomText
+                                            weight="semibold"
+                                            style={styles.currencyChevron}
+                                        >
+                                            {isCurrencyDropdownOpen ? "^" : "v"}
+                                        </CustomText>
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+
+                            {isCalculatorOpen && (
+                                <ExpenseAmountCalculator amount={amount} onResult={setAmount} />
+                            )}
+
+                            <CustomText weight="semibold" style={styles.label}>
                                 Title
                             </CustomText>
                             <TextInput
@@ -418,44 +478,6 @@ export default function ExpenseModal({
                                     ))}
                                 </View>
                             ) : null}
-
-                            <CustomText weight="semibold" style={styles.label}>
-                                Amount
-                            </CustomText>
-                            <View style={styles.amountField}>
-                                <View style={styles.amountRow}>
-                                    <TextInput
-                                        style={[
-                                            styles.input,
-                                            styles.amountInput,
-                                        ]}
-                                        value={amount}
-                                        onChangeText={setAmount}
-                                        placeholder="0.00"
-                                        placeholderTextColor={Colors.gray}
-                                        keyboardType="decimal-pad"
-                                        allowFontScaling={false}
-                                    />
-                                    <TouchableOpacity
-                                        ref={currencyButtonRef}
-                                        style={styles.currencyDropdownButton}
-                                        onPress={handleToggleCurrencyDropdown}
-                                    >
-                                        <CustomText
-                                            weight="extrabold"
-                                            style={styles.currencyDropdownText}
-                                        >
-                                            {currency}
-                                        </CustomText>
-                                        <CustomText
-                                            weight="semibold"
-                                            style={styles.currencyChevron}
-                                        >
-                                            {isCurrencyDropdownOpen ? "^" : "v"}
-                                        </CustomText>
-                                    </TouchableOpacity>
-                                </View>
-                            </View>
 
                             <View style={styles.labelRow}>
                                 <CustomText
@@ -765,6 +787,7 @@ export default function ExpenseModal({
 }
 
 const styles = StyleSheet.create({
+    calculatorButton: { width: 44, minHeight: 44, borderRadius: 10, backgroundColor: Colors.yellow, alignItems: "center", justifyContent: "center" },
     overlay: {
         flex: 1,
         backgroundColor: "rgba(0,0,0,0.45)",

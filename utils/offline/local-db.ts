@@ -13,7 +13,7 @@ import type {
 import type { Gallery, GalleryImage } from "@/stores/GalleryStore";
 
 const DB_NAME = "bubududu-offline.db";
-const DB_VERSION = 4;
+const DB_VERSION = 5;
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
@@ -353,7 +353,6 @@ async function migrate(db: SQLite.SQLiteDatabase) {
         CREATE INDEX IF NOT EXISTS sync_outbox_created_idx
             ON sync_outbox (created_at);
 
-        PRAGMA user_version = ${DB_VERSION};
     `);
 
     const expenseColumns = await db.getAllAsync<{ name: string }>(
@@ -374,6 +373,14 @@ async function migrate(db: SQLite.SQLiteDatabase) {
         `CREATE INDEX IF NOT EXISTS expenses_cache_space_paid_by_paid_at_idx
          ON expenses_cache (space_id, paid_by, paid_at)`,
     );
+    const categoryColumns = await db.getAllAsync<{ name: string }>(
+        "PRAGMA table_info(expense_categories_cache)",
+    );
+    if (!categoryColumns.some((column) => column.name === "icon")) {
+        await db.runAsync("ALTER TABLE expense_categories_cache ADD COLUMN icon TEXT");
+    }
+    // Advance only after all upgrades succeed so an interrupted upgrade retries.
+    await db.execAsync(`PRAGMA user_version = ${DB_VERSION};`);
 }
 
 export async function getOfflineDb() {
@@ -798,15 +805,16 @@ export async function upsertCachedExpenseCategory(
     await db.runAsync(
         `INSERT OR REPLACE INTO expense_categories_cache
             (
-                id, space_id, created_by, name, color, sort_order, is_default,
+                id, space_id, created_by, name, color, icon, sort_order, is_default,
                 created_at, updated_at, deleted_at
             )
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         category.id,
         category.space_id,
         category.created_by ?? null,
         category.name,
         category.color,
+        category.icon ?? null,
         category.sort_order ?? 0,
         category.is_default ? 1 : 0,
         category.created_at,

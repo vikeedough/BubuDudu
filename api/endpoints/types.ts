@@ -45,6 +45,7 @@ export interface ExpenseCategory {
     created_by: string | null;
     name: string;
     color: string;
+    icon?: string | null;
     sort_order: number;
     is_default: boolean;
     created_at: string;

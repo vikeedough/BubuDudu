@@ -6,12 +6,15 @@ The expense tracker is an offline-first tab for logging shared-space expenses. I
 
 - The tab appears third in the bottom tab bar, between Gallery and Lists.
 - Expenses can be viewed for both partners together or filtered to expenses paid by the current user from the header scope control. The scope control shows Me on the left and Both on the right, with each option colored from the current user or partner avatar border color.
-- The main view switcher supports Log, Breakdown, and Budget.
+- Controls appear in this order: period navigator, Day/Week/Month selector, Log/Breakdown switcher, then content. Breakdown retains its Year option and its own selected period/date.
+- The main view switcher supports Log and Breakdown. Budget opens in a modal from the floating action menu, above Categories and Add expense.
 - Each expense has an amount, currency, title, category, paid date, and keyed-in creation timestamp.
 - Each expense stores the creator and the payer. The payer can be the current user or partner.
 - The partner payer option is disabled until a partner profile exists in the active space.
 - The payer selector sits at the bottom of the expense form so the entry starts with expense details first. Payer buttons use each person's avatar border color, and the partner option shows the partner's profile name when available.
-- Add expense and category management live in a bottom-right expandable floating action menu. The Budget view keeps a single add-budget floating button.
+- Add expense, category management, and Budget live in the existing bottom-right expandable floating action menu. Budget keeps its month navigation, Me/Both scope, progress rows, automatic previous-month copying, refresh, and add/edit/delete actions inside one modal. Its editor replaces the summary within that modal; Save, Delete, and Cancel return to the summary.
+- The expense form starts with Amount (currency beside it), then Title and the existing remaining fields. A calculator button expands a keypad inline; manual amount entry remains available, and closing/reopening the expense resets the keypad.
+- Calculator keys support digits, decimal, addition, subtraction, multiplication, division, equals, clear, and backspace. The visible expression is evaluated with multiplication/division precedence, without `eval`. Equals writes only the positive finite numeric result into Amount, using the existing four-decimal money precision and at least two displayed decimals. Empty/incomplete expressions, divide-by-zero, zero/negative results, and overflow leave Amount unchanged and show an inline error. Repeated operators replace the last operator, duplicate decimals are ignored, and empty backspace is safe. Expression/visibility state is never persisted.
 - The log opens to the day view by default. When adding an expense from a selected log day, the expense form's date picker starts on that selected day.
 - The expense form date picker is date-only, labels the current day as Today, and stores the selected local day in `paid_at`.
 - The expense form pauses the surrounding modal scroll while a date wheel is active so iOS can settle wheel selections reliably.
@@ -24,7 +27,11 @@ The expense tracker is an offline-first tab for logging shared-space expenses. I
 - Foreign-currency expenses store both the original amount and a converted SGD snapshot.
 - If the app is offline and no cached exchange rate exists, the expense is saved with pending conversion and retried when online.
 - Categories start with Food, Health, Medical, Bills, and Transport.
-- Users can add, rename, and delete categories. Category deletes are soft deletes; historical expenses keep their category label and color snapshot.
+- Categories opens a clean list of icon/colour/name rows sorted case-insensitively by name for display only. Persisted `sort_order` is unchanged. A fixed Add Category button sits below the list; tapping it or a category row opens the shared Add/Edit Category editor. Name, colour, and icon controls appear only in the editor, with Delete Category available only when editing.
+- The category editor and list share one native modal host. The list stays mounted with its scroll position and is hidden/inaccessible while editing. Android back, backdrop, and Cancel dismiss the editor first; Done or back from the list closes Categories. Selection stores the category ID and reads current category props; external removal closes a stale editor. Successful save/delete returns to the updated alphabetical list. Save failures show the existing Category failed alert and keep the draft; controls/dismissal are disabled during a write. Category deletes retain the existing destructive confirmation and soft-delete behavior; historical expenses keep their category label and color snapshot.
+- The category editor uses keyboard avoidance on iOS and Android with one scrolling surface for fields and the icon grid, so no nested scroll gesture competes with the form. Footer actions stay outside the scroll content.
+- The curated MaterialCommunityIcons catalogue contains 112 unique entries covering common spending, family, health, work, travel, hobbies, and finance categories. Each entry has a stable icon key, friendly label, and search keywords. Search is case-insensitive, requires every entered term, prefers complete words, and allows prefixes while typing (for example, `cof`). Tags make searches such as food, plane, game, health, and money useful; `car` avoids unrelated card/care results. The selected tile has a check and colour-aware background/foreground, with a live colour preview independent of icon selection. All existing icon keys and fallbacks remain supported.
+- Category icons use stable MaterialCommunityIcons keys from Expo's existing `@expo/vector-icons` package; no extra dependency is required. Expense rows use the active category icon in a category-coloured container with a contrast-aware foreground. Deleted categories use their stored label/colour and a name-based default icon. The Breakdown pie chart continues using category colours.
 - The log can switch between day, week, and month views and move to previous/next periods, using consistent spacing across the log/breakdown, period, and date controls. The current day is labeled as Today.
 - The log Day/Week/Month selector uses the same yellow selected state as the Breakdown period selector.
 - Expense breakdown can switch between daily, weekly, monthly, and yearly periods and move to previous/next periods. Weeks start on Monday.
@@ -42,7 +49,9 @@ The expense tracker is an offline-first tab for logging shared-space expenses. I
 - `components/expenses/ExpenseDatePicker.tsx`
   Expense-only day wheel that labels the current day as Today.
 - `components/expenses/CategoryManagerModal.tsx`
-  Add, rename, recolor, and delete categories.
+  Alphabetical category list and single native modal host.
+- `components/expenses/CategoryEditorModal.tsx`
+  Shared add/edit dialog with name, colour, searchable icons, and confirmed deletion.
 - `components/expenses/ExpenseRow.tsx`
   Expense log row inspired by the provided sample layout. Shows the partner's profile name for partner-paid expenses when available.
 - `components/expenses/ExpenseBreakdownView.tsx`
@@ -50,7 +59,11 @@ The expense tracker is an offline-first tab for logging shared-space expenses. I
 - `components/expenses/ExpenseBudgetView.tsx`
   Monthly budget summary and category progress rows.
 - `components/expenses/BudgetModal.tsx`
-  Add/edit/delete monthly category budgets.
+  Budget summary and add/edit/delete monthly category budgets in the same native modal.
+- `components/expenses/ExpenseAmountCalculator.tsx` and `utils/expense-calculator.ts`
+  Inline keypad and safe precedence-based arithmetic evaluation.
+- `components/expenses/CategoryIconPicker.tsx` and `utils/expense-category-icons.ts`
+  Inline icon grid, stable supported keys, and deterministic defaults.
 - `stores/ExpenseStore.ts`
   Offline-first state, CRUD actions, category seeding, exchange-rate conversion, and pending conversion retry.
 - `utils/expenses.ts`
@@ -78,6 +91,20 @@ Outbox entities:
 - `expense_budgets`
 
 Expense and category deletes are soft deletes using `deleted_at`.
+
+Category icons are included in SQLite cache rows and insert/update outbox payloads. SQLite schema version 5 adds a nullable `icon TEXT` column to existing installations without discarding cached rows or queued operations; the version advances only after upgrades succeed.
+
+## Category Icon Deployment
+
+Apply `supabase/migrations/20261005000001_expense_category_icons.sql` to the existing backend **before releasing this client**. It adds nullable `public.expense_categories.icon TEXT`; existing RLS, user/space scoping, triggers, and colours are unchanged. There are no tracked generated Supabase types; the local `ExpenseCategory` interface accepts missing/null values for older rows and clients.
+
+No SQL backfill is required. The client resolves missing, null, unsupported, or legacy keys by trimmed case-insensitive category name: Food/Dining, Transport, Shopping, Groceries, Bills/Utilities, Entertainment, Travel, Health/Medical, Education, Gifts, Housing/Rent, and Salary/Income have matching defaults. Unknown categories use `tag-outline`. New/default categories and category edits persist the selected valid key. Old clients can still omit `icon`; clients deployed before the migration cannot persist the new field. Icon choices are restricted to the installed library's supported picker keys, and invalid values never reach the renderer.
+
+Focused validation:
+
+```sh
+npm test -- --runInBand tests/stores/ExpenseStore.test.ts tests/integration/calendar.expenses-ui.test.tsx tests/integration/expenses-ui.test.tsx tests/integration/expense-categories-ui.test.tsx tests/utils/expense-calculator.test.ts tests/utils/expense-category-icons.test.ts
+```
 
 ## Currency Conversion
 
