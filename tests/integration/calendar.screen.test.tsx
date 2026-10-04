@@ -1,11 +1,14 @@
 import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
 import React from "react";
-import { AppState, StyleSheet } from "react-native";
+import { ActivityIndicator, AppState, StyleSheet } from "react-native";
 
 import CalendarScreen from "@/app/(tabs)/(calendar)/calendar";
 import CalendarHeader, { formatCalendarHeaderDate } from "@/components/calendar/CalendarHeader";
+import { monthWindow } from "@/components/calendar/MonthCalendar";
 import CenteredModal from "@/components/common/CenteredModal";
 import FloatingAddButton from "@/components/common/FloatingAddButton";
+import { calendarWindowKey } from "@/stores/CalendarStore";
+import { expandOccurrences } from "@/utils/calendar";
 import { getSpaceId } from "@/utils/secure-store";
 
 import type { CalendarEvent } from "@/types/calendar";
@@ -30,8 +33,8 @@ jest.mock("@/hooks/useCalendarRealtime", () => ({ useCalendarRealtime: jest.fn()
 jest.mock("@/hooks/useCalendarMonthPages", () => ({ useCalendarMonthPages: () => ({}) }));
 jest.mock("@/hooks/usePullToRefresh", () => ({ usePullToRefresh: () => ({ refreshing: false, onRefresh: jest.fn() }) }));
 const mockState = { events: [] as CalendarEvent[], exceptions: [], loading: false, error: null,
-    load: jest.fn(), refresh: jest.fn(), save: jest.fn(), remove: jest.fn(), clear: jest.fn() };
-jest.mock("@/stores/CalendarStore", () => ({ useCalendarStore: () => mockState }));
+    cache: {}, load: jest.fn(), refresh: jest.fn(), save: jest.fn(), remove: jest.fn(), clear: jest.fn() };
+jest.mock("@/stores/CalendarStore", () => ({ ...jest.requireActual("@/stores/CalendarStore"), useCalendarStore: () => mockState }));
 const event: CalendarEvent = {
     id: "event", space_id: "space", created_by: "member", title: "Weekly plan", description: "Hidden description",
     colour: "green", is_all_day: true, start_date: "2026-10-04", end_date: "2026-10-04", starts_at: null, ends_at: null,
@@ -39,7 +42,7 @@ const event: CalendarEvent = {
 };
 beforeEach(() => {
     jest.useFakeTimers(); jest.setSystemTime(new Date("2026-10-03T17:00:00Z"));
-    mockState.events = []; mockState.save.mockReset().mockResolvedValue(undefined); mockState.remove.mockReset().mockResolvedValue(undefined);
+    mockState.events = []; mockState.cache = {}; mockState.loading = false; mockState.save.mockReset().mockResolvedValue(undefined); mockState.remove.mockReset().mockResolvedValue(undefined);
     (getSpaceId as jest.Mock).mockResolvedValue("space");
 });
 it("matches Expenses title/date structure, keeps today's Singapore date on day/month changes, and opens the editor with the shared FAB", async () => {
@@ -126,4 +129,30 @@ it("nonrecurring edit opens directly; delete confirms without a scope chooser", 
     expect(view.queryByText("This event and future events")).toBeNull();
     fireEvent.press(view.getByText("Delete event"));
     await waitFor(() => expect(mockState.remove).toHaveBeenCalledWith(mockState.events[0], undefined));
+});
+it("renders cached grid indicators and selected-day agenda immediately on revisits without a loading spinner", async () => {
+    mockState.loading = true; // The previous active range has not finished loading.
+    const october = { ...event, recurrence_rule: null, start_date: "2026-10-01", end_date: "2026-10-01" };
+    const november = { ...event, id: "november", title: "November plan", recurrence_rule: null, start_date: "2026-11-01", end_date: "2026-11-01" };
+    for (const [month, master] of [["2026-10", october], ["2026-11", november]] as const) {
+        const { from, to } = monthWindow(month);
+        Object.assign(mockState.cache, { [calendarWindowKey("space", from, to)]: {
+            events: [master], exceptions: [], occurrences: expandOccurrences([master], [], from, to), version: 0,
+        } });
+    }
+    const view = render(<CalendarScreen />);
+    await waitFor(() => expect(view.getByLabelText("Add event")).not.toBeDisabled());
+    expect(view.UNSAFE_queryAllByType(ActivityIndicator)).toHaveLength(0);
+    expect(view.getByText("No events planned!")).toBeTruthy();
+    fireEvent.press(view.getByLabelText("2026-10-01, 1 events"));
+    expect(view.getByLabelText("Open Weekly plan")).toBeTruthy();
+    for (const direction of ["Next month", "Previous month", "Next month", "Previous month"]) {
+        fireEvent.press(view.getByLabelText(direction));
+        const isNovember = direction === "Next month";
+        expect(view.getByLabelText(isNovember ? "Open November plan" : "Open Weekly plan")).toBeTruthy();
+        expect(view.getByLabelText(isNovember ? "2026-11-01, 1 events" : "2026-10-01, 1 events").props.accessibilityState.selected).toBe(true);
+        expect(view.UNSAFE_queryAllByType(ActivityIndicator)).toHaveLength(0);
+    }
+    fireEvent.press(view.getByLabelText("Open Weekly plan")); fireEvent.press(view.getByText("Edit")); fireEvent.press(view.getByText("Save"));
+    await waitFor(() => expect(mockState.save).toHaveBeenCalledWith(expect.anything(), october, undefined));
 });

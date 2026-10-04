@@ -4,8 +4,10 @@ import { StyleSheet, type StyleProp, type ViewStyle } from "react-native";
 
 import { fetchCalendar } from "@/api/endpoints/calendar";
 import CalendarScreen from "@/app/(tabs)/(calendar)/calendar";
-import MonthCalendar, { monthSwipeDirection, offsetMonth } from "@/components/calendar/MonthCalendar";
+import MonthCalendar, { monthPageSlot, monthSwipeDirection, monthWindow, offsetMonth } from "@/components/calendar/MonthCalendar";
 import { Colors } from "@/constants/colors";
+import { calendarWindowKey } from "@/stores/CalendarStore";
+import { setIsOnline } from "@/utils/offline/network";
 import { getSpaceId } from "@/utils/secure-store";
 
 import { pagerAnimation } from "../mocks/calendarPager";
@@ -36,8 +38,9 @@ jest.mock("@/hooks/useAuthContext", () => ({ useAuthContext: () => ({ session: {
 jest.mock("@/hooks/useCalendarRealtime", () => ({ useCalendarRealtime: jest.fn() }));
 jest.mock("@/hooks/usePullToRefresh", () => ({ usePullToRefresh: () => ({ refreshing: false, onRefresh: jest.fn() }) }));
 jest.mock("@/api/endpoints/calendar", () => ({ fetchCalendar: jest.fn().mockResolvedValue({ events: [], exceptions: [] }) }));
-const mockState = { events: [] as CalendarEvent[], exceptions: [], loading: false, error: null, load: jest.fn(), refresh: jest.fn(), save: jest.fn(), remove: jest.fn(), clear: jest.fn() };
-jest.mock("@/stores/CalendarStore", () => ({ useCalendarStore: () => mockState }));
+const mockState = { events: [] as CalendarEvent[], exceptions: [], loading: false, error: null, cache: {}, cacheVersion: 0, prefetch: jest.fn().mockResolvedValue(undefined), load: jest.fn(), refresh: jest.fn(), save: jest.fn(), remove: jest.fn(), clear: jest.fn() };
+const mockUseCalendarStore = jest.fn();
+jest.mock("@/stores/CalendarStore", () => ({ ...jest.requireActual("@/stores/CalendarStore"), useCalendarStore: () => mockUseCalendarStore() }));
 const event: CalendarEvent = {
     id: "one", space_id: "space", created_by: "member", created_at: "", updated_at: "", deleted_at: null,
     title: "Plan", description: null, colour: "green", is_all_day: true, start_date: "2026-10-05", end_date: "2026-10-05",
@@ -50,7 +53,7 @@ function drag(x: number, y = 0, velocityX = 0, success = true) {
     const e = { translationX: x, translationY: y, velocityX };
     act(() => { mockHandlers.start!(); mockHandlers.update!(e); mockHandlers.end!(e, success); mockHandlers.finalize!(); });
 }
-beforeEach(() => { pagerAnimation.reset(); mockState.events = []; mockState.load.mockClear(); });
+beforeEach(() => { pagerAnimation.reset(); mockState.events = []; mockState.load.mockClear(); mockUseCalendarStore.mockReturnValue(mockState); });
 it("prepares three equal-width clipped 42-day grids, preserving indicators and year boundaries", () => {
     const occurrence: CalendarOccurrence = { ...event, event_id: event.id, key: "one:2026-10-05", original_date: "2026-10-05", is_exception: false };
     const nextOccurrence: CalendarOccurrence = { ...occurrence, key: "next:2026-11-15", event_id: "next", original_date: "2026-11-15", start_date: "2026-11-15", end_date: "2026-11-15", colour: "pink" };
@@ -136,6 +139,87 @@ it("ignores stale completion after external navigation, resize or unmount", () =
     drag(-160); measure(view, 400); act(() => pagerAnimation.finish()); expect(onMonth).not.toHaveBeenCalled();
     expect(pagerAnimation.style().transform[0].translateX).toBe(-400);
     drag(-200); view.unmount(); act(() => pagerAnimation.finish()); expect(onMonth).not.toHaveBeenCalled();
+});
+it.each(["swipe", "arrow"])("%s handoff retains the destination page and its pixels through delayed JS/UI commits", async (input) => {
+    jest.useFakeTimers(); jest.setSystemTime(new Date("2026-10-05T01:00:00Z")); setIsOnline(true);
+    (getSpaceId as jest.Mock).mockResolvedValue("space");
+    const realStore = jest.requireActual<typeof import("@/stores/CalendarStore")>("@/stores/CalendarStore").useCalendarStore;
+    realStore.getState().clear(); mockUseCalendarStore.mockImplementation(realStore);
+    const october = { ...event, id: "october", title: "October first", start_date: "2026-10-01", end_date: "2026-10-01" };
+    const november = { ...event, id: "november", title: "November first", start_date: "2026-11-01", end_date: "2026-11-01" };
+    const fetchMock = fetchCalendar as jest.Mock;
+    fetchMock.mockClear().mockResolvedValue({ events: [event, october, november], exceptions: [] });
+    const rendered: { month: string; selected: string }[] = [];
+    let view: ReturnType<typeof render> | undefined;
+    view = render(<React.Profiler id="calendar" onRender={() => {
+        if (view) {
+            const { month, selected } = view.UNSAFE_getByType(MonthCalendar).props;
+            rendered.push({ month, selected });
+        }
+    }}><CalendarScreen /></React.Profiler>);
+    const screen = view;
+    const window = monthWindow("2026-11");
+    await waitFor(() => expect(realStore.getState().cache[calendarWindowKey("space", window.from, window.to)]).toBeDefined());
+    measure(screen);
+    expect(screen.getByLabelText("Open Plan")).toBeTruthy();
+    expect(fetchMock).toHaveBeenCalledTimes(3); // Current and both neighbors.
+    const destination = screen.getByTestId("calendar-month-page-2026-11", { includeHiddenElements: true });
+    const position = (month: string) => {
+        const slot = screen.getByTestId(`calendar-page-slot-${month}`, { includeHiddenElements: true });
+        return monthPageSlot(month) * 320 + StyleSheet.flatten(slot.props.style).transform[0].translateX + pagerAnimation.style().transform[0].translateX;
+    };
+    expect(within(destination).getByLabelText("2026-11-01, 1 events", { includeHiddenElements: true }).props.accessibilityState.selected).toBe(true);
+    pagerAnimation.deferJS = true;
+    if (input === "swipe") drag(-160);
+    else fireEvent.press(screen.getByLabelText("Next month"));
+    act(() => pagerAnimation.finish());
+    expect(pagerAnimation.jsQueue).toHaveLength(1);
+    expect(position("2026-11")).toBe(0);
+    expect(screen.UNSAFE_getByType(MonthCalendar).props).toMatchObject({ month: "2026-10", selected: "2026-10-05" });
+    pagerAnimation.deferUI = true;
+    act(() => pagerAnimation.flushJS());
+    expect(screen.UNSAFE_getByType(MonthCalendar).props).toMatchObject({ month: "2026-11", selected: "2026-11-01" });
+    expect(screen.getByText("Sunday, 1 November")).toBeTruthy();
+    expect(screen.getByLabelText("Open November first")).toBeTruthy();
+    expect(screen.queryByLabelText("Open Plan")).toBeNull();
+    expect(screen.getByTestId("calendar-month-page-2026-11")).toBe(destination);
+    expect(position("2026-11")).toBe(0); // React committed, reset has not run.
+    expect(pagerAnimation.style().transform[0].translateX).toBe(-640);
+    expect(screen.getByTestId("calendar-month-page-2026-12", { includeHiddenElements: true })).toBeTruthy();
+    expect(screen.queryByTestId("calendar-month-page-2026-09", { includeHiddenElements: true })).toBeNull();
+    act(() => pagerAnimation.flushUI());
+    expect(position("2026-11")).toBe(0);
+    expect(pagerAnimation.style().transform[0].translateX).toBe(-320);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4)); // Newly needed December only.
+    const december = monthWindow("2026-12");
+    expect(fetchMock).toHaveBeenLastCalledWith("space", december.from, december.to);
+    const calls = fetchMock.mock.calls.length;
+    pagerAnimation.deferUI = false;
+    if (input === "swipe") drag(160);
+    else fireEvent.press(screen.getByLabelText("Previous month"));
+    act(() => pagerAnimation.finish());
+    expect(position("2026-10")).toBe(0);
+    const returning = screen.getByTestId("calendar-month-page-2026-10", { includeHiddenElements: true });
+    expect(within(returning).getByLabelText("2026-10-01, 1 events", { includeHiddenElements: true }).props.accessibilityState.selected).toBe(true);
+    pagerAnimation.deferUI = true;
+    act(() => pagerAnimation.flushJS());
+    expect(screen.UNSAFE_getByType(MonthCalendar).props).toMatchObject({ month: "2026-10", selected: "2026-10-01" });
+    expect(screen.getByText("Thursday, 1 October")).toBeTruthy();
+    expect(screen.getByLabelText("Open October first")).toBeTruthy();
+    expect(position("2026-10")).toBe(0);
+    expect(screen.getByTestId("calendar-month-page-2026-10")).toBe(returning);
+    act(() => pagerAnimation.flushUI());
+    expect(position("2026-10")).toBe(0);
+    expect(fetchMock).toHaveBeenCalledTimes(calls);
+    expect(rendered.some((state) => state.month === "2026-11")).toBe(true);
+    expect(rendered.every((state) => state.selected.startsWith(state.month))).toBe(true);
+    expect(rendered.filter((state) => state.month === "2026-11").every((state) => state.selected === "2026-11-01")).toBe(true);
+    pagerAnimation.deferUI = false;
+    drag(-30); act(() => pagerAnimation.finish());
+    expect(screen.UNSAFE_getByType(MonthCalendar).props).toMatchObject({ month: "2026-10", selected: "2026-10-01" });
+    expect(screen.getByLabelText("Open October first")).toBeTruthy();
+    expect(fetchMock).toHaveBeenCalledTimes(calls);
+    screen.unmount(); realStore.getState().clear(); jest.useRealTimers();
 });
 it.each([
     [-90, 0, 0, 320, 1], [90, 0, 0, 320, -1], [-20, 0, -640, 320, 1], [20, 0, 640, 320, -1],
