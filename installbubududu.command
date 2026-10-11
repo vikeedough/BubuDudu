@@ -44,6 +44,7 @@ if ! git remote get-url origin >/dev/null 2>&1; then
 fi
 
 # Fetch explicitly into origin/main, independent of configured fetch mappings.
+git stash
 git fetch origin refs/heads/main:refs/remotes/origin/main
 
 WORKTREE_STATUS="$(git status --porcelain --untracked-files=all)"
