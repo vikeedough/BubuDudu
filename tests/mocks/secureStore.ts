@@ -2,6 +2,7 @@ export const secureStoreUtilsMock = {
   getSpaceId: jest.fn<Promise<string | null>, []>(),
   setSpaceId: jest.fn<Promise<void>, [string]>(),
   deleteSpaceId: jest.fn<Promise<void>, []>(),
+  subscribeToSpaceId: jest.fn(() => jest.fn()),
 };
 
 export function resetSecureStoreUtilsMock() {

@@ -9,9 +9,15 @@
         "types/**/*.d.ts",
         "types/calendar.ts",
         "utils/calendar.ts",
+        "widgets/calendar/**/*.ts",
+        "widgets/calendar/**/*.tsx",
+        "modules/calendar-widget/index.ts",
+        "providers/calendar-widget-provider.tsx",
+        "app/calendar-widget.tsx",
         "tests/**/*calendar*.test.ts",
         "tests/**/*calendar*.test.tsx",
         "tests/stores/CalendarStore.test.ts",
-        "tests/hooks/useCalendarRealtime.test.ts"
+        "tests/hooks/useCalendarRealtime.test.ts",
+        "tests/hooks/useCalendarWidgetProvider.test.tsx"
     ]
 }

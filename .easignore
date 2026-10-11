@@ -1,0 +1,29 @@
+# Keep in step with .gitignore. EAS uses this file instead of .gitignore.
+node_modules/
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Generate native projects from config/plugins in EAS, as the local iOS
+# installer already does. This is required to create the widget extension.
+/android/
+/ios/
+modules/calendar-widget/android/build/
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+.metro-health-check*
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+coverage/
+.DS_Store
+*.pem
+.env*.local
+*.tsbuildinfo
+app-example

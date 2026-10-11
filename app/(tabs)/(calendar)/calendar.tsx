@@ -1,3 +1,4 @@
+import { useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, TouchableOpacity } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -5,49 +6,56 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import CalendarEventDetails from "@/components/calendar/CalendarEventDetails";
 import CalendarEventModal from "@/components/calendar/CalendarEventModal";
 import CalendarHeader from "@/components/calendar/CalendarHeader";
+import CalendarHolidayDetails from "@/components/calendar/CalendarHolidayDetails";
 import MonthCalendar, { monthWindow, offsetMonth } from "@/components/calendar/MonthCalendar";
 import FloatingAddButton from "@/components/common/FloatingAddButton";
 import CustomText from "@/components/CustomText";
 import { Colors } from "@/constants/colors";
 import { shadowStyle } from "@/constants/shadows";
+import { isCalendarDate } from "@/data/singaporePublicHolidays";
 import { useAuthContext } from "@/hooks/useAuthContext";
 import { useCalendarMonthPages } from "@/hooks/useCalendarMonthPages";
-import { useCalendarRealtime } from "@/hooks/useCalendarRealtime";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { calendarWindowKey, useCalendarStore } from "@/stores/CalendarStore";
 import { dateInSingapore, expandOccurrences, occurrenceEnd, occurrenceStart, timeInSingapore } from "@/utils/calendar";
+import { calendarDisplayItems, displayItemsOnDate } from "@/utils/calendar-display";
 import { getSpaceId } from "@/utils/secure-store";
 
+import type { SingaporePublicHoliday } from "@/data/singaporePublicHolidays";
 import type { CalendarEvent, CalendarOccurrence, CalendarScope } from "@/types/calendar";
 
 export default function CalendarScreen() {
     const { session } = useAuthContext();
     const userId = session?.user.id;
+    const { date: linkedDate } = useLocalSearchParams<{ date?: string }>();
     const [spaceId, setSpaceId] = useState<string | null>(null);
     const [{ selected, month }, setCalendarDate] = useState(() => {
         const selected = dateInSingapore();
         return { selected, month: selected.slice(0, 7) };
     });
     const [detail, setDetail] = useState<CalendarOccurrence | null>(null);
+    const [holidayDetail, setHolidayDetail] = useState<SingaporePublicHoliday | null>(null);
     const [action, setAction] = useState<"edit" | "delete" | null>(null);
     const [editor, setEditor] = useState<{ event?: CalendarEvent; occurrence?: CalendarOccurrence; scope?: CalendarScope } | null>(null);
     const [busy, setBusy] = useState(false);
     const [actionError, setActionError] = useState<string | null>(null);
+    useEffect(() => {
+        if (typeof linkedDate === "string" && isCalendarDate(linkedDate)) setCalendarDate({ selected: linkedDate, month: linkedDate.slice(0, 7) });
+    }, [linkedDate]);
     const { events, exceptions, cache, loading, error, load, refresh, save, remove, clear } = useCalendarStore();
     const { from, to } = monthWindow(month);
     const cached = spaceId ? cache?.[calendarWindowKey(spaceId, from, to)] : undefined;
     useEffect(() => {
         let active = true;
-        clear(); setSpaceId(null); setDetail(null); setEditor(null);
+        clear(); setSpaceId(null); setDetail(null); setHolidayDetail(null); setEditor(null);
         if (userId) void getSpaceId().then((id) => { if (active) setSpaceId(id); });
         return () => { active = false; clear(); };
     }, [userId, clear]);
     useEffect(() => { if (spaceId) void load(spaceId, from, to); }, [spaceId, from, to, load]);
-    useCalendarRealtime(spaceId);
     const { refreshing, onRefresh } = usePullToRefresh(refresh);
     const occurrences = useMemo(() => cached?.occurrences ?? expandOccurrences(events, exceptions, from, to), [cached, events, exceptions, from, to]);
     const adjacentOccurrences = useCalendarMonthPages(spaceId, month);
-    const agenda = occurrences.filter((e) => occurrenceStart(e) <= selected && occurrenceEnd(e) >= selected);
+    const agenda = displayItemsOnDate(calendarDisplayItems(occurrences, from, to), selected);
     const changeMonth = useCallback((offset: number) => {
         setCalendarDate((current) => {
             const month = offsetMonth(current.month, offset);
@@ -78,13 +86,17 @@ export default function CalendarScreen() {
             <CustomText weight="bold" style={styles.agendaTitle}>{new Date(selected + "T00:00:00Z").toLocaleDateString("en-SG", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" })}</CustomText>
             {loading && !cached && <ActivityIndicator color={Colors.darkGreenText} />}
             {(!loading || !!cached) && !error && agenda.length === 0 && <CustomText style={styles.subtitle}>No events planned!</CustomText>}
-            {agenda.map((event) => <TouchableOpacity key={event.key} accessibilityLabel={`Open ${event.title}`} onPress={() => { setDetail(event); setAction(null); setActionError(null); }} style={[styles.event, { borderLeftColor: Colors[event.colour] }]}>
-                <CustomText weight="bold" style={styles.eventTitle}>{event.title}</CustomText>
-                <CustomText style={styles.subtitle}>{event.is_all_day ? "All day" : `${timeInSingapore(event.starts_at!)} – ${timeInSingapore(event.ends_at!)}`}{event.recurrence_rule ? " · Repeats" : ""}</CustomText>
-                {occurrenceStart(event) !== occurrenceEnd(event) && <CustomText style={styles.subtitle}>{occurrenceStart(event)} – {occurrenceEnd(event)}</CustomText>}
-            </TouchableOpacity>)}
+            {agenda.map((item) => {
+                const event = item.kind === "event" ? item.occurrence : null;
+                return <TouchableOpacity key={item.key} accessibilityLabel={`Open ${item.title}`} onPress={() => { if (item.kind === "holiday") setHolidayDetail(item.holiday); else setDetail(item.occurrence); setAction(null); setActionError(null); }} style={[styles.event, { borderLeftColor: Colors[item.colour] }]}>
+                    <CustomText weight="bold" style={styles.eventTitle}>{item.title}</CustomText>
+                    <CustomText style={styles.subtitle}>{event ? (event.is_all_day ? "All day" : `${timeInSingapore(event.starts_at!)} – ${timeInSingapore(event.ends_at!)}`) + (event.recurrence_rule ? " · Repeats" : "") : "Public holiday · All day"}</CustomText>
+                    {event && occurrenceStart(event) !== occurrenceEnd(event) && <CustomText style={styles.subtitle}>{occurrenceStart(event)} – {occurrenceEnd(event)}</CustomText>}
+                </TouchableOpacity>;
+            })}
         </ScrollView>
         <FloatingAddButton accessibilityLabel="Add event" disabled={!spaceId} onPress={() => setEditor({})} />
+        {holidayDetail && <CalendarHolidayDetails holiday={holidayDetail} onClose={() => setHolidayDetail(null)} />}
         {editor && <CalendarEventModal initial={editor.occurrence ?? editor.event} date={selected} single={editor.scope === "this"} onClose={() => setEditor(null)} onSave={(draft) => editor.scope === "future" ? save(draft, editor.event, editor.occurrence, "future") : save(draft, editor.event, editor.occurrence)} />}
         {detail && <CalendarEventDetails occurrence={detail} action={action} busy={busy} error={actionError}
             onAction={(next) => { if (next === "edit" && !detail.recurrence_rule) void act("all", true); else setAction(next); }}

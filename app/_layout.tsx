@@ -5,6 +5,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import { ToastRoot } from "@/components/toast/ToastRoot";
 import AuthProvider from "@/providers/auth-provider";
+import CalendarWidgetProvider from "@/providers/calendar-widget-provider";
 import { OfflineProvider } from "@/providers/offline-provider";
 
 export default function RootLayout() {
@@ -36,6 +37,7 @@ export default function RootLayout() {
         <GestureHandlerRootView style={{ flex: 1 }}>
             <OfflineProvider>
                 <AuthProvider>
+                    <CalendarWidgetProvider />
                     <Stack screenOptions={{ headerShown: false }}>
                         <Stack.Screen
                             name="index"

@@ -1,11 +1,15 @@
+import { PropsWithChildren, useCallback, useEffect, useState } from "react";
+
 import { supabase } from "@/api/clients/supabaseClient";
 import { Profile } from "@/api/endpoints/types";
 import { AuthContext } from "@/hooks/useAuthContext";
+import { useCalendarStore } from "@/stores/CalendarStore";
 import { getCachedProfile, upsertCachedProfile } from "@/utils/offline/local-db";
 import { getIsOnline } from "@/utils/offline/network";
 import { getSpaceId } from "@/utils/secure-store";
+import { clearWidgetPrivateData, reportWidgetError } from "@/widgets/calendar/sync";
+
 import type { Session } from "@supabase/supabase-js";
-import { PropsWithChildren, useCallback, useEffect, useState } from "react";
 
 export default function AuthProvider({ children }: PropsWithChildren) {
     const [session, setSession] = useState<Session | null>(null);
@@ -14,6 +18,16 @@ export default function AuthProvider({ children }: PropsWithChildren) {
 
     // Fetch session and subscribe to auth changes
     useEffect(() => {
+        let currentUserId: string | null = null;
+        const acceptSession = (next: Session | null) => {
+            const nextUserId = next?.user.id ?? null;
+            if (nextUserId !== currentUserId || !next) {
+                useCalendarStore.getState().clear();
+                if (currentUserId || !next) void clearWidgetPrivateData().catch(reportWidgetError);
+            }
+            currentUserId = nextUserId;
+            setSession(next);
+        };
         const fetchSession = async () => {
             setIsLoading(true);
 
@@ -26,7 +40,7 @@ export default function AuthProvider({ children }: PropsWithChildren) {
                 console.error("Error fetching session:", error.message);
             }
 
-            setSession(session);
+            acceptSession(session);
             setIsLoading(false);
         };
 
@@ -35,7 +49,7 @@ export default function AuthProvider({ children }: PropsWithChildren) {
         const {
             data: { subscription },
         } = supabase.auth.onAuthStateChange((_event, session) => {
-            setSession(session);
+            acceptSession(session);
         });
 
         return () => {

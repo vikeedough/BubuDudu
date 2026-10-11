@@ -45,6 +45,32 @@ beforeEach(() => {
     mockState.events = []; mockState.cache = {}; mockState.loading = false; mockState.save.mockReset().mockResolvedValue(undefined); mockState.remove.mockReset().mockResolvedValue(undefined);
     (getSpaceId as jest.Mock).mockResolvedValue("space");
 });
+it("shows a holiday indicator and agenda beside user events, with white read-only details", async () => {
+    jest.setSystemTime(new Date("2026-08-09T00:00:00+08:00"));
+    mockState.events = [{ ...event, title: "Our plan", start_date: "2026-08-09", end_date: "2026-08-09", recurrence_rule: null }];
+    const view = render(<CalendarScreen />);
+    await waitFor(() => expect(view.getByLabelText("Add event")).not.toBeDisabled());
+    expect(view.getByLabelText("2026-08-09, 2 events")).toBeTruthy();
+    expect(view.getByLabelText("Open Our plan")).toBeTruthy();
+    expect(view.getByText("Public holiday · All day")).toBeTruthy();
+    fireEvent.press(view.getByLabelText("Open National Day"));
+    expect(view.getByText("Singapore Public Holiday")).toBeTruthy();
+    expect(view.queryByText("Edit")).toBeNull(); expect(view.queryByText("Delete")).toBeNull();
+    expect(view.queryByText("Repeat")).toBeNull(); expect(view.queryByText("Reminder")).toBeNull();
+    expect(view.queryByText("Description")).toBeNull();
+    expect(StyleSheet.flatten(view.UNSAFE_getByType(CenteredModal).props.containerStyle).backgroundColor).toBe("#fff");
+    fireEvent.press(view.getByLabelText("Dismiss event details"));
+    expect(view.queryByText("Singapore Public Holiday")).toBeNull();
+});
+it("labels MOM's observed replacement in the selected-day agenda", async () => {
+    jest.setSystemTime(new Date("2026-08-10T00:00:00+08:00"));
+    const view = render(<CalendarScreen />);
+    await waitFor(() => expect(view.getByLabelText("Add event")).not.toBeDisabled());
+    expect(view.getByText("National Day (Observed)")).toBeTruthy();
+    fireEvent.press(view.getByLabelText("Open National Day (Observed)"));
+    expect(view.getAllByText("Monday, 10th August 2026")).toHaveLength(2);
+    expect(view.queryByText("Edit")).toBeNull();
+});
 it("matches Expenses title/date structure, keeps today's Singapore date on day/month changes, and opens the editor with the shared FAB", async () => {
     const view = render(<CalendarScreen />);
     await waitFor(() => expect(view.getByLabelText("Add event")).not.toBeDisabled());

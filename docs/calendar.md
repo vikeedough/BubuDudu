@@ -15,12 +15,14 @@ Calendar colours are semantic keys into `constants/colors.ts`, not user-entered 
 - `app/(tabs)/(calendar)/calendar.tsx`: fourth tab, month navigation, a 42-day grid, selected-day agenda, event detail, and edit/delete scope selection.
 - `components/calendar/`: month grid, Singapore-today header and compact event editor using CustomText, the existing Expenses date wheel, shared time wheels, CenteredModal and ModalActionButtons, colour tokens, radii, and shadows.
 - `api/endpoints/calendar.ts`: paginated Supabase queries and writes. `stores/CalendarStore.ts`: Zustand session window cache, loading/errors, stale-request protection, and mutations.
-- `hooks/useCalendarRealtime.ts`: space-filtered subscriptions on both Calendar tables. Refresh on subscription/reconnection, app foreground, network recovery, and pull-to-refresh. Auth cleanup clears the store and removes subscriptions.
+- `hooks/useCalendarRealtime.ts`: space-filtered subscriptions on both Calendar tables, now mounted once for the authenticated app by `CalendarWidgetProvider`. Refresh on subscription/reconnection, app foreground, network recovery, and pull-to-refresh. Auth cleanup clears the store and removes subscriptions.
 - `supabase/functions/_shared/calendar.ts`: dependency-free types, validation, Singapore date arithmetic, RRULE expansion and digest selection, shared by Expo and Deno. `types/calendar.ts` and `utils/calendar.ts` expose it to the app.
 
 `CalendarEvent` is the persisted master. `CalendarOccurrence` is derived for a date range after exceptions. A day may show multiple occurrences of a long recurring event; these are distinct logical occurrences, not duplicate rows. All-day end dates are inclusive; timed ends are exclusive. Timed events always need an end later than the start.
 
 Calendar V1 uses `Asia/Singapore` throughout (including when the device is abroad). Timezone is stored and constrained. It is online-writeable; there is no Calendar outbox or persistent offline cache. Existing features' offline behaviour is unchanged. Failed writes keep the editor open. Valid cached windows can be revisited offline without a request. Uncached/stale windows need a connection; failed refreshes retain cached content and show an explicit connection message.
+
+Widgets additionally persist a minimal rendered snapshot, described below. This is not a persistent Calendar master cache or outbox.
 
 The Calendar header follows Expenses spacing/type and shows today's Singapore date as `Sunday, 4th October 2026`, independent of the selected day; it updates at Singapore midnight and on app foreground. The same shared `FloatingAddButton` drives Calendar's direct add action and Expenses' existing budget/menu controls. Empty days say `No events planned!`.
 
@@ -256,3 +258,185 @@ git diff --check
 Physical-device verification is required to confirm absence of a single-frame native rendering jitter; the tests exercise state/worklet order, not Fabric's native frame scheduling. Verify slow swipes, quick flicks, arrow navigation, snap-back and repeated Oct → Nov → Oct on Android, watching the destination's first-day highlight and agenda at the final settling frame. No backend deployment is required.
 
 Validation: 104 targeted Jest tests in six suites passed, including both delayed swipe/arrow handoffs and the existing cache regression suite. Calendar scoped TypeScript, scoped ESLint and `git diff --check` passed. No physical-device verification was performed.
+
+## Singapore public holidays (2026–2027)
+
+Official source: [Singapore Ministry of Manpower public holidays](https://www.mom.gov.sg/employment-practices/public-holidays), verified 5 October 2026. `data/singaporePublicHolidays.ts` checks in 26 records with source metadata: date, name, optional `observedFor`, and `source: "MOM"`. These include only the replacement days MOM explicitly lists, with `(Observed)` in their titles. MOM describes the Sunday replacements as public holidays when the employee's rest day falls on that Sunday; these are shown as requested system Calendar dates, not individualized employment entitlements.
+
+| Date | Holiday |
+| --- | --- |
+| 2026-01-01 | New Year's Day |
+| 2026-02-17 | Chinese New Year |
+| 2026-02-18 | Chinese New Year |
+| 2026-03-21 | Hari Raya Puasa |
+| 2026-04-03 | Good Friday |
+| 2026-05-01 | Labour Day |
+| 2026-05-27 | Hari Raya Haji |
+| 2026-05-31 | Vesak Day |
+| 2026-06-01 | Vesak Day (Observed), for 31 May |
+| 2026-08-09 | National Day |
+| 2026-08-10 | National Day (Observed), for 9 August |
+| 2026-11-08 | Deepavali |
+| 2026-11-09 | Deepavali (Observed), for 8 November |
+| 2026-12-25 | Christmas Day |
+| 2027-01-01 | New Year's Day |
+| 2027-02-06 | Chinese New Year |
+| 2027-02-07 | Chinese New Year |
+| 2027-02-08 | Chinese New Year (Observed), for 7 February |
+| 2027-03-10 | Hari Raya Puasa |
+| 2027-03-26 | Good Friday |
+| 2027-05-01 | Labour Day |
+| 2027-05-17 | Hari Raya Haji |
+| 2027-05-20 | Vesak Day |
+| 2027-08-09 | National Day |
+| 2027-10-28 | Deepavali |
+| 2027-12-25 | Christmas Day |
+
+`getSingaporePublicHolidays(startDate, endDate)` is inclusive and validates both date bounds. `utils/calendar-display.ts` wraps user occurrences and holidays in a discriminated display union. Persisted `CalendarEvent`, recurrence expansion, Supabase writes, RLS and server/digest types stay unchanged. The month renderer merges holidays independently for all three prepared pages, so holidays are visible even before a neighbor fetch succeeds. Selected-day agenda items show `Public holiday · All day`; `CalendarHolidayDetails` uses the existing white `CenteredModal`, dismissible via backdrop/Android Back, with just title, human-readable date and `Singapore Public Holiday`. It has no edit/delete, recurrence, reminder or description controls. Holidays consistently use `Colors.orange`; user-event colours are retained.
+
+Holiday data is app-only. It produces no database rows, realtime messages, exceptions, reminders or Telegram digest entries. User events and holidays can coexist on a date. Runtime Calendar availability never depends on MOM's website.
+
+### Annual maintenance
+
+MOM publishes the next year's public holidays annually. When a new year is published:
+
+1. Verify every date/name and explicitly listed replacement against MOM's official page; check any later announced corrections. Do not derive additional Mondays from Saturdays or Sundays.
+2. Add the year to `singaporePublicHolidays` and `singaporeHolidaySource.years`; update `verifiedOn` and the coverage table above. Link the original date through `observedFor` for each listed replacement and label it `(Observed)`.
+3. Add the exact expected dates to `tests/utils/calendar-holidays.test.ts`, and update the expected total. Preserve validation that every record is a real `YYYY-MM-DD` date, names are nonempty, date/name pairs are unique, and observed dates map to the correct originals. Add a year-boundary widget test if needed.
+4. Run the holiday/widget/Calendar tests and both native builds, then release a native app update. Widget snapshots copy the checked-in holidays; users must open the updated app to publish the new dataset to an existing widget. No backend migration or runtime scraping is needed.
+
+## Home-screen Calendar widget
+
+### Investigated native baseline and compatibility
+
+Installed Expo **54.0.30**, React Native **0.81.5**, React **19.1.0**, Expo Router **6.0.21**, new architecture enabled. `package.json` requests Expo `^54.0.30` and RN `0.81.5`; this change does not upgrade the SDK. Identifiers remain:
+
+| Variant | Scheme | Android/iOS application ID | WidgetKit extension | App Group |
+| --- | --- | --- | --- | --- |
+| Prod | bubududu | com.vikeedough.bubududu | com.vikeedough.bubududu.calendarwidget | group.com.vikeedough.bubududu.calendar |
+| Dev | bubududu-dev | com.vikeedough.bubududu.dev | com.vikeedough.bubududu.dev.calendarwidget | group.com.vikeedough.bubududu.dev.calendar |
+
+The repository includes native project snapshots (Android is also ignored for new files), while `installbubududu.command` already uses `expo prebuild --clean`. Config/plugins and the local module are the source for widgets; generated-native churn is not part of this change. New npm pre-run hooks apply non-clean, platform-specific prebuild before the Android/iOS run scripts. `.easignore` carries the existing ignore rules and excludes both root native folders from EAS archives so cloud builds run prebuild and receive the widget target. It retains `modules/calendar-widget/android/` and `modules/calendar-widget/ios/` source. See [Expo's .easignore/prebuild documentation](https://docs.expo.dev/build-reference/easignore/).
+
+Official [`expo-widgets`](https://docs.expo.dev/versions/v55.0.0/sdk/widgets/) begins with SDK 55 and is not bundled in SDK 54. Rather than upgrading the whole app, iOS uses a small local Expo module plus SwiftUI/WidgetKit config plugin. Android uses pinned **react-native-android-widget 0.22.1**, whose published peer dependency is Expo `>=54.0.0`. Pinned **expo-modules-core 3.0.29** makes the existing SDK-54 native module bridge dependency explicit; this was already the installed transitive version. The local Android module depends on **androidx.work:work-runtime-ktx 2.10.1** for Singapore midnight scheduling. No background Supabase task/push infrastructure was present or added.
+
+### Shared data and refresh architecture
+
+`widgets/calendar/snapshot.ts` is a pure, platform-neutral builder. It takes already expanded user occurrences, the static holiday dataset and a Singapore date. It normalizes user occurrences to bounded per-day items (including clipped multi-day times), merges/deduplicates holidays, then sorts all-day first and timed entries chronologically. Coming up sorts by date then the same day ordering, for the next 14 days. The snapshot contains `generatedAt`, `singaporeDate`, a human-readable date, a 42-day Sunday-first month grid, semantic indicator colours, Today and Coming up. No widget renderer reads CalendarStore, uses React hooks for data, or performs Supabase/network work.
+
+`CalendarWidgetProvider` mounts under auth across all tabs. It uses `CalendarStore.prefetch` for the current month grid through the following month's end plus seven days (roughly 66–75 days), well within the existing bounded RPC limit. It does not set the store's active pager range or fetch all history. It watches the relevant cache entry and generation; initial successful fetches, cache updates, CRUD/exception/split/truncate invalidations and realtime event/exception changes rebuild the snapshot. The existing realtime hook is now mounted once by this provider, retaining its reconnection/foreground/network-recovery triggers and filters. Session/sign-in, active-space changes and Singapore midnight also schedule synchronization. Serialization, cache-generation checks and widget ownership tickets reject outdated responses/publications. Failed refreshes keep the last synchronized native snapshot; no privileged background network client is introduced.
+
+Snapshot layouts:
+
+- Small: today's date; up to two items; `No events planned!` when empty.
+- Medium: compact month grid with today highlighted and semantic event/holiday dots, beside a short Today list.
+- Large: larger grid, short Today and Coming up lists (one each on iOS; Android expands to two as height permits).
+- Signed out/no valid snapshot: `Open BubuDudu to view your calendar` with no private event content.
+
+Widgets use the existing cream `backgroundPink`, olive `darkGreenText`, warm `brownText`, semantic Calendar colours, rounded treatment and bundled Raleway fonts. Titles/time labels truncate when space is tight. Android adapts by width/height; iOS supports `systemSmall`, `systemMedium` and `systemLarge`.
+
+### iOS implementation and rollover
+
+`plugins/with-calendar-widget.js` generates an embedded `BubuDuduCalendarWidget` target with sources from `widgets/calendar/ios/CalendarWidget.swift`, palette constants generated from `constants/colors.ts`, Raleway regular/bold resources, App Group entitlements, WidgetKit/SwiftUI frameworks and signing settings. It configures EAS's extension metadata so the extension and App Group can be provisioned. Host and extension share a variant-specific App Group. `modules/calendar-widget/ios/CalendarWidgetModule.swift` atomically writes the minimal JSON payload and asks WidgetKit to reload its timeline. Widget code has no Expo JS runtime, auth session, Supabase client or asynchronous network queries.
+
+The JS builder supplies the current snapshot plus **34 future Singapore-midnight entries**. The WidgetKit provider consumes those snapshots and schedules 35 entries from now, using `Asia/Singapore` regardless of device timezone. After that horizon the provider reconstructs advancing date/month grids and Today/Coming up from the same minimal cached per-day items and holiday dataset. It requests another timeline after the final interval. This continues date rollover without opening the main app; events beyond the synchronized bounded range are unknown and require app synchronization. WidgetKit controls actual reload timing; a saved timeline supplies scheduled midnight changes, not permanent realtime access.
+
+### Android implementation and rollover
+
+The package's Expo plugin registers the resizable widget receiver/XML and Raleway fonts. The custom `index.ts` retains `expo-router/entry` and registers the widget task **only on Android**. `CalendarWidget.android.tsx` renders through RemoteViews primitives. `android-task.tsx` handles add/update/resize using only the stored minimal data and the pure builder; it computes the current Singapore date at task time, independent of the saved timeline date. The app explicitly redraws existing instances after snapshot writes, reading current storage at render time and serializing redraws across ownership changes.
+
+The plugin requests a 30-minute update period. The local module additionally schedules a one-time WorkManager update for the next Singapore midnight, sends the supported app-widget update broadcast, and the headless task schedules the next midnight after rendering. WorkManager survives ordinary process death; Android Doze, OEM battery policies or a user force-stop can defer/suppress background work. Exact midnight delivery is not guaranteed by Android. App foreground/reconnect and the launcher periodic refresh recover it using the correct date. No exact-alarm permission or background cloud query is needed.
+
+Add the widget manually by long-pressing the Android launcher, choosing Widgets → BubuDudu Calendar and resizing. On iOS, long-press Home Screen → Add Widget → BubuDudu Calendar → choose size. Android 0.22.1 has `requestPinWidget`; this implementation documents manual addition and never forces a pin dialog on startup.
+
+### Taps, auth and privacy
+
+The whole widget links to `bubududu://calendar-widget` (or `bubududu-dev://calendar-widget`). The native module supplies the built application's URL from generated Android resources/iOS Info.plist, including before the first snapshot, so a dev widget never accidentally targets prod due to Metro's runtime config. `app/calendar-widget.tsx` waits for auth, redirects signed-out users to login and signed-in users to the Calendar tab. Item/grid links add validated `?date=YYYY-MM-DD`; Calendar selects that date/month. Event taps select their date rather than automatically opening an event details modal. The same routing works for holiday links. Invalid dates are ignored. iOS small widgets have one whole-widget tap target; row/day Links are supplied in medium/large families.
+
+Only the minimal rendered items/holiday data, date/month/timeline metadata and a Calendar URL cross the bridge. Descriptions, recurrence masters/rules, exceptions, reminder settings, account IDs, Supabase URLs/credentials and auth/session tokens are excluded. The account/space ownership marker lives separately in app-only AsyncStorage. Android atomically stores payload JSON in `Context.noBackupFilesDir`; iOS atomically stores it in the App Group container with backup exclusion, preventing old widget payload restoration by device backups. Dev/prod storage is separate.
+
+The sign-out button clears private widget data before signing out, and the auth lifecycle also clears on logout/account replacement and clears the Calendar cache. Ownership generation increments synchronously; queued/stale publishers cannot restore a prior account's events. The native file becomes a signed-out payload and Android redraws/WidgetKit reloads are requested. System launchers/WidgetKit may briefly display their already-rendered cached image until they process the reload; the app cannot synchronously force OS-owned pixels to disappear. Same-account cold startup retains its last synchronized snapshot until refresh succeeds; a different owner starts with a safe empty state.
+
+### Freshness limitation
+
+If the app is fully terminated and the partner creates/edits/deletes an event, the widget may not reflect it until the main app next synchronizes. Native/headless updates roll dates from **known cached data only**. They never query Supabase. Known items outside the bounded synchronized range are unavailable; static holidays continue within the checked-in years. There is no promise of realtime or unlimited future recurrence expansion. iOS refreshes are OS-budgeted, Android background updates can be delayed, and an Android force-stop requires reopening the app. Development clients rely on Metro for headless JS; use preview/production builds for killed-app/offline Android widget QA. Expo Go is unsupported for widgets.
+
+### Native rebuild commands
+
+Android development (PowerShell; JDK 17 and the SDK/NDK installed):
+
+```powershell
+npm ci
+# Only if the shell's ANDROID_HOME does not already point at the SDK directory:
+$env:ANDROID_HOME = 'C:\Users\David\AppData\Local\Android\Sdk'
+npm run prebuild:android:dev
+Push-Location android
+.\gradlew.bat :app:assembleDebug -PreactNativeArchitectures=arm64-v8a --console=plain
+Pop-Location
+# Installs on a selected connected device; pre-run hook reapplies config:
+npm run android:dev
+```
+
+Android production/preview: `npm run prebuild:android:prod`, then `npm run android:prod` for a local device, or `npx eas-cli build --platform android --profile preview` / `--profile production` for a cloud native build. A bundled preview/production build is needed for reliable killed-app headless updates. EAS generates native projects via `.easignore`. No cloud build/upload was run for this task.
+
+iOS requires macOS, Xcode, CocoaPods, an Apple developer team and App Group capability/provisioning for the selected host/extension identifiers:
+
+```sh
+npm ci
+npm run prebuild:ios:prod
+npx pod-install
+npm run ios:prod -- --device --configuration Release
+# Development alternative:
+npm run prebuild:ios:dev
+npx pod-install
+npm run ios:dev -- --device
+```
+
+For a clean native rebuild using the existing installer workflow: `npx cross-env APP_VARIANT=prod expo prebuild --clean --platform ios`, then `npx cross-env APP_VARIANT=prod expo run:ios --device --configuration Release`. The existing `installbubududu.command` remains valid. In Xcode, open the generated `.xcworkspace`, verify both host and `BubuDuduCalendarWidget` target use your team and their matching App Group capability, then build/archive the **host app scheme**; the extension is a target dependency and embedded product. If using EAS: `npx eas-cli build --platform ios --profile development` or `--profile production`. The plugin exposes extension provisioning metadata; register/allow the selected App Group if prompted by Apple/EAS. These signing/build steps were not executed on this Windows host.
+
+### Validation and physical-device checklist
+
+Automated commands:
+
+```sh
+npm test -- --runInBand
+npx tsc --noEmit -p tsconfig.calendar.json
+npm run validate:widgets:ios
+npx expo export --platform android --platform ios --output-dir .expo/calendar-widget-bundles
+npx --yes deno test supabase/functions/_shared/calendar.test.ts supabase/functions/calendar-digest/digest.test.ts supabase/functions/expense-report/report.test.ts
+git diff --check
+```
+
+`scripts/validate-ios-calendar-widget.cjs` runs Expo's actual config mod compiler in an ignored isolated copy, twice for each dev/prod variant. It asserts target uniqueness, source/resource/framework references, host dependency and extension embedding, signing settings, App Group metadata, font files and supported families. This checks native configuration generation on Windows; it does **not** compile Swift, run CocoaPods or verify rendering. Expo's CLI refuses iOS prebuild on Windows, so use macOS for a real iOS build.
+
+Validation on 5 October 2026: **483 Jest tests in 46 suites passed**; **32 Deno Calendar/digest/Finance tests passed** with mocked sends; Calendar/widget TypeScript passed; both Android/iOS production Hermes JavaScript exports succeeded; iOS mod generation/graph validation passed for dev and prod; Android dev prebuild and `:app:assembleDebug` with arm64 succeeded (552 tasks), including the Kotlin module and widget library. Full-repository `tsc --noEmit` still reports existing Deno/import-extension errors and a `usePullToRefresh` test typing error; the scoped app check excludes those unrelated contexts. No real Telegram message, Supabase migration, SQL regression run, cloud build, deployment or physical widget rendering occurred.
+
+Physical QA still required on **both platforms**:
+
+1. Build/install a native preview/prod app; add all three sizes (resize on Android) and inspect fonts, truncation, dots, today highlight, cream/olive palette and rounded treatment.
+2. Verify empty signed-in state, holidays alone, holiday + user event on one date, observed holiday labels and read-only holiday details, dismissible via backdrop/Android Back.
+3. Tap the widget background, each row and day cell. Check cold/warm Calendar navigation, selected date/month, signed-out login routing and each dev/prod scheme.
+4. Create/edit/delete events and each recurring this/future/all scope; change/move/cancel exceptions. Confirm widget updates while pager behavior, agenda, colours and Finance stay correct.
+5. Receive a partner change while app is running, reconnect after airplane mode and foreground the app after a missed remote change. Check single realtime subscription cleanup on sign-out.
+6. Seed upcoming data, terminate the app normally, cross Singapore midnight and month/year boundaries (including a holiday), and verify date, Today and grid advance with known data. Test with the device in another timezone; test Android Doze/OEM battery restrictions and recovery after force-stop. Use preview/prod, not a Metro-dependent dev client.
+7. Sign out while a fetch/redraw is pending, verify private titles disappear after the OS processes the reload, then sign into another account/space and test offline cold start. Check a different account never receives the prior account's snapshot.
+8. On iOS verify App Group and extension provisioning for each variant, successful Xcode compilation/archive, and timeline continuation after the saved 35-day horizon. On Android verify update scheduling after reboot/process death and resizing across small/medium/large thresholds.
+
+Telegram digest, Finance behavior, recurrence rules/ends/exceptions, shared CRUD, Calendar RLS and cron schedules remain unchanged. No server code or schema change is part of this feature.
+
+### Changed file inventory
+
+The feature changes 46 source/config/test/documentation files. Native prebuild outputs used for validation are excluded; the checked-in Android/iOS project snapshots have no feature diff.
+
+| Area | Files (repository-relative) |
+| --- | --- |
+| Build/test configuration | `.gitignore`, `.easignore`, `app.config.js`, `package.json`, `package-lock.json`, `index.ts`, `jest.config.js`, `tsconfig.calendar.json` |
+| Routes | `app/_layout.tsx`, `app/calendar-widget.tsx`, `app/(tabs)/(calendar)/calendar.tsx` |
+| UI | `components/calendar/MonthCalendar.tsx`, `components/calendar/CalendarHolidayDetails.tsx`, `components/auth/sign-out-button.tsx` |
+| Data/helpers | `data/singaporePublicHolidays.ts`, `utils/calendar-display.ts`, `utils/secure-store.ts` |
+| Lifecycle | `providers/auth-provider.tsx`, `providers/calendar-widget-provider.tsx` |
+| Widget | `widgets/calendar/snapshot.ts`, `widgets/calendar/sync.ts`, `widgets/calendar/CalendarWidget.android.tsx`, `widgets/calendar/android-task.tsx`, `widgets/calendar/refresh.android.tsx`, `widgets/calendar/refresh.ts`, `widgets/calendar/ios/CalendarWidget.swift` |
+| Local native module | `modules/calendar-widget/.gitignore`, `modules/calendar-widget/package.json`, `modules/calendar-widget/index.ts`, `modules/calendar-widget/expo-module.config.json`, `modules/calendar-widget/android/build.gradle`, `modules/calendar-widget/android/src/main/AndroidManifest.xml`, `modules/calendar-widget/android/src/main/java/expo/modules/calendarwidget/CalendarWidgetModule.kt`, `modules/calendar-widget/ios/CalendarWidgetModule.swift`, `modules/calendar-widget/ios/BubuDuduCalendarWidget.podspec` |
+| Native generation/validation | `plugins/with-calendar-widget.js`, `scripts/validate-ios-calendar-widget.cjs` |
+| Tests | `tests/helpers/calendar.ts`, `tests/hooks/useCalendarWidgetProvider.test.tsx`, `tests/integration/calendar.widget-android.test.tsx`, `tests/utils/calendar-holidays.test.ts`, `tests/utils/calendar-widget.test.ts`, `tests/utils/calendar-widget-sync.test.ts`, `tests/integration/calendar.screen.test.tsx`, `tests/mocks/secureStore.ts` |
+| Documentation | `docs/calendar.md` |

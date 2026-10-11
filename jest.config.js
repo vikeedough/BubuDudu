@@ -3,6 +3,7 @@ module.exports = {
   preset: "jest-expo",
   testMatch: ["<rootDir>/tests/**/*.test.ts", "<rootDir>/tests/**/*.test.tsx"],
   setupFilesAfterEnv: ["<rootDir>/jest.setup.ts"],
+  modulePathIgnorePatterns: ["<rootDir>/.expo/"],
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/$1",
     "\\.svg$": "<rootDir>/tests/mocks/svgMock.ts",

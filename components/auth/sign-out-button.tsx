@@ -10,6 +10,7 @@ import CustomText from "@/components/CustomText";
 import { Colors } from "@/constants/colors";
 import { clearOfflineData } from "@/utils/offline/local-db";
 import { deleteSpaceId } from "@/utils/secure-store";
+import { clearWidgetPrivateData } from "@/widgets/calendar/sync";
 
 interface SignOutButtonProps {
     style?: StyleProp<ViewStyle>;
@@ -17,6 +18,7 @@ interface SignOutButtonProps {
 
 export default function SignOutButton({ style }: SignOutButtonProps) {
     const handleSignOut = async () => {
+        await clearWidgetPrivateData();
         const { error } = await supabase.auth.signOut();
         await clearOfflineData();
         await deleteSpaceId();

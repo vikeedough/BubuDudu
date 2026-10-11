@@ -5,7 +5,8 @@ import Animated, { cancelAnimation, Easing, runOnJS, runOnUI, useAnimatedStyle, 
 
 import CustomText from "@/components/CustomText";
 import { Colors } from "@/constants/colors";
-import { addDays, dateInSingapore, occurrenceEnd, occurrenceStart } from "@/utils/calendar";
+import { addDays, dateInSingapore } from "@/utils/calendar";
+import { calendarDisplayItems, displayItemsOnDate } from "@/utils/calendar-display";
 
 import type { CalendarOccurrence } from "@/types/calendar";
 import type { ReactNode } from "react";
@@ -135,7 +136,8 @@ function MonthPage({ month, selected, occurrences, loading, onSelect, onMonth }:
     month: string; selected: string; occurrences: CalendarOccurrence[]; loading?: boolean;
     onSelect: (date: string) => void; onMonth: (offset: number) => void;
 }) {
-    const { from } = monthWindow(month);
+    const { from, to } = monthWindow(month);
+    const items = calendarDisplayItems(occurrences, from, to);
     const title = new Date(month + "-01T00:00:00Z").toLocaleDateString("en-SG", { month: "long", year: "numeric", timeZone: "UTC" });
     return <View testID={`calendar-month-page-${month}`} style={styles.container}>
         <View style={styles.heading}>
@@ -147,7 +149,7 @@ function MonthPage({ month, selected, occurrences, loading, onSelect, onMonth }:
         <View style={styles.grid}>{["S", "M", "T", "W", "T", "F", "S"].map((day, i) => <View key={i} style={styles.weekday}><CustomText style={styles.muted}>{day}</CustomText></View>)}</View>
         <View style={styles.grid}>{Array.from({ length: 42 }, (_, index) => {
             const date = addDays(from, index);
-            const events = occurrences.filter((e) => occurrenceStart(e) <= date && occurrenceEnd(e) >= date);
+            const events = displayItemsOnDate(items, date);
             const active = date === selected;
             return <TouchableOpacity key={date} accessibilityRole="button" accessibilityLabel={`${date}, ${events.length} events`} accessibilityState={{ selected: active }}
                 onPress={() => onSelect(date)} style={[styles.day, active && styles.selected, date === dateInSingapore() && styles.today]}>
