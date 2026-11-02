@@ -1,13 +1,18 @@
+import { PropsWithChildren, useCallback, useEffect, useRef, useState } from "react";
+
 import { supabase } from "@/api/clients/supabaseClient";
 import { Profile } from "@/api/endpoints/types";
 import { AuthContext } from "@/hooks/useAuthContext";
+import { useGalleryStore } from "@/stores/GalleryStore";
 import { getCachedProfile, upsertCachedProfile } from "@/utils/offline/local-db";
 import { getIsOnline } from "@/utils/offline/network";
 import { getSpaceId } from "@/utils/secure-store";
+
 import type { Session } from "@supabase/supabase-js";
-import { PropsWithChildren, useCallback, useEffect, useState } from "react";
+
 
 export default function AuthProvider({ children }: PropsWithChildren) {
+    const galleryAccountRef = useRef<string | null>(null);
     const [session, setSession] = useState<Session | null>(null);
     const [profile, setProfile] = useState<Profile | null>(null);
     const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -26,6 +31,8 @@ export default function AuthProvider({ children }: PropsWithChildren) {
                 console.error("Error fetching session:", error.message);
             }
 
+            if (galleryAccountRef.current !== (session?.user.id ?? null)) useGalleryStore.getState().clear();
+            galleryAccountRef.current = session?.user.id ?? null;
             setSession(session);
             setIsLoading(false);
         };
@@ -35,6 +42,8 @@ export default function AuthProvider({ children }: PropsWithChildren) {
         const {
             data: { subscription },
         } = supabase.auth.onAuthStateChange((_event, session) => {
+            if (galleryAccountRef.current !== (session?.user.id ?? null)) useGalleryStore.getState().clear();
+            galleryAccountRef.current = session?.user.id ?? null;
             setSession(session);
         });
 

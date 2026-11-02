@@ -66,9 +66,12 @@ jest.mock("expo-file-system", () => {
   class File {
     uri: string;
 
-    constructor(uri: string) {
-      this.uri = uri;
+    exists = true;
+    constructor(...uris: (string | { uri: string })[]) {
+      this.uri = uris.map((part) => typeof part === "string" ? part : part.uri).join("/");
     }
+    delete() { this.exists = false; }
+    async arrayBuffer() { return new Uint8Array([102, 97, 107, 101]).buffer; }
 
     static async downloadFileAsync() {
       return { uri: "/tmp/downloaded.jpg" };

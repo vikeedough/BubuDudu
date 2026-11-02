@@ -469,6 +469,8 @@ Notes:
 
 ### `galleries`
 
+R2 implementation (2026-10-31, deployment not assumed): see [gallery-storage.md](gallery-storage.md). The additive migration adds `storage_deleting`; backend lifecycle operations serialize on this row. Historical introspection below must be reverified before deployment.
+
 Purpose:
 
 - Stores gallery/date metadata and cover image references.
@@ -511,6 +513,8 @@ Notes:
 
 ### `date_images`
 
+R2 migration adds constrained `storage_provider` (supabase/r2, existing/default supabase), `storage_state` (pending/ready/deleting), revision, upload deadline and expected upload metadata. Restrictive read policy hides non-ready rows. Definer triggers prevent client lifecycle/provider forgery and R2 deletion cascades. A service-only RPC handles transitions; `gallery_storage_tombstones` preserves cleanup keys beyond gallery deletion. New grid fields alias orig (zero extra grid bytes); existing three-file rows remain unchanged. See [gallery-storage.md](gallery-storage.md).
+
 Purpose:
 
 - Stores one row per gallery image and the storage paths/metadata for all generated variants.
@@ -542,7 +546,7 @@ Code paths:
 Notes:
 
 - Images are paginated with page size 20 by `created_at` and `id`.
-- The app inserts a row first, uploads variants to Storage, then updates the row with paths and metadata.
+- New uploads initialize a server-managed pending R2 row, PUT two objects, then HEAD-verify/finalize. Historical Supabase rows retain their original paths.
 - Live indexes exist for `gallery_id` and `(gallery_id, created_at desc, id desc)`.
 - Live RLS allows gallery space members to select, insert, update, and delete image rows.
 - Live foreign keys cascade image rows when a gallery is deleted, but the app still deletes image rows explicitly so it can clean up Storage objects.
@@ -595,7 +599,7 @@ Behavior:
 
 - The app does not use public URLs for gallery images.
 - It requests signed URLs with a one-hour TTL.
-- Signed URLs are cached locally for offline reading, but may expire.
+- Existing Supabase URLs remain supported. New objects use private R2; provider-aware signing returns one-hour URLs with expiry and account scope. See gallery-storage.md for refresh and cache behavior.
 
 Live verification:
 
@@ -656,75 +660,15 @@ Migration:
 
 ## Edge Functions
 
-### `sign-gallery-urls`
+### Gallery Edge Functions
 
-File:
+All five require POST plus a verified user JWT (OPTIONS supports browser CORS), membership and validated relationships. Source/deployment sequence and manual secrets are in [gallery-storage.md](gallery-storage.md).
 
-- `supabase/functions/sign-gallery-urls/index.ts`
-
-Input:
-
-```json
-{
-  "galleryId": "uuid",
-  "imageIds": ["uuid"]
-}
-```
-
-Behavior:
-
-- Requires POST and Authorization header.
-- Creates a user-scoped Supabase client with the anon key and caller JWT.
-- Reads matching `date_images` rows for the gallery through RLS.
-- Signs thumb, grid, and original storage paths in `gallery-private`.
-- Returns a map keyed by image id with `url_thumb`, `url_grid`, and `url_orig`.
-
-### `sign-gallery-cover-urls`
-
-File:
-
-- `supabase/functions/sign-gallery-cover-urls/index.ts`
-
-Input:
-
-```json
-{
-  "paths": ["spaces/.../thumb.jpg"]
-}
-```
-
-Behavior:
-
-- Requires POST and Authorization header.
-- Accepts up to 200 unique paths.
-- Validates every path with the expected cover-thumb path regex.
-- Signs each path in `gallery-private`.
-- Returns a map of storage path to signed URL.
-
-### `delete-gallery`
-
-File:
-
-- `supabase/functions/delete-gallery/index.ts`
-
-Input:
-
-```json
-{
-  "galleryId": "uuid"
-}
-```
-
-Behavior:
-
-- Requires POST and Authorization header.
-- Creates a user-scoped Supabase client with the anon key and caller JWT.
-- Checks the gallery exists through RLS.
-- Reads all image storage paths.
-- Removes storage objects in chunks of 100.
-- Deletes `date_images` rows.
-- Deletes the `galleries` row.
-- Returns structured success/failure metadata.
+- `sign-gallery-urls`: `{galleryId,imageIds}`; signs only ready, authorized rows using Supabase or R2, returns prior URL fields plus expiry/cache scope.
+- `sign-gallery-cover-urls`: `{paths}`; resolves paths through authorized gallery/ready image records before signing. Keeps the path-to-URL map.
+- `gallery-upload`: initialize/finalize/abort/cleanup; server-derived keys, short-lived direct PUTs, HEAD verification, retryable state and cleanup receipts.
+- `delete-gallery-images`: `{galleryId,imageIds}`; single/batch provider-aware deletion, retained keys on failure, transactional cover replacement.
+- `delete-gallery`: `{galleryId}`; blocks uploads, cleans all objects, then deletes metadata/parent; idempotent and retryable. No client fallback.
 
 ### `expense-report`
 
@@ -771,8 +715,8 @@ Database:
 
 Version:
 
-- `PRAGMA user_version = 5`
-- Version 5 adds nullable `icon TEXT` to `expense_categories_cache`, preserving existing rows and outbox operations.
+- `PRAGMA user_version = 6`
+- Version 6 adds gallery account scope, URL expiry and image provider. Unscoped gallery caches are discarded; all unrelated offline data/outbox is preserved. Version 5 category icons remain unchanged.
 
 Tables:
 

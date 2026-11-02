@@ -1,8 +1,9 @@
 import { FlashList } from "@shopify/flash-list";
 import React, { useCallback, useMemo } from "react";
-import { ActivityIndicator, StyleSheet, View } from "react-native";
+import { ActivityIndicator, StyleSheet, TouchableOpacity, View } from "react-native";
 
 import { Colors } from "@/constants/colors";
+import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { GalleryImage } from "@/stores/GalleryStore";
 
 import CustomText from "../CustomText";
@@ -10,6 +11,10 @@ import CustomText from "../CustomText";
 import GalleryImageItem from "./GalleryImageItem";
 
 interface GalleryImageGridProps {
+    bottomInset?: number;
+    error?: string | null;
+    isOnline?: boolean;
+    onRefresh?: () => Promise<unknown>;
     images: GalleryImage[];
     isLoadingInitial: boolean;
     isLoadingMore: boolean;
@@ -23,6 +28,7 @@ interface GalleryImageGridProps {
 }
 
 type GalleryImageRow = (GalleryImage | null)[];
+const noRefresh = () => undefined;
 
 // Helper function to group pictures into pairs (rows of 2)
 const groupIntoRows = (images: GalleryImage[]): GalleryImageRow[] => {
@@ -36,6 +42,7 @@ const groupIntoRows = (images: GalleryImage[]): GalleryImageRow[] => {
 
 const GalleryImageGrid: React.FC<GalleryImageGridProps> = ({
     images,
+    bottomInset = 0,
     isLoadingInitial,
     isLoadingMore,
     hasMore,
@@ -45,7 +52,16 @@ const GalleryImageGrid: React.FC<GalleryImageGridProps> = ({
     onImagePress,
     onImageLongPress,
     onImageSelect,
+    error = null,
+    isOnline = true,
+    onRefresh,
 }) => {
+    const { refreshing, onRefresh: refresh } = usePullToRefresh(onRefresh ?? noRefresh);
+    const retry = isOnline && onRefresh ? (
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Retry loading photos" onPress={refresh} disabled={refreshing || isLoadingInitial} style={styles.retry}>
+            <CustomText weight="semibold" style={styles.emptyText}>Retry</CustomText>
+        </TouchableOpacity>
+    ) : null;
     const rows = useMemo(() => groupIntoRows(images), [images]);
     const renderSeparator = useCallback(
         () => <View style={styles.separator} />,
@@ -97,7 +113,7 @@ const GalleryImageGrid: React.FC<GalleryImageGridProps> = ({
         ],
     );
 
-    if (isLoadingInitial) {
+    if (isLoadingInitial && images.length === 0) {
         return (
             <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color={Colors.lightBlue} />
@@ -107,20 +123,26 @@ const GalleryImageGrid: React.FC<GalleryImageGridProps> = ({
 
     return (
         <View style={styles.flatListContainer}>
+            {!isOnline && <CustomText style={styles.notice}>Offline. Only photos already cached on this device may open.</CustomText>}
+            {error && images.length > 0 && <View accessibilityRole="alert" style={styles.notice}><CustomText style={styles.emptyText}>{error}</CustomText>{retry}</View>}
             <FlashList
+                contentContainerStyle={{ paddingBottom: bottomInset }}
                 data={rows}
                 renderItem={renderRow}
                 ItemSeparatorComponent={renderSeparator}
                 onEndReached={handleEndReached}
                 onEndReachedThreshold={0.5}
+                refreshing={refreshing}
+                onRefresh={isOnline && onRefresh ? refresh : undefined}
                 ListEmptyComponent={
                     <View style={styles.emptyState}>
                         <CustomText weight="bold" style={styles.emptyTitle}>
-                            No photos here yet
+                            {error ? "Photos could not load" : !isOnline ? "No cached photos" : "No photos here yet"}
                         </CustomText>
                         <CustomText weight="medium" style={styles.emptyText}>
-                            Tap plus to add photos.
+                            {error ?? (!isOnline ? "Open this gallery online to load photos." : "Tap plus to add photos.")}
                         </CustomText>
+                        {error ? retry : null}
                     </View>
                 }
                 ListFooterComponent={renderFooter}
@@ -130,6 +152,8 @@ const GalleryImageGrid: React.FC<GalleryImageGridProps> = ({
 };
 
 const styles = StyleSheet.create({
+    notice: { paddingVertical: 8, color: Colors.darkGreenText, fontSize: 12 },
+    retry: { padding: 12, backgroundColor: Colors.yellow, borderRadius: 10, alignSelf: "center" },
     flatListContainer: {
         flex: 1,
     },

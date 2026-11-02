@@ -1,0 +1,188 @@
+{
+  "version": "5",
+  "specifiers": {
+    "npm:@electric-sql/pglite@0.3.14": "0.3.14",
+    "npm:@supabase/server@1.9.2": "1.9.2_@supabase+supabase-js@2.49.10",
+    "npm:@supabase/supabase-js@2.49.10": "2.49.10",
+    "npm:aws4fetch@1.0.20": "1.0.20"
+  },
+  "npm": {
+    "@electric-sql/pglite@0.3.14": {
+      "integrity": "sha512-3DB258dhqdsArOI1fIt7cb9RpUOgcDg5hXWVgVHAeqVQ/qxtFy605QKs4gx6mFq3jWsSPqDN8TgSEsqC3OfV9Q=="
+    },
+    "@supabase/auth-js@2.69.1": {
+      "integrity": "sha512-FILtt5WjCNzmReeRLq5wRs3iShwmnWgBvxHfqapC/VoljJl+W8hDAyFmf1NVw3zH+ZjZ05AKxiKxVeb0HNWRMQ==",
+      "dependencies": [
+        "@supabase/node-fetch"
+      ]
+    },
+    "@supabase/functions-js@2.4.4": {
+      "integrity": "sha512-WL2p6r4AXNGwop7iwvul2BvOtuJ1YQy8EbOd0dhG1oN1q8el/BIRSFCFnWAMM/vJJlHWLi4ad22sKbKr9mvjoA==",
+      "dependencies": [
+        "@supabase/node-fetch"
+      ]
+    },
+    "@supabase/middleware@1.0.0": {
+      "integrity": "sha512-ecA+z/o5E9sB+quuupGt8d7QjrnD4BBwZr+Qthm0uj6CtL/+yvAUTDlknhGuTbUidvx5CxBHJ1R3H96UjDpgyg==",
+      "dependencies": [
+        "std-env"
+      ]
+    },
+    "@supabase/node-fetch@2.6.15": {
+      "integrity": "sha512-1ibVeYUacxWYi9i0cf5efil6adJ9WRyZBLivgjs+AUpewx1F3xPi7gLgaASI2SmIQxPoCEjAsLAzKPgMJVgOUQ==",
+      "dependencies": [
+        "whatwg-url"
+      ]
+    },
+    "@supabase/postgrest-js@1.19.4": {
+      "integrity": "sha512-O4soKqKtZIW3olqmbXXbKugUtByD2jPa8kL2m2c1oozAO11uCcGrRhkZL0kVxjBLrXHE0mdSkFsMj7jDSfyNpw==",
+      "dependencies": [
+        "@supabase/node-fetch"
+      ]
+    },
+    "@supabase/realtime-js@2.11.10": {
+      "integrity": "sha512-SJKVa7EejnuyfImrbzx+HaD9i6T784khuw1zP+MBD7BmJYChegGxYigPzkKX8CK8nGuDntmeSD3fvriaH0EGZA==",
+      "dependencies": [
+        "@supabase/node-fetch",
+        "@types/phoenix",
+        "@types/ws",
+        "ws"
+      ]
+    },
+    "@supabase/server@1.9.2_@supabase+supabase-js@2.49.10": {
+      "integrity": "sha512-zkvU157ivZ268Ffs+2aEaYvavfchZ8IiB/Rt5tW4JTfew2JeX0TN46Do3XD5U8ganGhfAJr3BUsMHswY56+iLA==",
+      "dependencies": [
+        "@supabase/middleware",
+        "@supabase/supabase-js",
+        "jose"
+      ]
+    },
+    "@supabase/storage-js@2.7.1": {
+      "integrity": "sha512-asYHcyDR1fKqrMpytAS1zjyEfvxuOIp1CIXX7ji4lHHcJKqyk+sLl/Vxgm4sN6u8zvuUtae9e4kDxQP2qrwWBA==",
+      "dependencies": [
+        "@supabase/node-fetch"
+      ]
+    },
+    "@supabase/supabase-js@2.49.10": {
+      "integrity": "sha512-IRPcIdncuhD2m1eZ2Fkg0S1fq9SXlHfmAetBxPN66kVFtTucR8b01xKuVmKqcIJokB17umMf1bmqyS8yboXGsw==",
+      "dependencies": [
+        "@supabase/auth-js",
+        "@supabase/functions-js",
+        "@supabase/node-fetch",
+        "@supabase/postgrest-js",
+        "@supabase/realtime-js",
+        "@supabase/storage-js"
+      ]
+    },
+    "@types/node@26.6.6": {
+      "integrity": "sha512-MzQj+8Kx3XI40OmUAE6Qoh58ZMNstNNMwn2nfd3qWsfe7nDNSqJNzes4njhz6AHwrSHOffSLwXU6yb474Q4aog==",
+      "dependencies": [
+        "undici-types"
+      ]
+    },
+    "@types/phoenix@1.6.8": {
+      "integrity": "sha512-8uBiGk2kDk+e0/9eq8CWuDG5VLrS50roV4doR3xn21/EL8olbWSi2TBNa/CFJS00VLOuawH/UGQQsn+2W8tNrA=="
+    },
+    "@types/ws@8.18.2": {
+      "integrity": "sha512-67MQl+fpWKVTT1NYdnmo3U4sc/xPo/zQBncVnI74qmQa0z/b+1g6iYqNmGCPbxO+zz2aklb08a0oHfegiVd0/w==",
+      "dependencies": [
+        "@types/node"
+      ]
+    },
+    "aws4fetch@1.0.20": {
+      "integrity": "sha512-/djoAN709iY65ETD6LKCtyyEI04XIBP5xVvfmNxsEP0uJB5tyaGBztSryRr4HqMStr9R06PisQE7m9zDTXKu6g=="
+    },
+    "jose@6.2.14": {
+      "integrity": "sha512-3JasLuki1NRLQvY4wCoC37KZk4qxoBx2k2aFqLxT84IezqW0bkJKnNtxnZj/Fu1xsQivoc/lytxaRHJoGLjJ1A=="
+    },
+    "std-env@4.3.0": {
+      "integrity": "sha512-OtU/EgQ1kIm5KwqQpBC6ZEMXrZRui11w8zgfTWp8cdO9B8OaPsbA8bTHO2P+HNo1VlUTGMVBwPhydu6poeXiag=="
+    },
+    "tr46@0.0.3": {
+      "integrity": "sha512-N3WMsuqV66lT30CrXNbEjx4GEwlow3v6rr4mCcv6prnfwhS01rkgyFdjPNBYd9br7LpXV1+Emh01fHnq2Gdgrw=="
+    },
+    "undici-types@8.9.0": {
+      "integrity": "sha512-KTDyRTYX8sWmKXAikPHHSyc63CRPETMctyjKFupcC6OBLXT3xsN0e9aF7m+mIXutFWpUXuedtowG7iLOzp0kQg=="
+    },
+    "webidl-conversions@3.0.1": {
+      "integrity": "sha512-2JAn3z8AR6rjK8Sm8orRC0h/bcl/DqL7tRPdGZ4I1CjdF+EaMLmYxBHyXuKL849eucPFhvBoxMsflfOb8kxaeQ=="
+    },
+    "whatwg-url@5.0.0": {
+      "integrity": "sha512-saE57nupxk6v3HY35+jzBwYa0rKSy0XR8JSxZPwgLr7ys0IBzhGviA1/TUGJLmSVqs8pb9AnvICXEuOHLprYTw==",
+      "dependencies": [
+        "tr46",
+        "webidl-conversions"
+      ]
+    },
+    "ws@8.22.0": {
+      "integrity": "sha512-Ydggc987+RO0AnWtZ/7Wq9FtNvcrL1b/RO0ud9mWjUPgDrsAAwQSF51sm2hm1XofbU/4jkpGEsLFsZZxU+1DOg=="
+    }
+  },
+  "workspace": {
+    "packageJson": {
+      "dependencies": [
+        "npm:@babel/core@^7.25.2",
+        "npm:@react-native-async-storage/async-storage@2.2.0",
+        "npm:@react-native-community/datetimepicker@8.4.4",
+        "npm:@react-native-community/netinfo@11.4.1",
+        "npm:@react-navigation/bottom-tabs@^7.3.10",
+        "npm:@react-navigation/elements@^2.3.8",
+        "npm:@react-navigation/native@^7.1.6",
+        "npm:@shopify/flash-list@2.0.2",
+        "npm:@supabase/supabase-js@^2.49.10",
+        "npm:@testing-library/jest-native@^5.4.3",
+        "npm:@testing-library/react-native@^13.3.3",
+        "npm:@types/jest@29.5.14",
+        "npm:@types/react@~19.1.10",
+        "npm:base64-arraybuffer@^1.0.2",
+        "npm:blurhash@^2.0.5",
+        "npm:buffer@^6.0.3",
+        "npm:cross-env@^10.1.0",
+        "npm:dayjs@^1.11.13",
+        "npm:eslint-config-expo@10.0",
+        "npm:eslint-import-resolver-typescript@^4.4.4",
+        "npm:eslint-plugin-import@^2.32.0",
+        "npm:eslint@^9.25.0",
+        "npm:expo-clipboard@~8.0.8",
+        "npm:expo-constants@~18.0.12",
+        "npm:expo-dev-client@~6.0.20",
+        "npm:expo-file-system@~19.0.21",
+        "npm:expo-font@~14.0.10",
+        "npm:expo-image-manipulator@~14.0.8",
+        "npm:expo-image-picker@~17.0.10",
+        "npm:expo-image@~3.0.11",
+        "npm:expo-linear-gradient@~15.0.8",
+        "npm:expo-linking@~8.0.11",
+        "npm:expo-media-library@~18.2.1",
+        "npm:expo-router@~6.0.21",
+        "npm:expo-secure-store@~15.0.8",
+        "npm:expo-splash-screen@~31.0.13",
+        "npm:expo-sqlite@~16.0.10",
+        "npm:expo-web-browser@~15.0.10",
+        "npm:expo@^54.0.30",
+        "npm:jest-expo@~54.0.17",
+        "npm:jest@29.7",
+        "npm:react-dom@19.1.0",
+        "npm:react-native-gesture-handler@2.28",
+        "npm:react-native-gifted-charts@^1.4.76",
+        "npm:react-native-reanimated@~4.1.1",
+        "npm:react-native-safe-area-context@5.6",
+        "npm:react-native-screens@4.16",
+        "npm:react-native-svg-transformer@^1.5.1",
+        "npm:react-native-svg@15.12.1",
+        "npm:react-native-url-polyfill@2",
+        "npm:react-native-web@0.21",
+        "npm:react-native-webview@13.15.0",
+        "npm:react-native-worklets@~0.7.1",
+        "npm:react-native-zoom-toolkit@^5.0.1",
+        "npm:react-native@0.81.5",
+        "npm:react-test-renderer@^19.1.0",
+        "npm:react@19.1.0",
+        "npm:supabase@^2.119.0",
+        "npm:typescript@~5.9.2",
+        "npm:upng-js@^2.1.0",
+        "npm:zustand@^5.0.5"
+      ]
+    }
+  }
+}

@@ -10,6 +10,8 @@ Related docs:
 - `docs/backend-data-model.md` maps the Supabase tables, storage buckets, Edge Functions, and local SQLite cache.
 - `docs/supabase-introspection.sql` can be run in Supabase to verify live RLS policies, triggers, indexes, and storage settings.
 
+Gallery storage update (2026-10-31): see [gallery-storage.md](gallery-storage.md). SQLite v6 scopes gallery caches by current account/space, stores provider/expiry, and discards only old unscoped gallery caches. Signed URLs refresh online on viewing/download/expiry/reconnect. Offline photos still require actual cached bytes; metadata alone is insufficient. Uploads/deletes have protected server lifecycle state; gallery writes do not use the offline outbox.
+
 ## Goals
 
 - The app can open offline after the user has logged in once and joined or created a space.
@@ -134,7 +136,7 @@ These writes update SQLite and Zustand immediately, then enqueue a `sync_outbox`
 - Gallery deletes
 - Image downloads
 
-Missing gallery images are not rendered while offline.
+Offline filtering checks known URLs; native disk cache presence/eviction still determines whether a photo can actually render.
 
 ## Cache Lifecycle
 

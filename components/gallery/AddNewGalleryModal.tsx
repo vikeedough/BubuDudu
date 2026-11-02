@@ -1,6 +1,6 @@
 import { FlashList } from "@shopify/flash-list";
 import { Image } from "expo-image";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
@@ -38,7 +38,6 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
 }) => {
     const addNewGallery = useGalleryStore((s) => s.addNewGallery);
     const uploadGalleryImages = useGalleryStore((s) => s.uploadGalleryImages);
-    const deleteGallery = useGalleryStore((s) => s.deleteGallery);
     const refreshGalleries = useGalleryStore((s) => s.refreshGalleries);
     const isOnline = useSyncStore((s) => s.isOnline);
 
@@ -50,6 +49,12 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
         listColorsArray[0],
     );
     const [selectedColorIndex, setSelectedColorIndex] = useState<number>(0);
+    const pickerBusy = useRef(false);
+    const createBusy = useRef(false);
+    const visible = useRef(isOpen);
+    visible.current = isOpen;
+    const pickerRevision = useRef(0);
+    useEffect(() => { if (!isOpen) pickerRevision.current++; }, [isOpen]);
     const [isAddingImages, setIsAddingImages] = useState(false);
     const [isUploadingImages, setIsUploadingImages] = useState(false);
     const [formScrollEnabled, setFormScrollEnabled] = useState(true);
@@ -61,7 +66,7 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
 
     const renderPreviewItem = useCallback(
         ({ item }: { item: string }) => (
-            <TouchableOpacity onPress={() => handleRemovePreviewImage(item)}>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Remove photo from upload preview" onPress={() => handleRemovePreviewImage(item)}>
                 <Image
                     source={{ uri: item }}
                     style={styles.image}
@@ -86,6 +91,7 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
     };
 
     const handleCancel = () => {
+        if (pickerBusy.current || createBusy.current) return;
         resetForm();
         onClose();
     };
@@ -96,28 +102,28 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
                 await refreshGalleries();
                 const ok = await uploadGalleryImages(galleryId, selectedImages);
 
-                if (!ok) {
-                    await deleteGallery(galleryId, { showToast: false });
-                }
-
+                if (!ok) Alert.alert("Some photos were not uploaded", "Completed photos were kept. Open the gallery to add the remaining photos.");
                 await refreshGalleries();
-            } catch (err) {
-                console.error("Error uploading created gallery images:", err);
-                try {
-                    await deleteGallery(galleryId, { showToast: false });
-                    await refreshGalleries();
-                } catch (cleanupErr) {
-                    console.error(
-                        "Error cleaning up failed gallery upload:",
-                        cleanupErr,
-                    );
-                }
+            } catch {
+                Alert.alert("Upload incomplete", "Open the gallery to check completed photos and retry.");
             }
         },
-        [deleteGallery, refreshGalleries, uploadGalleryImages],
+        [refreshGalleries, uploadGalleryImages],
     );
 
+    const handlePickImages = async () => {
+        if (pickerBusy.current || createBusy.current) return;
+        pickerBusy.current = true; setIsAddingImages(true);
+        const revision = pickerRevision.current;
+        try {
+            const imagesToAdd = await pickMultipleImages();
+            if (visible.current && revision === pickerRevision.current && imagesToAdd?.length) setImages((prev) => Array.from(new Set([...prev, ...imagesToAdd])));
+        } catch { if (visible.current) Alert.alert("Photos unavailable", "The photo picker could not open. Please try again."); }
+        finally { pickerBusy.current = false; setIsAddingImages(false); }
+    };
+
     const handleAddGallery = async () => {
+        if (createBusy.current || pickerBusy.current) return;
         if (!isOnline) {
             Alert.alert("Offline", "Gallery uploads are unavailable offline.");
             return;
@@ -137,6 +143,7 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
             return;
         }
 
+        createBusy.current = true;
         setIsUploadingImages(true);
 
         try {
@@ -159,6 +166,7 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
             console.error("Error creating gallery:", err);
             Alert.alert("Error", "Failed to add gallery");
         } finally {
+            createBusy.current = false;
             setIsUploadingImages(false);
         }
     };
@@ -212,25 +220,11 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
                                             ? styles.galleryContainerWithImages
                                             : styles.galleryContainer
                                     }
-                                    onPress={() => {
-                                        setIsAddingImages(true);
-                                        pickMultipleImages().then(
-                                            (imagesToAdd) => {
-                                                if (imagesToAdd?.length) {
-                                                    setImages((prev) =>
-                                                        Array.from(
-                                                            new Set([
-                                                                ...prev,
-                                                                ...imagesToAdd,
-                                                            ]),
-                                                        ),
-                                                    );
-                                                }
-                                                setIsAddingImages(false);
-                                            },
-                                        );
-                                    }}
-                                    disabled={isUploadingImages}
+                                    accessibilityRole="button"
+                                    accessibilityLabel="Choose gallery photos"
+                                    accessibilityState={{ busy: isAddingImages || isUploadingImages, disabled: isAddingImages || isUploadingImages }}
+                                    onPress={handlePickImages}
+                                    disabled={isUploadingImages || isAddingImages}
                                 >
                                     {images.length > 0 ? (
                                         isAddingImages ? (
@@ -260,12 +254,12 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
                                     Name
                                 </CustomText>
                                 <TextInput
+                                    allowFontScaling={false}
                                     style={styles.input}
                                     placeholder="Enter date name"
                                     placeholderTextColor={Colors.gray}
                                     value={dateName}
                                     onChangeText={setDateName}
-                                    allowFontScaling={false}
                                     editable={!isUploadingImages}
                                 />
 
@@ -276,12 +270,12 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
                                     Location
                                 </CustomText>
                                 <TextInput
+                                    allowFontScaling={false}
                                     style={styles.input}
                                     placeholder="Enter location"
                                     placeholderTextColor={Colors.gray}
                                     value={location}
                                     onChangeText={setLocation}
-                                    allowFontScaling={false}
                                     editable={!isUploadingImages}
                                 />
 
@@ -300,12 +294,15 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
                                                 index === selectedColorIndex &&
                                                     styles.selectedColorBox,
                                             ]}
+                                            accessibilityRole="radio"
+                                            accessibilityLabel={`Gallery colour ${index + 1}`}
+                                            accessibilityState={{ selected: index === selectedColorIndex, disabled: isUploadingImages || isAddingImages }}
                                             key={color}
                                             onPress={() => {
                                                 setSelectedColor(color);
                                                 setSelectedColorIndex(index);
                                             }}
-                                            disabled={isUploadingImages}
+                                            disabled={isUploadingImages || isAddingImages}
                                         />
                                     ))}
                                 </View>
@@ -340,8 +337,11 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
                             <View style={styles.footer}>
                                 <TouchableOpacity
                                     style={styles.confirmButton}
+                                    accessibilityRole="button"
+                                    accessibilityLabel="Save gallery"
+                                    accessibilityState={{ busy: isUploadingImages, disabled: isUploadingImages || isAddingImages }}
                                     onPress={handleAddGallery}
-                                    disabled={isUploadingImages}
+                                    disabled={isUploadingImages || isAddingImages}
                                 >
                                     {isUploadingImages ? (
                                         <ActivityIndicator />
@@ -357,8 +357,8 @@ const AddNewGalleryModal: React.FC<AddNewGalleryModalProps> = ({
 
                                 <TouchableOpacity
                                     style={styles.headerButton}
-                                    onPress={handleCancel}
-                                    disabled={isUploadingImages}
+                                    accessibilityRole="button" accessibilityLabel="Cancel new gallery" onPress={handleCancel}
+                                    disabled={isUploadingImages || isAddingImages}
                                 >
                                     <CustomText
                                         weight="semibold"

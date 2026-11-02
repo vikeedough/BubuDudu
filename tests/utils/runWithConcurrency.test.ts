@@ -44,4 +44,23 @@ describe("utils/runWithConcurrency", () => {
 
     expect(worker).not.toHaveBeenCalled();
   });
+
+  it("waits for in-flight workers before rejecting and stops scheduling more work", async () => {
+    let finish: () => void = () => undefined;
+    const barrier = new Promise<void>((resolve) => { finish = resolve; });
+    const seen: number[] = [];
+    let settled = false;
+    const promise = runWithConcurrency([1, 2, 3], 2, async (item) => {
+      seen.push(item);
+      if (item === 1) throw new Error("partial failure");
+      await barrier;
+    });
+    const outcome = promise.catch((error) => { settled = true; return error; });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(settled).toBe(false);
+    finish();
+    expect((await outcome).message).toBe("partial failure");
+    expect(seen).toEqual([1, 2]);
+  });
 });

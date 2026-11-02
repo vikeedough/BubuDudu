@@ -1,6 +1,7 @@
 /** @type {import('jest').Config} */
 module.exports = {
   preset: "jest-expo",
+  modulePathIgnorePatterns: ["<rootDir>/.expo/"],
   testMatch: ["<rootDir>/tests/**/*.test.ts", "<rootDir>/tests/**/*.test.tsx"],
   setupFilesAfterEnv: ["<rootDir>/jest.setup.ts"],
   moduleNameMapper: {

@@ -75,7 +75,7 @@ const EditGalleryDetailsModal: React.FC<EditGalleryDetailsModalProps> = ({
     return (
         <CenteredModal
             isOpen={isOpen}
-            onClose={onClose}
+            onClose={() => { if (!isSaving) onClose(); }}
             useKeyboardAvoidingView
             keyboardVerticalOffset={20}
             containerStyle={styles.modalContainer}
@@ -154,6 +154,8 @@ const EditGalleryDetailsModal: React.FC<EditGalleryDetailsModalProps> = ({
                 <View style={styles.footer}>
                     <TouchableOpacity
                         activeOpacity={0.78}
+                        accessibilityRole="button"
+                        accessibilityState={{ busy: isSaving, disabled: isSaving }}
                         disabled={isSaving}
                         onPress={handleSave}
                         style={[
@@ -178,6 +180,8 @@ const EditGalleryDetailsModal: React.FC<EditGalleryDetailsModalProps> = ({
 
                     <TouchableOpacity
                         activeOpacity={0.78}
+                        accessibilityRole="button"
+                        accessibilityState={{ busy: isSaving, disabled: isSaving }}
                         disabled={isSaving}
                         onPress={onClose}
                         style={[

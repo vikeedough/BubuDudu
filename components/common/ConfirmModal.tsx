@@ -14,6 +14,7 @@ interface ConfirmModalProps {
     confirmLabel?: string;
     cancelLabel?: string;
     isConfirming?: boolean;
+    allowFontScaling?: boolean;
 }
 
 const ConfirmModal: React.FC<ConfirmModalProps> = ({
@@ -25,25 +26,28 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
     confirmLabel = "Yes",
     cancelLabel = "No",
     isConfirming = false,
+    allowFontScaling = false,
 }) => {
+    const closeWhenIdle = () => { if (!isConfirming) onClose(); };
     return (
         <CenteredModal
             isOpen={isOpen}
-            onClose={onClose}
+            onClose={closeWhenIdle}
             containerStyle={styles.modalContainer}
         >
-            <CustomText weight="bold" style={styles.modalTitle}>
+            <CustomText allowFontScaling={allowFontScaling} maxFontSizeMultiplier={1.5} weight="bold" style={styles.modalTitle}>
                 {title}
             </CustomText>
-            <CustomText weight="regular" style={styles.modalText}>
+            <CustomText allowFontScaling={allowFontScaling} maxFontSizeMultiplier={1.5} weight="regular" style={styles.modalText}>
                 {message}
             </CustomText>
             <ModalActionButtons
                 onConfirm={onConfirm}
-                onCancel={onClose}
+                onCancel={closeWhenIdle}
                 confirmLabel={confirmLabel}
                 cancelLabel={cancelLabel}
                 isConfirming={isConfirming}
+                allowFontScaling={allowFontScaling}
             />
         </CenteredModal>
     );

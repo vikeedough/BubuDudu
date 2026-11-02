@@ -16,7 +16,7 @@ const GalleryHeader: React.FC<GalleryHeaderProps> = ({
 }) => {
     return (
         <View style={styles.header}>
-            <TouchableOpacity onPress={onBack} style={styles.backButton}>
+            <TouchableOpacity hitSlop={8} accessibilityRole="button" accessibilityLabel="Back to galleries" onPress={onBack} style={styles.backButton}>
                 <Back />
             </TouchableOpacity>
             <View>

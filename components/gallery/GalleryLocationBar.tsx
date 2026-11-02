@@ -44,7 +44,7 @@ const GalleryLocationBar: React.FC<GalleryLocationBarProps> = ({
                     {sortingByAscending ? <SortAscending /> : <SortDescending />}
                 </GalleryControlButton>
                 {showClearButton && (
-                    <TouchableOpacity style={styles.clearButton} onPress={onClear}>
+                    <TouchableOpacity hitSlop={8} accessibilityRole="button" accessibilityLabel="Clear photo selection" style={styles.clearButton} onPress={onClear}>
                         <CustomText weight="medium" style={styles.clearButtonText}>
                             Clear
                         </CustomText>

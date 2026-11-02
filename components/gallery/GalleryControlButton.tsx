@@ -20,8 +20,10 @@ const GalleryControlButton: React.FC<GalleryControlButtonProps> = ({
 }) => {
     return (
         <TouchableOpacity
+            hitSlop={6}
             accessibilityLabel={accessibilityLabel}
             accessibilityRole="button"
+            accessibilityState={{ disabled, busy: disabled }}
             disabled={disabled}
             style={[
                 styles.controlButton,

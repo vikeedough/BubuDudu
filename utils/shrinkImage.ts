@@ -1,5 +1,7 @@
 import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 
+import { releaseGalleryResources } from "./gallery-media";
+
 type ShrinkOptions = {
     maxLongEdge?: number;
     jpegQuality?: number;
@@ -16,46 +18,41 @@ export async function shrinkImage(
     const ctx = ImageManipulator.manipulate(uri);
 
     // Render once with no transforms to read original dimensions (no file saved yet)
-    const originalRef = await ctx.renderAsync();
-    const originalW = originalRef.width;
-    const originalH = originalRef.height;
+    let originalRef: Awaited<ReturnType<typeof ctx.renderAsync>> | undefined;
+    let outputRef: Awaited<ReturnType<typeof ctx.renderAsync>> | undefined;
+    try {
+        originalRef = await ctx.renderAsync();
+        const originalW = originalRef.width;
+        const originalH = originalRef.height;
 
-    // Reset queued operations (none yet, but keeps flow explicit)
-    ctx.reset();
+        // Reset queued operations (none yet, but keeps flow explicit)
+        ctx.reset();
 
-    // Decide transform
-    const longEdge = Math.max(originalW, originalH);
+        // Decide transform
+        const longEdge = Math.max(originalW, originalH);
 
-    if (longEdge > maxLongEdge) {
-        const scale = maxLongEdge / longEdge;
-        const targetW = Math.round(originalW * scale);
-        const targetH = Math.round(originalH * scale);
+        if (longEdge > maxLongEdge) {
+            const scale = maxLongEdge / longEdge;
+            const targetW = Math.round(originalW * scale);
+            const targetH = Math.round(originalH * scale);
 
-        ctx.resize({ width: targetW, height: targetH });
-        const resizedRef = await ctx.renderAsync();
-        const saved = await resizedRef.saveAsync({
+            ctx.resize({ width: targetW, height: targetH });
+            const resizedRef = outputRef = await ctx.renderAsync();
+            const saved = await resizedRef.saveAsync({
+                format: SaveFormat.JPEG,
+                compress: jpegQuality,
+            });
+
+            return { uri: saved.uri, width: targetW, height: targetH };
+        }
+
+        // Compress-only (still re-encodes and strips metadata)
+        const compressedRef = outputRef = await ctx.renderAsync();
+        const saved = await compressedRef.saveAsync({
             format: SaveFormat.JPEG,
             compress: jpegQuality,
         });
 
-        // Release native refs ASAP
-        resizedRef.release();
-        originalRef.release();
-        ctx.release();
-
-        return { uri: saved.uri, width: targetW, height: targetH };
-    }
-
-    // Compress-only (still re-encodes and strips metadata)
-    const compressedRef = await ctx.renderAsync();
-    const saved = await compressedRef.saveAsync({
-        format: SaveFormat.JPEG,
-        compress: jpegQuality,
-    });
-
-    compressedRef.release();
-    originalRef.release();
-    ctx.release();
-
-    return { uri: saved.uri, width: originalW, height: originalH };
+        return { uri: saved.uri, width: originalW, height: originalH };
+    } finally { releaseGalleryResources([outputRef, originalRef, ctx]); }
 }

@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
     ActivityIndicator,
     Image,
@@ -13,9 +13,12 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Gallery, fitContainer } from "react-native-zoom-toolkit";
 
 import Back from "@/assets/svgs/back.svg";
+import CustomText from "@/components/CustomText";
 import { Colors } from "@/constants/colors";
+import { useGalleryImageRefresh } from "@/hooks/useGalleryImageRefresh";
 
 import type { GalleryImage } from "@/stores/GalleryStore";
+import type { GalleryRefType } from "react-native-zoom-toolkit";
 
 interface GalleryImageViewerModalProps {
     isOpen: boolean;
@@ -23,7 +26,7 @@ interface GalleryImageViewerModalProps {
     images: GalleryImage[];
     hasMore: boolean;
     isLoadingMore: boolean;
-    onLoadMore: () => void;
+    onLoadMore: () => Promise<unknown> | void;
     onClose: () => void;
 }
 
@@ -69,6 +72,9 @@ const GalleryViewerItem = React.memo(
         containerHeight: number;
     }) => {
         const uri = getBestUrl(img);
+        const renew = useGalleryImageRefresh(img);
+        const [status, setStatus] = useState<"loading" | "loaded" | "error">("loading");
+        useEffect(() => { setStatus("loading"); }, [uri]);
 
         const [intrinsicSize, setIntrinsicSize] = useState<{
             width: number;
@@ -87,6 +93,7 @@ const GalleryViewerItem = React.memo(
 
         return (
             <View style={styles.page}>
+                {status !== "loaded" && img.url_thumb && img.url_thumb !== uri ? <Image source={{ uri: img.url_thumb }} resizeMode="contain" style={{ position: "absolute", width: fitted.width, height: fitted.height }} /> : null}
                 {uri ? (
                     <Image
                         source={{ uri }}
@@ -95,7 +102,11 @@ const GalleryViewerItem = React.memo(
                             height: fitted.height,
                         }}
                         resizeMode="contain"
+                        accessibilityLabel="Gallery photo"
+                        onLoadStart={() => setStatus("loading")}
+                        onError={() => { setStatus("error"); renew(); }}
                         onLoad={(e) => {
+                            setStatus("loaded");
                             if (intrinsicSize) return;
                             const { width, height } = e.nativeEvent.source;
                             if (!width || !height) return;
@@ -105,6 +116,8 @@ const GalleryViewerItem = React.memo(
                 ) : (
                     <View style={styles.empty} />
                 )}
+                {status === "loading" && uri && <ActivityIndicator accessibilityLabel="Loading original photo" color={Colors.white} style={StyleSheet.absoluteFill} />}
+                {(status === "error" || !uri) && <View style={styles.imageNotice}><CustomText style={{ color: Colors.white }}>Photo could not load</CustomText><TouchableOpacity accessibilityRole="button" accessibilityLabel="Retry photo" onPress={() => { setStatus("loading"); renew(true); }} style={styles.retry}><CustomText>Retry</CustomText></TouchableOpacity></View>}
             </View>
         );
     },
@@ -126,7 +139,24 @@ const GalleryImageViewerModal: React.FC<GalleryImageViewerModalProps> = ({
         width: number;
         height: number;
     }>({ width: 0, height: 0 });
-    const lastLoadMoreLengthRef = useRef<number>(-1);
+    const galleryRef = useRef<GalleryRefType>(null);
+    const activeId = useRef<string | null>(initialImageId);
+    const activeIndex = useRef(0);
+    const request = useRef<symbol | null>(null);
+    const session = useRef(0);
+    const attempted = useRef(-1);
+    const [pageFailed, setPageFailed] = useState(false);
+    useLayoutEffect(() => {
+        session.current++; request.current = null; attempted.current = -1;
+        activeId.current = initialImageId; setPageFailed(false);
+    }, [isOpen, initialImageId]);
+    useLayoutEffect(() => {
+        if (!isOpen || !activeId.current) return;
+        const index = images.findIndex((image) => image.id === activeId.current);
+        if (index >= 0 && index !== activeIndex.current) {
+            activeIndex.current = index; galleryRef.current?.setIndex(index);
+        }
+    }, [images, isOpen]);
 
     const initialIndex = useMemo(() => {
         if (!images.length) return 0;
@@ -149,17 +179,19 @@ const GalleryImageViewerModal: React.FC<GalleryImageViewerModalProps> = ({
         }),
         [containerHeight, containerWidth],
     );
-    const handleIndexChange = useCallback(
-        (index: number) => {
-            if (index < images.length - 3 || !hasMore || isLoadingMore) return;
-
-            if (lastLoadMoreLengthRef.current !== images.length) {
-                lastLoadMoreLengthRef.current = images.length;
-                onLoadMore();
-            }
-        },
-        [hasMore, images.length, isLoadingMore, onLoadMore],
-    );
+    const requestMore = useCallback((explicit = false) => {
+        if (!isOpen || !hasMore || isLoadingMore || request.current || (!explicit && attempted.current === images.length)) return;
+        const token = Symbol(); const epoch = session.current;
+        request.current = token; attempted.current = images.length; setPageFailed(false);
+        void Promise.resolve().then(onLoadMore).then((rows) => {
+            if (epoch === session.current && Array.isArray(rows) && rows.length <= images.length) setPageFailed(true);
+        }).catch(() => { if (epoch === session.current) setPageFailed(true); })
+            .finally(() => { if (request.current === token) request.current = null; });
+    }, [hasMore, images.length, isLoadingMore, isOpen, onLoadMore]);
+    const handleIndexChange = useCallback((index: number) => {
+        activeIndex.current = index; activeId.current = images[index]?.id ?? null;
+        if (index >= images.length - 3) requestMore();
+    }, [images, requestMore]);
     const renderGalleryItem = useCallback(
         (item: GalleryImage, _index: number) => {
             const img = item as unknown as GalleryImage | null | undefined;
@@ -196,6 +228,7 @@ const GalleryImageViewerModal: React.FC<GalleryImageViewerModalProps> = ({
                     <SafeAreaView style={styles.safeArea}>
                         <View style={styles.topBar}>
                             <TouchableOpacity
+                                hitSlop={8}
                                 style={styles.closeButton}
                                 onPress={onClose}
                                 accessibilityRole="button"
@@ -232,6 +265,7 @@ const GalleryImageViewerModal: React.FC<GalleryImageViewerModalProps> = ({
 
                             {shouldMountGallery && (
                                 <Gallery<GalleryImage>
+                                    ref={galleryRef}
                                     data={images}
                                     initialIndex={safeInitialIndex}
                                     gap={16}
@@ -241,6 +275,8 @@ const GalleryImageViewerModal: React.FC<GalleryImageViewerModalProps> = ({
                                     renderItem={renderGalleryItem}
                                 />
                             )}
+                            {isLoadingMore && <ActivityIndicator accessibilityLabel="Loading more photos" color={Colors.white} />}
+                            {pageFailed && hasMore && <TouchableOpacity accessibilityRole="button" accessibilityLabel="Retry loading more photos" onPress={() => requestMore(true)} style={styles.retry}><CustomText>More photos could not load. Retry</CustomText></TouchableOpacity>}
                         </View>
                     </SafeAreaView>
                 </View>
@@ -252,6 +288,8 @@ const GalleryImageViewerModal: React.FC<GalleryImageViewerModalProps> = ({
 export default GalleryImageViewerModal;
 
 const styles = StyleSheet.create({
+    retry: { padding: 12, minHeight: 44, backgroundColor: Colors.yellow, borderRadius: 10, alignSelf: "center" },
+    imageNotice: { position: "absolute", alignItems: "center", gap: 12 },
     modalOverlay: {
         flex: 1,
         backgroundColor: "rgba(0, 0, 0, 0.95)",

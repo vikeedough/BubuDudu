@@ -2,9 +2,15 @@ import { create } from "zustand";
 
 import { supabase } from "@/api/clients/supabaseClient";
 import { toast } from "@/toast/api";
+import { removeGalleryTempFiles } from "@/utils/gallery-media";
+import { createGalleryRenewalQueue } from "@/utils/gallery-renewal";
+import { applySignedImageFields, galleryRequest, needsUrlRefresh, refreshSignedImages, uploadR2Image } from "@/utils/gallery-storage";
 import { generateBlurhash } from "@/utils/generateBlurhash";
 import { generateVariants } from "@/utils/generateImageVariants";
 import {
+    currentGalleryScope,
+    invalidateCachedGalleries,
+    invalidateCachedGalleryImages,
     getCachedGalleries,
     getCachedGalleryImages,
     replaceCachedGalleries,
@@ -14,23 +20,65 @@ import { getIsOnline } from "@/utils/offline/network";
 import { runWithConcurrency } from "@/utils/runWithConcurrency";
 import { getSpaceId } from "@/utils/secure-store";
 
-const GALLERY_BUCKET = "gallery-private";
-const SIGN_TTL_SECONDS = 60 * 60;
 const GALLERIES_PAGE_SIZE = 10;
 const IMAGES_PAGE_SIZE = 20;
-const STORAGE_REMOVE_CHUNK_SIZE = 100;
+let galleryGeneration = 0;
+const renewImages = createGalleryRenewalQueue<Partial<GalleryImage>>();
+const renewCovers = createGalleryRenewalQueue<string>();
+const readRevisions = new Map<string, number>();
+const hiddenImages = new Map<string, Set<string>>();
+const hiddenGalleries = new Set<string>();
+const uploadJobs = new Map<string, symbol>();
+const deleteJobs = new Map<string, symbol>();
+const reconciliations = new Map<string, Promise<GalleryImage[]>>();
+
+async function readImageWindow(galleryId: string, count: number, current: () => Promise<boolean>, ascending: boolean) {
+    const rows: GalleryImage[] = [];
+    let cursor: GalleryImage | undefined;
+    while (rows.length < count && await current()) {
+        const limit = Math.min(200, count - rows.length);
+        let query = supabase.from("date_images").select("*").eq("gallery_id", galleryId).eq("storage_state", "ready");
+        if (cursor) query = query.or(`created_at.${ascending ? "gt" : "lt"}.${quotePostgrest(cursor.created_at)},and(created_at.eq.${quotePostgrest(cursor.created_at)},id.${ascending ? "gt" : "lt"}.${quotePostgrest(cursor.id)})`);
+        const { data, error } = await query.order("created_at", { ascending }).order("id", { ascending }).limit(limit);
+        if (error) return { data: rows, error, hasMore: false };
+        const page = (data ?? []) as GalleryImage[];
+        rows.push(...page);
+        if (page.length < limit) return { data: rows, error: null, hasMore: false };
+        cursor = page[page.length - 1];
+    }
+    return { data: rows, error: null, hasMore: rows.length >= count };
+}
+
+
+function beginGalleryRead(key: string, identity: () => string = () => "") {
+    const generation = galleryGeneration;
+    const revision = (readRevisions.get(key) ?? 0) + 1;
+    readRevisions.set(key, revision);
+    const snapshot = identity();
+    let scope: string | null = null;
+    const current = () => generation === galleryGeneration && readRevisions.get(key) === revision && identity() === snapshot;
+    return {
+        current,
+        get scope() { return scope; },
+        async capture() { scope = await currentGalleryScope(); return current() && scope ? scope : null; },
+        async valid() { return current() && !!scope && await currentGalleryScope() === scope && current(); },
+        cache() { return scope ? { scope, current } : undefined; },
+    };
+}
+function invalidateGalleryReads(galleryId?: string) {
+    const key = galleryId ? `images/${galleryId}` : "list";
+    readRevisions.set(key, (readRevisions.get(key) ?? 0) + 1);
+}
+
 
 function mergeUniqueById<T extends { id: string }>(prev: T[], next: T[]): T[] {
     if (next.length === 0) return prev;
     if (prev.length === 0) return next;
 
-    const seen = new Set(prev.map((x) => x.id));
-    const merged = prev.slice();
-    for (const item of next) {
-        if (seen.has(item.id)) continue;
-        seen.add(item.id);
-        merged.push(item);
-    }
+    const updated = new Map(next.map((item) => [item.id, item]));
+    const merged = prev.map((item) => updated.get(item.id) ?? item);
+    const seen = new Set(prev.map((item) => item.id));
+    for (const item of next) if (!seen.has(item.id)) { seen.add(item.id); merged.push(item); }
     return merged;
 }
 
@@ -92,13 +140,20 @@ export type Gallery = {
     cover_image_blur_hash: string | null;
 
     cover_thumb_url?: string | null;
+    cache_scope?: string;
+    cover_expires_at?: string;
 
     created_at?: string;
+    storage_deleting?: boolean;
 };
 
 export type GalleryImage = {
     id: string;
     gallery_id: string;
+    storage_provider?: "supabase" | "r2";
+    storage_state?: "pending" | "ready" | "deleting";
+    urls_expires_at?: string;
+    cache_scope?: string;
 
     storage_path_thumb: string;
     storage_path_grid: string;
@@ -124,45 +179,6 @@ export type GalleryImage = {
     url_orig?: string;
 };
 
-function clearGalleryCoverInList(
-    galleries: Gallery[],
-    galleryId: string,
-): Gallery[] {
-    return galleries.map((gallery) =>
-        gallery.id === galleryId
-            ? {
-                  ...gallery,
-                  cover_image_path: null,
-                  cover_image_thumb_path: null,
-                  cover_image_blur_hash: null,
-                  cover_thumb_url: null,
-              }
-            : gallery,
-    );
-}
-
-function setGalleryCoverInList(
-    galleries: Gallery[],
-    galleryId: string,
-    replacement: Pick<
-        GalleryImage,
-        "storage_path_grid" | "storage_path_thumb" | "blur_hash"
-    >,
-    signedThumbUrl: string | null,
-): Gallery[] {
-    return galleries.map((gallery) =>
-        gallery.id === galleryId
-            ? {
-                  ...gallery,
-                  cover_image_path: replacement.storage_path_grid,
-                  cover_image_thumb_path: replacement.storage_path_thumb,
-                  cover_image_blur_hash: replacement.blur_hash,
-                  cover_thumb_url: signedThumbUrl,
-              }
-            : gallery,
-    );
-}
-
 function updateGalleryInList(
     galleries: Gallery[],
     updatedGallery: Gallery,
@@ -181,30 +197,6 @@ function updateGalleryInList(
     );
 }
 
-function removeImageFromGalleryCache(
-    imagesByGalleryId: Record<string, GalleryImage[]>,
-    galleryId: string,
-    imageId: string,
-): Record<string, GalleryImage[]> {
-    const previous = imagesByGalleryId[galleryId] ?? [];
-    return {
-        ...imagesByGalleryId,
-        [galleryId]: previous.filter((img) => img.id !== imageId),
-    };
-}
-
-function removeImagesFromGalleryCache(
-    imagesByGalleryId: Record<string, GalleryImage[]>,
-    galleryId: string,
-    imageIds: Set<string>,
-): Record<string, GalleryImage[]> {
-    const previous = imagesByGalleryId[galleryId] ?? [];
-    return {
-        ...imagesByGalleryId,
-        [galleryId]: previous.filter((img) => !imageIds.has(img.id)),
-    };
-}
-
 function omitRecordKey<T>(
     record: Record<string, T>,
     key: string,
@@ -216,9 +208,12 @@ function omitRecordKey<T>(
 async function attachSignedCoverThumbUrls(galleries: Gallery[]): Promise<Gallery[]> {
     if (galleries.length === 0) return [];
 
+    const session = await supabase.auth.getSession();
+    const userId = session?.data?.session?.user.id;
     const withCoverThumbUrl = galleries.map((gallery) => ({
         ...gallery,
         cover_thumb_url: null,
+        cache_scope: userId ? `${userId}/${gallery.space_id}` : undefined,
     }));
 
     const thumbPaths = Array.from(
@@ -253,25 +248,15 @@ async function attachSignedCoverThumbUrls(galleries: Gallery[]): Promise<Gallery
         }
     }
 
-    const unresolvedPaths = thumbPaths.filter((path) => !signedByPath[path]);
-    if (unresolvedPaths.length > 0) {
-        await Promise.all(
-            unresolvedPaths.map(async (path) => {
-                const { data: signed, error: signErr } = await supabase.storage
-                    .from(GALLERY_BUCKET)
-                    .createSignedUrl(path, SIGN_TTL_SECONDS);
-                if (signErr || !signed?.signedUrl) return;
-                signedByPath[path] = signed.signedUrl;
-            }),
-        );
-    }
-
+    // A failed authenticated signer must never fall back to provider-blind storage access.
     return withCoverThumbUrl.map((gallery) => {
         const thumbPath = gallery.cover_image_thumb_path;
         if (!isNonEmptyString(thumbPath)) return gallery;
         return {
             ...gallery,
             cover_thumb_url: signedByPath[thumbPath] ?? null,
+            cache_scope: userId ? `${userId}/${gallery.space_id}` : undefined,
+            cover_expires_at: new Date(Date.now() + 3600000).toISOString(),
         };
     });
 }
@@ -296,6 +281,13 @@ export type GalleryState = {
             isLoadingMore: boolean;
         }
     >;
+
+    imageSortByGalleryId: Record<string, "asc" | "desc">;
+    setImageSort: (galleryId: string, direction: "asc" | "desc") => Promise<GalleryImage[]>;
+    refreshCoverUrls: (ids: string[], force?: boolean) => Promise<void>;
+    imageErrorsByGalleryId: Record<string, string | null>;
+    galleryError: string | null;
+    reconcileGalleryImages: (galleryId: string) => Promise<GalleryImage[]>;
 
     isLoadingGalleries: boolean;
     isLoadingImagesByGalleryId: Record<string, boolean>;
@@ -350,147 +342,11 @@ export type GalleryState = {
         options?: { showToast?: boolean },
     ) => Promise<boolean>;
 
+    refreshImageUrls: (galleryId: string, ids?: string[], force?: boolean) => Promise<GalleryImage[]>;
+
     // Helpers
     clear: () => void;
 };
-
-async function uploadSingleImage(
-    galleryId: string,
-    imageUri: string,
-    idx: number,
-    total: number,
-    spaceId: string,
-    hasCover: boolean,
-    toastId: string,
-    set: any,
-) {
-    const { data: inserted, error: insErr } = await supabase
-        .from("date_images")
-        .insert({ gallery_id: galleryId })
-        .select("*")
-        .single();
-
-    if (insErr || !inserted?.id) {
-        throw new Error(insErr?.message ?? "Failed to create image row");
-    }
-
-    const imageId = inserted.id as string;
-
-    const variants = await generateVariants(imageUri);
-    const blurHash = await generateBlurhash(variants.thumb.uri);
-
-    const base = `spaces/${spaceId}/galleries/${galleryId}/images/${imageId}`;
-    const pThumb = `${base}/thumb.jpg`;
-    const pGrid = `${base}/grid.jpg`;
-    const pOrig = `${base}/orig.jpg`;
-
-    const uploads = await Promise.all([
-        supabase.storage
-            .from(GALLERY_BUCKET)
-            .upload(pThumb, variants.thumb.arrayBuffer, {
-                contentType: "image/jpeg",
-            }),
-        supabase.storage
-            .from(GALLERY_BUCKET)
-            .upload(pGrid, variants.grid.arrayBuffer, {
-                contentType: "image/jpeg",
-            }),
-        supabase.storage
-            .from(GALLERY_BUCKET)
-            .upload(pOrig, variants.orig.arrayBuffer, {
-                contentType: "image/jpeg",
-            }),
-    ]);
-
-    const uploadErr = uploads.find((u) => u.error)?.error;
-    if (uploadErr) {
-        await supabase.storage
-            .from(GALLERY_BUCKET)
-            .remove([pThumb, pGrid, pOrig]);
-        await supabase.from("date_images").delete().eq("id", imageId);
-        throw uploadErr;
-    }
-
-    const { error: updErr } = await supabase
-        .from("date_images")
-        .update({
-            storage_path_thumb: pThumb,
-            storage_path_grid: pGrid,
-            storage_path_orig: pOrig,
-            blur_hash: blurHash,
-
-            width_thumb: variants.thumb.width,
-            height_thumb: variants.thumb.height,
-            width_grid: variants.grid.width,
-            height_grid: variants.grid.height,
-            width_orig: variants.orig.width,
-            height_orig: variants.orig.height,
-
-            bytes_thumb: variants.thumb.bytes,
-            bytes_grid: variants.grid.bytes,
-            bytes_orig: variants.orig.bytes,
-        })
-        .eq("id", imageId);
-
-    if (updErr) {
-        await supabase.storage
-            .from(GALLERY_BUCKET)
-            .remove([pThumb, pGrid, pOrig]);
-        await supabase.from("date_images").delete().eq("id", imageId);
-        throw updErr;
-    }
-
-    const { data: signedOne } = await supabase.functions.invoke(
-        "sign-gallery-urls",
-        { body: { galleryId, imageIds: [imageId] } },
-    );
-
-    const mergedImage: GalleryImage = {
-        id: imageId,
-        gallery_id: galleryId,
-        storage_path_thumb: pThumb,
-        storage_path_grid: pGrid,
-        storage_path_orig: pOrig,
-        blur_hash: blurHash,
-        created_at: inserted.created_at,
-
-        width_thumb: variants.thumb.width,
-        height_thumb: variants.thumb.height,
-        width_grid: variants.grid.width,
-        height_grid: variants.grid.height,
-        width_orig: variants.orig.width,
-        height_orig: variants.orig.height,
-
-        bytes_thumb: variants.thumb.bytes,
-        bytes_grid: variants.grid.bytes,
-        bytes_orig: variants.orig.bytes,
-
-        url_thumb: signedOne?.[imageId]?.url_thumb,
-        url_grid: signedOne?.[imageId]?.url_grid,
-        url_orig: signedOne?.[imageId]?.url_orig,
-    };
-
-    set((state: any) => {
-        const prev = state.imagesByGalleryId[galleryId] ?? [];
-        return {
-            imagesByGalleryId: {
-                ...state.imagesByGalleryId,
-                [galleryId]: [mergedImage, ...prev],
-            },
-        };
-    });
-
-    if (!hasCover && idx === 0) {
-        await supabase
-            .from("galleries")
-            .update({
-                cover_image_path: pGrid,
-                cover_image_thumb_path: pThumb,
-                cover_image_blur_hash: blurHash,
-            })
-            .eq("id", galleryId);
-    }
-}
 
 export const useGalleryStore = create<GalleryState>((set, get) => ({
     galleries: [],
@@ -503,14 +359,24 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
     },
 
     imagesByGalleryId: {},
+    imageSortByGalleryId: {},
     imagesPageByGalleryId: {},
 
+    imageErrorsByGalleryId: {},
+    galleryError: null,
     isLoadingGalleries: false,
     isLoadingImagesByGalleryId: {},
     isUploadingByGalleryId: {},
     error: null,
 
-    clear: () =>
+    clear: () => {
+        galleryGeneration++;
+        readRevisions.clear();
+        hiddenImages.clear();
+        hiddenGalleries.clear();
+        uploadJobs.clear();
+        deleteJobs.clear();
+        reconciliations.clear();
         set({
             galleries: [],
             galleriesQuery: { searchText: "", sortDir: "desc" },
@@ -521,12 +387,16 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
                 isLoadingMore: false,
             },
             imagesByGalleryId: {},
+            imageSortByGalleryId: {},
             imagesPageByGalleryId: {},
+            imageErrorsByGalleryId: {},
+            galleryError: null,
             isLoadingGalleries: false,
             isLoadingImagesByGalleryId: {},
             isUploadingByGalleryId: {},
             error: null,
-        }),
+        });
+    },
 
     setGalleriesQuery: (partial) => {
         set((state) => ({
@@ -539,8 +409,10 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
     },
 
     loadInitialGalleries: async () => {
+        const owner = beginGalleryRead("list", () => JSON.stringify(get().galleriesQuery));
+        const querySnapshot = { ...get().galleriesQuery };
         set({
-            galleries: [],
+            galleryError: null,
             isLoadingGalleries: true,
             error: null,
             galleriesPage: {
@@ -552,8 +424,10 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
         });
 
         try {
-            const spaceId = await getSpaceId();
+            const scope = await owner.capture();
+            const spaceId = scope?.split("/")[1];
             if (!spaceId) {
+                if (!owner.current()) return [];
                 set({
                     galleries: [],
                     isLoadingGalleries: false,
@@ -567,7 +441,7 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
                 return [];
             }
 
-            const { searchText, sortDir } = get().galleriesQuery;
+            const { searchText, sortDir } = querySnapshot;
             const ascending = sortDir === "asc";
             const online = getIsOnline();
 
@@ -576,7 +450,8 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
                 query = supabase
                     .from("galleries")
                     .select("*")
-                    .eq("space_id", spaceId);
+                    .eq("space_id", spaceId)
+                    .eq("storage_deleting", false);
 
                 if (searchText.trim().length > 0) {
                     query = query.ilike("title", `%${searchText}%`);
@@ -590,6 +465,7 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
 
             const cached = await getCachedGalleries(spaceId);
             const cachedForQuery = cached
+                .filter((gallery) => !gallery.storage_deleting)
                 .filter((gallery) =>
                     searchText.trim().length === 0
                         ? true
@@ -605,6 +481,7 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
                         : bDate.localeCompare(aDate);
                 });
 
+            if (!await owner.valid()) return [];
             if (cachedForQuery.length > 0) {
                 set({
                     galleries: cachedForQuery,
@@ -622,17 +499,34 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
             }
 
             const { data, error } = await query;
+            if (!await owner.valid()) return [];
             if (error) {
                 console.error("Error loading initial galleries:", error);
-                set({ error: error.message });
+                set({ error: error.message, galleryError: error.message });
                 return cachedForQuery;
             }
 
+            if (!searchText.trim()) {
+                const found = new Set(((data as Gallery[]) ?? []).map((row) => row.id));
+                for (const batch of chunk(cached.filter((row) => !found.has(row.id)), 200)) {
+                    if (!await owner.valid()) return [];
+                    const checked = await supabase.from("galleries").select("id").eq("space_id", spaceId).eq("storage_deleting", false).in("id", batch.map((row) => row.id));
+                    if (!await owner.valid()) return [];
+                    if (!checked.error && Array.isArray(checked.data)) {
+                        const removed = batch.filter((row) => !checked.data.some((ready) => ready.id === row.id)).map((row) => row.id);
+                        removed.forEach((id) => hiddenGalleries.add(id));
+                        await invalidateCachedGalleries(spaceId, removed, owner.cache());
+                    }
+                }
+            }
+
             const signed = await attachSignedCoverThumbUrls(
-                (data as Gallery[]) ?? [],
+                ((data as Gallery[]) ?? []).filter((row) => !hiddenGalleries.has(row.id)),
             );
 
-            await replaceCachedGalleries(spaceId, signed);
+            if (!await owner.valid()) return [];
+            await replaceCachedGalleries(spaceId, signed, owner.cache());
+            if (!await owner.valid()) return [];
 
             const last = signed[signed.length - 1];
             const cursorDate = getGallerySortDate(last?.date);
@@ -651,8 +545,11 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
             });
 
             return signed;
+        } catch (error) {
+            if (await owner.valid()) set({ error: getErrorMessage(error, "Gallery could not load. Please retry."), galleryError: getErrorMessage(error, "Gallery could not load. Please retry.") });
+            return get().galleries;
         } finally {
-            set((state) => ({
+            if (owner.current() && (!owner.scope || await owner.valid())) set((state) => ({
                 isLoadingGalleries: false,
                 galleriesPage: {
                     ...state.galleriesPage,
@@ -671,6 +568,9 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
         if (!galleriesPage.hasMore) return get().galleries;
         if (!galleriesPage.cursor) return get().galleries;
 
+        const owner = beginGalleryRead("list", () => JSON.stringify(get().galleriesQuery));
+        const querySnapshot = { ...get().galleriesQuery };
+        const cursorSnapshot = galleriesPage.cursor;
         set((state) => ({
             galleriesPage: {
                 ...state.galleriesPage,
@@ -679,13 +579,14 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
         }));
 
         try {
-            const spaceId = await getSpaceId();
+            if (!await owner.capture()) return [];
+            const spaceId = owner.scope?.split("/")[1];
             if (!spaceId) return get().galleries;
             if (!getIsOnline()) return get().galleries;
 
-            const { searchText, sortDir } = get().galleriesQuery;
+            const { searchText, sortDir } = querySnapshot;
             const ascending = sortDir === "asc";
-            const cursor = get().galleriesPage.cursor;
+            const cursor = cursorSnapshot;
             if (!cursor) return get().galleries;
             const quotedCursorDate = quotePostgrest(cursor.date);
             const quotedCursorId = quotePostgrest(cursor.id);
@@ -693,7 +594,8 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
             let query = supabase
                 .from("galleries")
                 .select("*")
-                .eq("space_id", spaceId);
+                .eq("space_id", spaceId)
+                .eq("storage_deleting", false);
 
             if (searchText.trim().length > 0) {
                 query = query.ilike("title", `%${searchText}%`);
@@ -715,16 +617,18 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
                 .limit(GALLERIES_PAGE_SIZE);
 
             const { data, error } = await query;
+            if (!await owner.valid()) return [];
             if (error) {
                 console.error("Error loading more galleries:", error);
-                set({ error: error.message });
+                set({ error: error.message, galleryError: error.message });
                 return get().galleries;
             }
 
             const signed = await attachSignedCoverThumbUrls(
-                (data as Gallery[]) ?? [],
+                ((data as Gallery[]) ?? []).filter((row) => !hiddenGalleries.has(row.id)),
             );
 
+            if (!await owner.valid()) return [];
             const lastFetched = signed[signed.length - 1];
             const lastFetchedCursorDate = getGallerySortDate(lastFetched?.date);
             const nextCursor = lastFetchedCursorDate
@@ -744,11 +648,14 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
                 },
             }));
 
-            await replaceCachedGalleries(spaceId, get().galleries);
+            await replaceCachedGalleries(spaceId, signed, owner.cache());
 
             return get().galleries;
+        } catch (error) {
+            if (await owner.valid()) set({ error: getErrorMessage(error, "Gallery could not load. Please retry."), galleryError: getErrorMessage(error, "Gallery could not load. Please retry.") });
+            return get().galleries;
         } finally {
-            set((state) => ({
+            if (owner.current() && (!owner.scope || await owner.valid())) set((state) => ({
                 galleriesPage: {
                     ...state.galleriesPage,
                     isLoadingMore: false,
@@ -762,10 +669,14 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
     },
 
     loadInitialGalleryImages: async (galleryId: string) => {
+        const direction = get().imageSortByGalleryId[galleryId] ?? "desc";
+        const ascending = direction === "asc";
+        const owner = beginGalleryRead(`images/${galleryId}`, () => get().imageSortByGalleryId[galleryId] ?? "desc");
         set((state) => ({
+            imageErrorsByGalleryId: { ...state.imageErrorsByGalleryId, [galleryId]: null },
             imagesByGalleryId: {
                 ...state.imagesByGalleryId,
-                [galleryId]: [],
+                [galleryId]: state.imagesByGalleryId[galleryId] ?? [],
             },
             imagesPageByGalleryId: {
                 ...state.imagesPageByGalleryId,
@@ -784,7 +695,11 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
         }));
 
         try {
-            const cached = await getCachedGalleryImages(galleryId);
+            if (!await owner.capture()) return [];
+            const fromDisk = await getCachedGalleryImages(galleryId);
+            const cached = mergeUniqueById(fromDisk, get().imagesByGalleryId[galleryId] ?? [])
+                .filter((row) => (!row.cache_scope || row.cache_scope === owner.scope) && !hiddenImages.get(galleryId)?.has(row.id));
+            if (!await owner.valid()) return [];
             if (cached.length > 0) {
                 set((state) => ({
                     imagesByGalleryId: {
@@ -807,46 +722,50 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
                 return cached;
             }
 
-            let query = supabase
-                .from("date_images")
-                .select("*")
-                .eq("gallery_id", galleryId)
-                .order("created_at", { ascending: false })
-                .order("id", { ascending: false })
-                .limit(IMAGES_PAGE_SIZE);
-
-            const { data, error } = await query;
+            const { data, error, hasMore } = await readImageWindow(galleryId, Math.max(IMAGES_PAGE_SIZE, cached.length), owner.valid, ascending);
+            if (!await owner.valid()) return [];
             if (error) {
                 console.error("Error loading initial gallery images:", error);
-                set({ error: error.message });
+                set((state) => ({ error: error.message, imageErrorsByGalleryId: { ...state.imageErrorsByGalleryId, [galleryId]: error.message } }));
                 return cached;
             }
 
-            const rows = (data as GalleryImage[]) ?? [];
+            let rows = ((data as GalleryImage[]) ?? []).filter((row) => !hiddenImages.get(galleryId)?.has(row.id));
+            const missing = cached.filter((row) => !rows.some((fresh) => fresh.id === row.id));
+            for (const batch of chunk(missing, 200)) {
+                if (!await owner.valid()) return [];
+                const checked = await supabase.from("date_images").select("*").eq("gallery_id", galleryId).eq("storage_state", "ready").in("id", batch.map((row) => row.id));
+                if (!await owner.valid()) return [];
+                if (checked.error || !Array.isArray(checked.data)) {
+                    // Keep the contiguous server window; cached distant rows must not advance its cursor.
+                    set((state) => ({ imageErrorsByGalleryId: { ...state.imageErrorsByGalleryId, [galleryId]: "Some photo changes could not be checked. Retry to refresh." } }));
+                    continue;
+                }
+                if (!await owner.valid()) return [];
+                const removed = batch.filter((row) => !checked.data.some((ready) => ready.id === row.id)).map((row) => row.id);
+                if (removed.length) {
+                    hiddenImages.set(galleryId, new Set([...(hiddenImages.get(galleryId) ?? []), ...removed]));
+                    await invalidateCachedGalleryImages(galleryId, removed, owner.cache());
+                }
+                await replaceCachedGalleryImages(galleryId, checked.data as GalleryImage[], owner.cache());
+            }
+            rows.sort((a,b) => ascending ? a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id) : b.created_at.localeCompare(a.created_at) || b.id.localeCompare(a.id));
 
-            let merged = rows;
-            if (rows.length > 0) {
-                const imageIds = rows.map((r) => r.id);
-                const { data: signedMap, error: signErr } =
-                    await supabase.functions.invoke("sign-gallery-urls", {
-                        body: { galleryId, imageIds },
-                    });
-
-                if (signErr) {
-                    console.warn(
-                        "Signing failed, returning unsigned rows",
-                        signErr,
-                    );
-                } else {
-                    merged = rows.map((r) => ({
-                        ...r,
-                        url_thumb: signedMap?.[String(r.id)]?.url_thumb,
-                        url_grid: signedMap?.[String(r.id)]?.url_grid,
-                        url_orig: signedMap?.[String(r.id)]?.url_orig,
-                    }));
+            const knownById = new Map(cached.map((row) => [row.id, row]));
+            const seeds = rows.map((row) => {
+                const old = knownById.get(row.id);
+                const canKeep = old && old.cache_scope === owner.scope && old.storage_provider === row.storage_provider && old.storage_path_orig === row.storage_path_orig && old.storage_path_thumb === row.storage_path_thumb;
+                return { ...row, ...(canKeep ? { url_thumb: old.url_thumb, url_grid: old.url_grid, url_orig: old.url_orig, urls_expires_at: old.urls_expires_at } : {}), cache_scope: owner.scope! };
+            });
+            let merged: GalleryImage[] = seeds;
+            if (rows.length && await owner.valid()) {
+                try { merged = await refreshSignedImages(galleryId, seeds, false, owner.valid); }
+                catch (error) {
+                    if (await owner.valid()) set((state) => ({ imageErrorsByGalleryId: { ...state.imageErrorsByGalleryId, [galleryId]: getErrorMessage(error, "Photo links could not refresh. Retry.") } }));
                 }
             }
 
+            if (!await owner.valid()) return [];
             const last = rows[rows.length - 1];
             const cursor = last
                 ? { created_at: String(last.created_at), id: String(last.id) }
@@ -861,18 +780,22 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
                     ...state.imagesPageByGalleryId,
                     [galleryId]: {
                         cursor,
-                        hasMore: rows.length === IMAGES_PAGE_SIZE,
+                        hasMore,
                         isLoadingInitial: false,
                         isLoadingMore: false,
                     },
                 },
             }));
 
-            await replaceCachedGalleryImages(galleryId, merged);
+            await replaceCachedGalleryImages(galleryId, merged, owner.cache());
+            if (!await owner.valid()) return [];
 
             return merged;
+        } catch (error) {
+            if (await owner.valid()) set((state) => ({ error: getErrorMessage(error, "Photos could not load. Please retry."), imageErrorsByGalleryId: { ...state.imageErrorsByGalleryId, [galleryId]: getErrorMessage(error, "Photos could not load. Please retry.") } }));
+            return get().imagesByGalleryId[galleryId] ?? [];
         } finally {
-            set((state) => ({
+            if (owner.current() && (!owner.scope || await owner.valid())) set((state) => ({
                 imagesPageByGalleryId: {
                     ...state.imagesPageByGalleryId,
                     [galleryId]: {
@@ -896,6 +819,7 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
 
     loadMoreGalleryImages: async (galleryId: string) => {
         const page = get().imagesPageByGalleryId[galleryId];
+        if (!page) return get().loadInitialGalleryImages(galleryId);
         if (page?.isLoadingMore || page?.isLoadingInitial) {
             return get().imagesByGalleryId[galleryId] ?? [];
         }
@@ -906,6 +830,10 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
             return get().imagesByGalleryId[galleryId] ?? [];
         }
 
+        const direction = get().imageSortByGalleryId[galleryId] ?? "desc";
+        const ascending = direction === "asc";
+        const owner = beginGalleryRead(`images/${galleryId}`, () => get().imageSortByGalleryId[galleryId] ?? "desc");
+        const cursorSnapshot = page.cursor;
         set((state) => ({
             imagesPageByGalleryId: {
                 ...state.imagesPageByGalleryId,
@@ -922,52 +850,47 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
         }));
 
         try {
+            if (!await owner.capture()) return [];
             if (!getIsOnline()) {
                 return get().imagesByGalleryId[galleryId] ?? [];
             }
 
-            const cursor = get().imagesPageByGalleryId[galleryId]?.cursor;
+            const cursor = cursorSnapshot;
             if (!cursor) return get().imagesByGalleryId[galleryId] ?? [];
 
             let query = supabase
                 .from("date_images")
                 .select("*")
                 .eq("gallery_id", galleryId)
+                .eq("storage_state", "ready")
                 .or(
-                    `created_at.lt.${cursor.created_at},and(created_at.eq.${cursor.created_at},id.lt.${cursor.id})`,
+                    `created_at.${ascending ? "gt" : "lt"}.${quotePostgrest(cursor.created_at)},and(created_at.eq.${quotePostgrest(cursor.created_at)},id.${ascending ? "gt" : "lt"}.${quotePostgrest(cursor.id)})`,
                 )
-                .order("created_at", { ascending: false })
-                .order("id", { ascending: false })
+                .order("created_at", { ascending })
+                .order("id", { ascending })
                 .limit(IMAGES_PAGE_SIZE);
 
             const { data, error } = await query;
+            if (!await owner.valid()) return [];
             if (error) {
                 console.error("Error loading more gallery images:", error);
-                set({ error: error.message });
+                set((state) => ({ error: error.message, imageErrorsByGalleryId: { ...state.imageErrorsByGalleryId, [galleryId]: error.message } }));
                 return get().imagesByGalleryId[galleryId] ?? [];
             }
 
-            const rows = (data as GalleryImage[]) ?? [];
+            const rows = ((data as GalleryImage[]) ?? []).filter((row) => !hiddenImages.get(galleryId)?.has(row.id));
 
-            let merged = rows;
-            if (rows.length > 0) {
-                const imageIds = rows.map((r) => r.id);
-                const { data: signedMap, error: signErr } =
-                    await supabase.functions.invoke("sign-gallery-urls", {
-                        body: { galleryId, imageIds },
-                    });
-                if (signErr) {
-                    console.warn(
-                        "Signing failed, returning unsigned rows",
-                        signErr,
-                    );
-                } else {
-                    merged = rows.map((r) => ({
-                        ...r,
-                        url_thumb: signedMap?.[String(r.id)]?.url_thumb,
-                        url_grid: signedMap?.[String(r.id)]?.url_grid,
-                        url_orig: signedMap?.[String(r.id)]?.url_orig,
-                    }));
+            const knownById = new Map((get().imagesByGalleryId[galleryId] ?? []).map((row) => [row.id, row]));
+            const seeds = rows.map((row) => {
+                const old = knownById.get(row.id);
+                const canKeep = old && old.cache_scope === owner.scope && old.storage_provider === row.storage_provider && old.storage_path_orig === row.storage_path_orig && old.storage_path_thumb === row.storage_path_thumb;
+                return { ...row, ...(canKeep ? { url_thumb: old.url_thumb, url_grid: old.url_grid, url_orig: old.url_orig, urls_expires_at: old.urls_expires_at } : {}), cache_scope: owner.scope! };
+            });
+            let merged: GalleryImage[] = seeds;
+            if (rows.length && await owner.valid()) {
+                try { merged = await refreshSignedImages(galleryId, seeds, false, owner.valid); }
+                catch (error) {
+                    if (await owner.valid()) set((state) => ({ imageErrorsByGalleryId: { ...state.imageErrorsByGalleryId, [galleryId]: getErrorMessage(error, "Photo links could not refresh. Retry.") } }));
                 }
             }
 
@@ -979,6 +902,7 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
                   }
                 : cursor;
 
+            if (!await owner.valid()) return [];
             set((state) => ({
                 imagesByGalleryId: {
                     ...state.imagesByGalleryId,
@@ -1000,12 +924,15 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
 
             await replaceCachedGalleryImages(
                 galleryId,
-                get().imagesByGalleryId[galleryId] ?? [],
+                merged, owner.cache(),
             );
 
             return get().imagesByGalleryId[galleryId] ?? [];
+        } catch (error) {
+            if (await owner.valid()) set((state) => ({ error: getErrorMessage(error, "Photos could not load. Please retry."), imageErrorsByGalleryId: { ...state.imageErrorsByGalleryId, [galleryId]: getErrorMessage(error, "Photos could not load. Please retry.") } }));
+            return get().imagesByGalleryId[galleryId] ?? [];
         } finally {
-            set((state) => ({
+            if (owner.current() && (!owner.scope || await owner.valid())) set((state) => ({
                 imagesPageByGalleryId: {
                     ...state.imagesPageByGalleryId,
                     [galleryId]: {
@@ -1022,124 +949,27 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
         }
     },
 
-    refreshGalleryImages: async (galleryId: string) => {
-        return await get().loadInitialGalleryImages(galleryId);
+    reconcileGalleryImages: async (galleryId) => {
+        const generation = galleryGeneration;
+        const scope = await currentGalleryScope();
+        if (!scope || generation !== galleryGeneration) return [];
+        const key = `${generation}/${scope}/${galleryId}/${get().imageSortByGalleryId[galleryId] ?? "desc"}`;
+        const existing = reconciliations.get(key);
+        if (existing) return existing;
+        const promise = get().loadInitialGalleryImages(galleryId);
+        reconciliations.set(key, promise);
+        void promise.finally(() => { if (reconciliations.get(key) === promise) reconciliations.delete(key); }).catch(() => undefined);
+        return promise;
     },
+
+    refreshGalleryImages: async (galleryId: string) => get().loadInitialGalleryImages(galleryId),
 
     fetchGalleries: async () => {
         // Legacy alias kept for compatibility; now loads the first paged screen.
         return await get().refreshGalleries();
     },
 
-    fetchGalleryImages: async (galleryId: string) => {
-        set((state) => ({
-            isLoadingImagesByGalleryId: {
-                ...state.isLoadingImagesByGalleryId,
-                [galleryId]: true,
-            },
-            error: null,
-        }));
-
-        const cached = await getCachedGalleryImages(galleryId);
-        if (cached.length > 0) {
-            set((state) => ({
-                imagesByGalleryId: {
-                    ...state.imagesByGalleryId,
-                    [galleryId]: cached,
-                },
-            }));
-        }
-
-        if (!getIsOnline()) {
-            set((state) => ({
-                isLoadingImagesByGalleryId: {
-                    ...state.isLoadingImagesByGalleryId,
-                    [galleryId]: false,
-                },
-            }));
-            return cached;
-        }
-
-        const { data, error } = await supabase
-            .from("date_images")
-            .select("*")
-            .eq("gallery_id", galleryId)
-            .order("created_at", { ascending: false });
-
-        if (error) {
-            console.error("Error fetching gallery images:", error);
-            set((state) => ({
-                error: error.message,
-                isLoadingImagesByGalleryId: {
-                    ...state.isLoadingImagesByGalleryId,
-                    [galleryId]: false,
-                },
-            }));
-            return [];
-        }
-
-        const rows = (data as GalleryImage[]) ?? [];
-
-        if (rows.length === 0) {
-            await replaceCachedGalleryImages(galleryId, []);
-            set((state) => ({
-                imagesByGalleryId: {
-                    ...state.imagesByGalleryId,
-                    [galleryId]: [],
-                },
-                isLoadingImagesByGalleryId: {
-                    ...state.isLoadingImagesByGalleryId,
-                    [galleryId]: false,
-                },
-            }));
-            return [];
-        }
-
-        const imageIds = rows.map((r) => r.id);
-
-        const { data: signedMap, error: signErr } =
-            await supabase.functions.invoke("sign-gallery-urls", {
-                body: { galleryId, imageIds },
-            });
-
-        if (signErr) {
-            console.warn("Signing failed, returning unsigned rows", signErr);
-            await replaceCachedGalleryImages(galleryId, rows);
-            set((state) => ({
-                imagesByGalleryId: {
-                    ...state.imagesByGalleryId,
-                    [galleryId]: rows,
-                },
-                isLoadingImagesByGalleryId: {
-                    ...state.isLoadingImagesByGalleryId,
-                    [galleryId]: false,
-                },
-            }));
-            return rows;
-        }
-
-        const merged = rows.map((r) => ({
-            ...r,
-            url_thumb: signedMap?.[String(r.id)]?.url_thumb,
-            url_grid: signedMap?.[String(r.id)]?.url_grid,
-            url_orig: signedMap?.[String(r.id)]?.url_orig,
-        }));
-
-        await replaceCachedGalleryImages(galleryId, merged);
-
-        set((state) => ({
-            imagesByGalleryId: {
-                ...state.imagesByGalleryId,
-                [galleryId]: merged,
-            },
-            isLoadingImagesByGalleryId: {
-                ...state.isLoadingImagesByGalleryId,
-                [galleryId]: false,
-            },
-        }));
-
-        return merged;
-    },
+    fetchGalleryImages: async (galleryId) => get().refreshGalleryImages(galleryId),
 
     addNewGallery: async ({ title, date, color, location }) => {
         set({ error: null });
@@ -1234,8 +1064,13 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
     },
 
     uploadGalleryImages: async (galleryId: string, images: string[]) => {
+        if (uploadJobs.has(galleryId)) return false;
+        const job = Symbol(galleryId);
+        uploadJobs.set(galleryId, job);
+        const generation = galleryGeneration;
         if (!getIsOnline()) {
             set({ error: "Gallery uploads are unavailable offline." });
+            uploadJobs.delete(galleryId);
             return false;
         }
 
@@ -1253,51 +1088,58 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
             progress: 0,
         });
 
+        let scope: string | null = null;
+        const current = async () => generation === galleryGeneration && !!scope && await currentGalleryScope() === scope;
         try {
+            scope = await currentGalleryScope();
+            if (!await current()) return false;
             const { data: galleryRow, error: galleryError } = await supabase
                 .from("galleries")
                 .select("space_id, cover_image_path, cover_image_thumb_path")
                 .eq("id", galleryId)
                 .single();
 
+            if (!await current()) return false;
             if (galleryError || !galleryRow?.space_id) {
                 toast.show({
                     title: "Something went wrong!",
                     message: "Gallery fetching failed. Please try again later.",
                     durationMs: 2000,
                 });
-                set((s) => ({
+                set(() => ({
                     error: galleryError?.message ?? "Gallery not found",
                 }));
                 return false;
             }
 
-            const spaceId = galleryRow.space_id as string;
-            const hasCover = !!galleryRow.cover_image_path;
 
-            const CONCURRENCY = 3;
+            const CONCURRENCY = 2;
             let completedImages = 0;
 
             await runWithConcurrency(
                 images,
                 CONCURRENCY,
-                async (imageUri, idx) => {
-                    await uploadSingleImage(
-                        galleryId,
-                        imageUri,
-                        idx,
-                        images.length,
-                        spaceId,
-                        hasCover,
-                        toastId,
-                        set,
-                    );
-
-                    completedImages++;
-                    toast.update(toastId, {
-                        message: `Uploaded ${completedImages}/${images.length} images...`,
-                        progress: completedImages / images.length,
-                    });
+                async (imageUri) => {
+                    if (!await current()) throw new Error("Gallery context changed");
+                    const variants = await generateVariants(imageUri);
+                    try {
+                        const blurHash = await generateBlurhash(variants.thumb.uri);
+                        if (!await current()) throw new Error("Gallery context changed");
+                        const uploaded = await uploadR2Image(galleryId, variants, blurHash);
+                        if (!await current()) throw new Error("Gallery context changed");
+                        const [signedImage] = await refreshSignedImages(galleryId, [uploaded], true).catch(() => [uploaded]);
+                        if (!await current()) throw new Error("Gallery context changed");
+                        const image = { ...signedImage, cache_scope: scope! };
+                        set((state) => ({ imagesByGalleryId: {
+                            ...state.imagesByGalleryId,
+                            [galleryId]: [image, ...(state.imagesByGalleryId[galleryId] ?? [])],
+                        } }));
+                        completedImages++;
+                        toast.update(toastId, {
+                            message: `Uploaded ${completedImages}/${images.length} images...`,
+                            progress: completedImages / images.length,
+                        });
+                    } finally { removeGalleryTempFiles([variants.thumb.uri, variants.orig.uri], imageUri); }
                 },
             );
 
@@ -1305,7 +1147,7 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
         } catch (err) {
             const message = getErrorMessage(err, "Failed to upload images.");
             console.error("Error uploading gallery images:", err);
-            set({ error: message });
+            if (await current() && uploadJobs.get(galleryId) === job) set({ error: message });
             toast.show({
                 title: "Upload failed",
                 message: "Please try uploading the photos again.",
@@ -1313,496 +1155,170 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
             });
             return false;
         } finally {
-            set((state) => ({
+
+            if (await current()) {
+                try { await replaceCachedGalleryImages(galleryId, get().imagesByGalleryId[galleryId] ?? [], { scope: scope!, current: () => generation === galleryGeneration }); }
+                catch { /* Uploaded photos remain server-authoritative if local persistence fails. */ }
+            }
+            if (generation === galleryGeneration && uploadJobs.get(galleryId) === job) set((state) => ({
                 isUploadingByGalleryId: {
                     ...state.isUploadingByGalleryId,
                     [galleryId]: false,
                 },
             }));
+            if (uploadJobs.get(galleryId) === job) uploadJobs.delete(galleryId);
             toast.dismiss(toastId);
         }
     },
 
-    deleteOneGalleryImage: async (galleryId: string, imageId: string) => {
-        if (!getIsOnline()) {
-            set({ error: "Gallery changes are unavailable offline." });
-            return false;
-        }
+    setImageSort: async (galleryId, direction) => {
+        invalidateGalleryReads(galleryId);
+        set((state) => ({ imageSortByGalleryId: { ...state.imageSortByGalleryId, [galleryId]: direction } }));
+        return get().loadInitialGalleryImages(galleryId);
+    },
 
-        set({ error: null });
-
-        // Fetch gallery cover
-        const { data: galleryData, error: galleryError } = await supabase
-            .from("galleries")
-            .select("cover_image_path, cover_image_thumb_path")
-            .eq("id", galleryId)
-            .single();
-
-        if (galleryError) {
-            console.error("Error fetching gallery data:", galleryError);
-            set({ error: galleryError.message });
-            return false;
-        }
-
-        // Fetch image row
-        const { data: imgRow, error: imgErr } = await supabase
-            .from("date_images")
-            .select("storage_path_thumb, storage_path_grid, storage_path_orig")
-            .eq("id", imageId)
-            .single();
-
-        if (imgErr) {
-            console.error("Error fetching image row:", imgErr);
-            set({ error: imgErr.message });
-            return false;
-        }
-
-        const isDeletingCover =
-            galleryData?.cover_image_path === imgRow.storage_path_grid;
-
-        // If deleting cover, pick replacement or clear cover
-        if (isDeletingCover) {
-            const { data: otherImages, error: otherErr } = await supabase
-                .from("date_images")
-                .select("storage_path_grid, storage_path_thumb, blur_hash")
-                .eq("gallery_id", galleryId)
-                .neq("id", imageId)
-                .order("created_at", { ascending: false })
-                .limit(1);
-
-            if (otherErr) {
-                console.error("Error fetching replacement image:", otherErr);
-                set({ error: otherErr.message });
-                return false;
-            }
-
-            const replacement = otherImages?.[0];
-
-            if (!replacement) {
-                await supabase
-                    .from("galleries")
-                    .update({
-                        cover_image_path: null,
-                        cover_image_thumb_path: null,
-                        cover_image_blur_hash: null,
-                    })
-                    .eq("id", galleryId);
-
-                set((state) => ({
-                    galleries: clearGalleryCoverInList(
-                        state.galleries,
-                        galleryId,
-                    ),
-                }));
-            } else {
-                await supabase
-                    .from("galleries")
-                    .update({
-                        cover_image_path: replacement.storage_path_grid,
-                        cover_image_thumb_path: replacement.storage_path_thumb,
-                        cover_image_blur_hash: replacement.blur_hash,
-                    })
-                    .eq("id", galleryId);
-
-                const { data: signed } = await supabase.storage
-                    .from(GALLERY_BUCKET)
-                    .createSignedUrl(
-                        replacement.storage_path_thumb,
-                        SIGN_TTL_SECONDS,
-                    );
-
-                set((state) => ({
-                    galleries: setGalleryCoverInList(
-                        state.galleries,
-                        galleryId,
-                        replacement,
-                        signed?.signedUrl ?? null,
-                    ),
-                }));
-            }
-        }
-
-        const { error: storageErr } = await supabase.storage
-            .from(GALLERY_BUCKET)
-            .remove([
-                imgRow.storage_path_thumb,
-                imgRow.storage_path_grid,
-                imgRow.storage_path_orig,
-            ]);
-
-        if (storageErr) {
-            console.error("Error deleting image from storage:", storageErr);
-        }
-
-        // Delete DB row
-        await supabase.from("date_images").delete().eq("id", imageId);
-
-        // Update store images list immediately
-        set((state) => {
-            return {
-                imagesByGalleryId: removeImageFromGalleryCache(
-                    state.imagesByGalleryId,
-                    galleryId,
-                    imageId,
-                ),
-            };
+    refreshCoverUrls: async (ids, force = false) => {
+        const generation = galleryGeneration;
+        const scope = await currentGalleryScope();
+        if (!scope || !getIsOnline() || generation !== galleryGeneration) return;
+        const selected = get().galleries.filter((row) => ids.includes(row.id) && row.cover_image_thumb_path &&
+            (force || !row.cover_thumb_url || !row.cover_expires_at || Date.parse(row.cover_expires_at) - 60000 <= Date.now()));
+        if (!selected.length) return;
+        const paths = [...new Set(selected.map((row) => row.cover_image_thumb_path!))];
+        const urls = await renewCovers(`${generation}/${scope}/covers`, paths, async (paths) => {
+            if (generation !== galleryGeneration || await currentGalleryScope() !== scope) throw new Error("Gallery context changed");
+            return galleryRequest("sign-gallery-cover-urls", { paths });
         });
-
-        return true;
+        if (generation !== galleryGeneration || await currentGalleryScope() !== scope) return;
+        const signed = new Map(paths.map((path, index) => [path, urls[index]]));
+        const changed: Gallery[] = [];
+        const galleries = get().galleries.map((row) => {
+            const url = row.cover_image_thumb_path && signed.get(row.cover_image_thumb_path);
+            if (!url || url === row.cover_thumb_url) return row;
+            const updated = { ...row, cover_thumb_url: url, cover_expires_at: new Date(Date.now() + 3600000).toISOString(), cache_scope: scope };
+            changed.push(updated); return updated;
+        });
+        if (!changed.length) return;
+        set({ galleries });
+        await replaceCachedGalleries(changed[0].space_id, changed, { scope, current: () => generation === galleryGeneration });
     },
 
-    deleteMultipleGalleryImages: async (
-        galleryId: string,
-        imageIds: string[],
-    ) => {
-        if (!getIsOnline()) {
-            set({ error: "Gallery changes are unavailable offline." });
-            return false;
+    refreshImageUrls: async (galleryId, ids, force = false) => {
+        const generation = galleryGeneration;
+        const revision = readRevisions.get(`images/${galleryId}`);
+        const scope = await currentGalleryScope();
+        const current = () => generation === galleryGeneration && readRevisions.get(`images/${galleryId}`) === revision;
+        if (!scope || !current()) return [];
+        const selected = (get().imagesByGalleryId[galleryId] ?? []).filter((image) => !ids || ids.includes(image.id));
+        const needs = selected.filter((image) => force || needsUrlRefresh(image));
+        if (!getIsOnline() || !needs.length) return selected;
+        const signed = await renewImages(`${generation}/${scope}/${galleryId}`, needs.map((image) => image.id), async (imageIds) => {
+            if (!current() || await currentGalleryScope() !== scope) throw new Error("Gallery context changed");
+            return galleryRequest("sign-gallery-urls", { galleryId, imageIds });
+        });
+        if (!current() || await currentGalleryScope() !== scope) return [];
+        if (signed.some((row) => !row.url_orig && !row.url_thumb && !row.url_grid)) throw new Error("Photo links unavailable. Please retry.");
+        const byId = new Map(needs.map((image, index) => [image.id, { old: image, signed: signed[index] }]));
+        const changed: GalleryImage[] = [];
+        const rows = (get().imagesByGalleryId[galleryId] ?? []).map((image) => {
+            const result = byId.get(image.id);
+            if (!result || image.storage_path_orig !== result.old.storage_path_orig || image.storage_path_thumb !== result.old.storage_path_thumb) return image;
+            const refreshed = applySignedImageFields(image, result.signed);
+            if (refreshed === image) return image;
+            const updated = { ...refreshed, cache_scope: scope };
+            changed.push(updated); return updated;
+        });
+        if (changed.length) {
+            set((state) => ({ imagesByGalleryId: { ...state.imagesByGalleryId, [galleryId]: rows } }));
+            await replaceCachedGalleryImages(galleryId, changed, { scope, current });
         }
-
-        const uniqueImageIds = Array.from(new Set(imageIds));
-        if (uniqueImageIds.length === 0) return true;
-
-        set({ error: null });
-
-        const { data: galleryData, error: galleryError } = await supabase
-            .from("galleries")
-            .select("space_id, cover_image_path, cover_image_thumb_path")
-            .eq("id", galleryId)
-            .single();
-
-        if (galleryError) {
-            console.error("Error fetching gallery data:", galleryError);
-            set({ error: galleryError.message });
-            return false;
-        }
-
-        const { data: rowsData, error: rowsError } = await supabase
-            .from("date_images")
-            .select(
-                "id, storage_path_thumb, storage_path_grid, storage_path_orig, blur_hash",
-            )
-            .eq("gallery_id", galleryId)
-            .in("id", uniqueImageIds);
-
-        if (rowsError) {
-            console.error("Error fetching selected image rows:", rowsError);
-            set({ error: rowsError.message });
-            return false;
-        }
-
-        const selectedRows =
-            (rowsData as Pick<
-                GalleryImage,
-                | "id"
-                | "storage_path_thumb"
-                | "storage_path_grid"
-                | "storage_path_orig"
-                | "blur_hash"
-            >[]) ?? [];
-
-        if (selectedRows.length === 0) return true;
-
-        const selectedIdSet = new Set(uniqueImageIds);
-        const deletingCurrentCover = selectedRows.some(
-            (row) => row.storage_path_grid === galleryData?.cover_image_path,
-        );
-
-        if (deletingCurrentCover) {
-            const { data: replacementRows, error: replacementError } =
-                await supabase
-                    .from("date_images")
-                    .select("id, storage_path_grid, storage_path_thumb, blur_hash")
-                    .eq("gallery_id", galleryId)
-                    .order("created_at", { ascending: false })
-                    .limit(uniqueImageIds.length + 1);
-
-            if (replacementError) {
-                console.error("Error fetching replacement image:", replacementError);
-                set({ error: replacementError.message });
-                return false;
-            }
-
-            const replacement = (
-                (replacementRows as (Pick<
-                    GalleryImage,
-                    "id" | "storage_path_grid" | "storage_path_thumb" | "blur_hash"
-                > & { id: string })[]) ?? []
-            ).find((row) => !selectedIdSet.has(row.id));
-
-            if (!replacement) {
-                const { error: updateCoverError } = await supabase
-                    .from("galleries")
-                    .update({
-                        cover_image_path: null,
-                        cover_image_thumb_path: null,
-                        cover_image_blur_hash: null,
-                    })
-                    .eq("id", galleryId);
-
-                if (updateCoverError) {
-                    console.error("Error clearing gallery cover:", updateCoverError);
-                    set({ error: updateCoverError.message });
-                    return false;
-                }
-
-                set((state) => ({
-                    galleries: clearGalleryCoverInList(
-                        state.galleries,
-                        galleryId,
-                    ),
-                }));
-            } else {
-                const { error: updateCoverError } = await supabase
-                    .from("galleries")
-                    .update({
-                        cover_image_path: replacement.storage_path_grid,
-                        cover_image_thumb_path: replacement.storage_path_thumb,
-                        cover_image_blur_hash: replacement.blur_hash,
-                    })
-                    .eq("id", galleryId);
-
-                if (updateCoverError) {
-                    console.error("Error updating gallery cover:", updateCoverError);
-                    set({ error: updateCoverError.message });
-                    return false;
-                }
-
-                const { data: signed } = await supabase.storage
-                    .from(GALLERY_BUCKET)
-                    .createSignedUrl(
-                        replacement.storage_path_thumb,
-                        SIGN_TTL_SECONDS,
-                    );
-
-                set((state) => ({
-                    galleries: setGalleryCoverInList(
-                        state.galleries,
-                        galleryId,
-                        replacement,
-                        signed?.signedUrl ?? null,
-                    ),
-                }));
-            }
-        }
-
-        const storagePaths = Array.from(
-            new Set(
-                selectedRows
-                    .flatMap((row) => [
-                        row.storage_path_thumb,
-                        row.storage_path_grid,
-                        row.storage_path_orig,
-                    ])
-                    .filter(isNonEmptyString),
-            ),
-        );
-
-        for (const pathChunk of chunk(storagePaths, STORAGE_REMOVE_CHUNK_SIZE)) {
-            const { error: storageErr } = await supabase.storage
-                .from(GALLERY_BUCKET)
-                .remove(pathChunk);
-
-            if (storageErr) {
-                console.error(
-                    "Error deleting selected image paths from storage:",
-                    storageErr,
-                );
-            }
-        }
-
-        const { error: deleteRowsError } = await supabase
-            .from("date_images")
-            .delete()
-            .in("id", uniqueImageIds);
-
-        if (deleteRowsError) {
-            console.error("Error deleting selected image rows:", deleteRowsError);
-            set({ error: deleteRowsError.message });
-            return false;
-        }
-
-        set((state) => ({
-            imagesByGalleryId: removeImagesFromGalleryCache(
-                state.imagesByGalleryId,
-                galleryId,
-                selectedIdSet,
-            ),
-        }));
-
-        await replaceCachedGalleryImages(
-            galleryId,
-            get().imagesByGalleryId[galleryId] ?? [],
-        );
-
-        const spaceId =
-            (galleryData?.space_id as string | undefined) ?? (await getSpaceId());
-        if (spaceId && get().galleries.length > 0) {
-            await replaceCachedGalleries(spaceId, get().galleries);
-        }
-
-        return true;
+        return rows.filter((image) => !ids || ids.includes(image.id));
     },
 
-    deleteGallery: async (
-        galleryId: string,
-        options: { showToast?: boolean } = {},
-    ) => {
-        if (!getIsOnline()) {
-            set({ error: "Gallery changes are unavailable offline." });
-            return false;
-        }
+    deleteOneGalleryImage: async (galleryId, imageId) => {
+        return await get().deleteMultipleGalleryImages(galleryId, [imageId]);
+    },
 
+    deleteMultipleGalleryImages: async (galleryId, imageIds) => {
+        if (!getIsOnline()) { set({ error: "Gallery changes are unavailable offline." }); return false; }
+        const generation = galleryGeneration;
+        const scope = await currentGalleryScope();
+        const current = async () => generation === galleryGeneration && !!scope && await currentGalleryScope() === scope;
+        if (!await current()) return false;
+        const accepted = new Set<string>();
+        let failure: unknown;
         set({ error: null });
-
-        const finalizeDelete = async () => {
-            const deletedGallery = get().galleries.find(
-                (gallery) => gallery.id === galleryId,
-            );
-
-            set((state) => ({
-                galleries: state.galleries.filter(
-                    (gallery) => gallery.id !== galleryId,
-                ),
-                imagesByGalleryId: omitRecordKey(
-                    state.imagesByGalleryId,
-                    galleryId,
-                ),
-                imagesPageByGalleryId: omitRecordKey(
-                    state.imagesPageByGalleryId,
-                    galleryId,
-                ),
-            }));
-
-            await replaceCachedGalleryImages(galleryId, []);
-
-            const spaceId = deletedGallery?.space_id ?? (await getSpaceId());
-            if (spaceId) {
-                await replaceCachedGalleries(spaceId, get().galleries);
-            }
-
-            if (options.showToast !== false) {
-                toast.show({
-                    title: "Success!",
-                    message: "The gallery has been successfully deleted!",
-                    durationMs: 2000,
-                });
-            }
-
-            return true;
+        const hideAccepted = () => {
+            if (generation !== galleryGeneration) return;
+            set((state) => ({ imagesByGalleryId: { ...state.imagesByGalleryId,
+                [galleryId]: (state.imagesByGalleryId[galleryId] ?? []).filter((image) => !accepted.has(image.id)),
+            } }));
         };
-
-        const { data: functionData, error: functionErr } =
-            await supabase.functions.invoke("delete-gallery", {
-                body: { galleryId },
-            });
-
-        if (!functionErr) {
-            if (functionData?.ok === true) {
-                return await finalizeDelete();
+        try {
+            for (const batch of chunk([...new Set(imageIds)], 200)) {
+                if (!await current()) return false;
+                // Both 200 complete and 202 durable acceptance are successful user deletions.
+                await galleryRequest("delete-gallery-images", { galleryId, imageIds: batch });
+                if (!await current()) return true;
+                batch.forEach((id) => accepted.add(id));
+                invalidateGalleryReads(galleryId);
+                hiddenImages.set(galleryId, new Set([...(hiddenImages.get(galleryId) ?? []), ...batch]));
+                await Promise.allSettled([invalidateCachedGalleryImages(galleryId, batch, scope ? { scope, current: () => generation === galleryGeneration } : undefined)]);
+                if (!await current()) return true;
+                hideAccepted();
+                await Promise.allSettled([replaceCachedGalleryImages(galleryId, get().imagesByGalleryId[galleryId] ?? [])]);
             }
-
-            if (functionData?.ok === false) {
-                const serverMessage =
-                    functionData?.error ??
-                    "Server-side gallery delete failed.";
-                set({ error: serverMessage });
-                return false;
-            }
+        } catch (error) { failure = error; }
+        // A refresh/cache error cannot turn an already-accepted deletion into rejection.
+        // Reconcile even rejected or ambiguous requests; never hide unaccepted IDs locally.
+        if (await current()) {
+            await Promise.allSettled([get().refreshGalleryImages(galleryId), get().refreshGalleries()]);
+            if (!await current()) return !failure;
+            hideAccepted();
+            await Promise.allSettled([replaceCachedGalleryImages(galleryId, get().imagesByGalleryId[galleryId] ?? [])]);
+            if (await current()) set({ error: failure ? getErrorMessage(failure, "Could not accept the deletion. Please try again.") : null });
         }
+        return !failure;
+    },
 
-        if (functionErr) {
-            const functionMessage = String(functionErr?.message ?? "");
-            const isFunctionUnavailable =
-                functionMessage.includes("404") ||
-                functionMessage.toLowerCase().includes("not found");
-
-            if (!isFunctionUnavailable) {
-                console.error(
-                    "Server-side gallery delete failed:",
-                    functionErr,
-                );
-                set({ error: functionMessage || "Server-side gallery delete failed." });
-                return false;
-            }
-
-            console.warn(
-                "Server-side delete function unavailable, falling back to client-side delete:",
-                functionErr,
-            );
-        }
-
-        const { data: imageRows, error: imageRowsErr } = await supabase
-            .from("date_images")
-            .select("id, storage_path_thumb, storage_path_grid, storage_path_orig")
-            .eq("gallery_id", galleryId);
-
-        if (imageRowsErr) {
-            console.error("Error fetching gallery images for deletion:", imageRowsErr);
-            set({ error: imageRowsErr.message });
-            return false;
-        }
-
-        const rows =
-            (imageRows as
-                | Pick<
-                      GalleryImage,
-                      | "id"
-                      | "storage_path_thumb"
-                      | "storage_path_grid"
-                      | "storage_path_orig"
-                  >[]
-                | null) ?? [];
-
-        if (rows.length > 0) {
-            const storagePaths = Array.from(
-                new Set(
-                    rows
-                        .flatMap((row) => [
-                            row.storage_path_thumb,
-                            row.storage_path_grid,
-                            row.storage_path_orig,
-                        ])
-                        .filter(isNonEmptyString),
-                ),
-            );
-
-            for (const pathChunk of chunk(storagePaths, STORAGE_REMOVE_CHUNK_SIZE)) {
-                const { error: storageErr } = await supabase.storage
-                    .from(GALLERY_BUCKET)
-                    .remove(pathChunk);
-
-                if (storageErr) {
-                    console.error(
-                        "Error deleting gallery image paths from storage:",
-                        storageErr,
-                    );
+    deleteGallery: async (galleryId, options = {}) => {
+        if (!getIsOnline()) { set({ error: "Gallery changes are unavailable offline." }); return false; }
+        if (deleteJobs.has(galleryId)) return false;
+        const job = Symbol(galleryId); deleteJobs.set(galleryId, job);
+        try {
+            const generation = galleryGeneration;
+            const scope = await currentGalleryScope();
+            const current = async () => generation === galleryGeneration && !!scope && await currentGalleryScope() === scope;
+            if (!await current()) return false;
+            set({ error: null });
+            let result;
+            try { result = await galleryRequest("delete-gallery", { galleryId }); }
+            catch (error) {
+                if (await current()) {
+                    await Promise.allSettled([get().refreshGalleryImages(galleryId), get().refreshGalleries()]);
+                    if (await current()) set({ error: getErrorMessage(error, "Could not accept the deletion. Please try again.") });
                 }
-            }
-
-            const { error: delImagesErr } = await supabase
-                .from("date_images")
-                .delete()
-                .eq("gallery_id", galleryId);
-
-            if (delImagesErr) {
-                console.error("Error deleting gallery image rows:", delImagesErr);
-                set({ error: delImagesErr.message });
                 return false;
             }
-        }
+            if (!await current()) return true;
+            invalidateGalleryReads(galleryId);
+            invalidateGalleryReads();
+            hiddenGalleries.add(galleryId);
+            const deleted = get().galleries.find((gallery) => gallery.id === galleryId);
+            set((state) => ({
+                galleries: state.galleries.filter((gallery) => gallery.id !== galleryId),
+                imagesByGalleryId: omitRecordKey(state.imagesByGalleryId, galleryId),
+                imagesPageByGalleryId: omitRecordKey(state.imagesPageByGalleryId, galleryId),
+            }));
+            await Promise.allSettled([(async () => {
+                const spaceId = deleted?.space_id ?? await getSpaceId();
 
-        // Delete gallery row
-        const { error: delGalleryErr } = await supabase
-            .from("galleries")
-            .delete()
-            .eq("id", galleryId);
-        if (delGalleryErr) {
-            console.error("Error deleting gallery:", delGalleryErr);
-            set({ error: delGalleryErr.message });
-            return false;
-        }
-
-        return await finalizeDelete();
+                if (spaceId && scope && generation === galleryGeneration) await invalidateCachedGalleries(spaceId, [galleryId], { scope, current: () => generation === galleryGeneration });
+            })()]);
+            if (options.showToast !== false) toast.show({ title: "Gallery removed",
+                message: result.deferred ? "Photo cleanup is queued for the daily backend job." : "The gallery has been successfully deleted!",
+                durationMs: 2000 });
+            return true;
+        } finally { if (deleteJobs.get(galleryId) === job) deleteJobs.delete(galleryId); }
     },
 }));

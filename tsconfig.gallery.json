@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "app/(tabs)/(gallery)/**/*.tsx", "stores/GalleryStore.ts", "hooks/useGallery*.ts", "components/gallery/**/*.tsx",
+    "utils/gallery*.ts", "utils/generateImageVariants.ts", "utils/runWithConcurrency.ts",
+    "providers/auth-provider.tsx", "providers/offline-provider.tsx", "utils/offline/local-db.ts", "types/**/*.d.ts"
+  ],
+  "exclude": ["node_modules", "supabase", "scripts", "tests", "archive"]
+}

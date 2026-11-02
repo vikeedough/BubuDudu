@@ -1,6 +1,7 @@
 import React from "react";
 import {
     ActivityIndicator,
+    LayoutChangeEvent,
     StyleSheet,
     TouchableOpacity,
     View,
@@ -11,6 +12,8 @@ import { Colors } from "@/constants/colors";
 
 interface GalleryEditControlsProps {
     isDownloading: boolean;
+    progress?: { saved: number; total: number } | null;
+    onLayout?: (event: LayoutChangeEvent) => void;
     selectedCount: number;
     onDownload: () => void;
     onDelete: () => void;
@@ -18,22 +21,29 @@ interface GalleryEditControlsProps {
 
 const GalleryEditControls: React.FC<GalleryEditControlsProps> = ({
     isDownloading,
+    progress,
+    onLayout,
     selectedCount,
     onDownload,
     onDelete,
 }) => {
-    const disabled = selectedCount === 0 || isDownloading;
-    const suffix = selectedCount > 0 ? ` ${selectedCount}` : "";
+    if (selectedCount <= 0) return null;
+
+    const disabled = isDownloading;
+    const suffix = ` ${selectedCount}`;
 
     return (
-        <View style={styles.editControlsContainer}>
+        <View onLayout={onLayout} style={styles.editControlsContainer}>
             <TouchableOpacity
                 style={[styles.downloadButton, disabled && styles.disabledButton]}
+                accessibilityRole="button"
+                accessibilityLabel={isDownloading ? `Saving photos: ${progress?.saved ?? 0} of ${progress?.total ?? selectedCount} saved` : `Download ${selectedCount} selected photos`}
+                accessibilityState={{ disabled, busy: isDownloading }}
                 onPress={onDownload}
                 disabled={disabled}
             >
                 {isDownloading ? (
-                    <ActivityIndicator size="small" color={Colors.white} />
+                    <View><ActivityIndicator size="small" color={Colors.white} /><CustomText style={styles.buttonText}>{progress?.saved ?? 0}/{progress?.total ?? selectedCount} saved</CustomText></View>
                 ) : (
                     <CustomText weight="semibold" style={styles.buttonText}>
                         Download{suffix}
@@ -42,6 +52,9 @@ const GalleryEditControls: React.FC<GalleryEditControlsProps> = ({
             </TouchableOpacity>
             <TouchableOpacity
                 style={[styles.deleteButton, disabled && styles.disabledButton]}
+                accessibilityRole="button"
+                accessibilityLabel={`Delete ${selectedCount} selected photos`}
+                accessibilityState={{ disabled }}
                 onPress={onDelete}
                 disabled={disabled}
             >

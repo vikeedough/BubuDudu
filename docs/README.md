@@ -17,6 +17,8 @@ Start here when a future chat needs to understand the project quickly.
 6. `docs/supabase-introspection.sql`
    - Read-only SQL to paste into the Supabase SQL editor when live backend details are needed.
 
+Gallery storage implementation and manual rollout: [gallery-storage.md](gallery-storage.md).
+
 ## Current App Shape
 
 BubuDudu is an Expo Router React Native app for a shared couple space. It uses Supabase Auth, Postgres, Storage, and Edge Functions, plus local SQLite and Zustand for offline-first feature state.
