@@ -1,6 +1,13 @@
+import { act, fireEvent, render, renderHook } from "@testing-library/react-native";
+import { Alert } from "react-native";
+
+import DeleteImagesModal from "@/components/gallery/DeleteImagesModal";
+import { useGalleryContent } from "@/hooks/useGalleryContent";
+
 let mockGalleryStoreState: any;
 
 jest.mock("expo-router", () => ({
+  useFocusEffect: (effect: any) => jest.requireActual<typeof import("react")>("react").useEffect(effect, [effect]),
   router: {
     back: jest.fn(),
   },
@@ -42,18 +49,13 @@ jest.mock("@/components/common/ConfirmModal", () => {
   };
 });
 
-import { act, fireEvent, render, renderHook } from "@testing-library/react-native";
-
-import DeleteImagesModal from "@/components/gallery/DeleteImagesModal";
-import { useGalleryContent } from "@/hooks/useGalleryContent";
-
 describe("integration/gallery open-delete flow", () => {
   beforeEach(() => {
     mockGalleryStoreState = {
-      loadInitialGalleryImages: jest.fn(),
+      loadInitialGalleryImages: jest.fn().mockResolvedValue([]),
       loadMoreGalleryImages: jest.fn(),
       refreshGalleryImages: jest.fn().mockResolvedValue([]),
-      refreshGalleries: jest.fn(),
+      refreshGalleries: jest.fn().mockResolvedValue([]),
       deleteGallery: jest.fn().mockResolvedValue(true),
       uploadGalleryImages: jest.fn().mockResolvedValue(true),
       deleteMultipleGalleryImages: jest.fn().mockResolvedValue(true),
@@ -114,9 +116,32 @@ describe("integration/gallery open-delete flow", () => {
       "g1",
       ["i1"],
     );
-    expect(mockGalleryStoreState.refreshGalleryImages).toHaveBeenCalledWith("g1");
+    expect(mockGalleryStoreState.refreshGalleryImages).not.toHaveBeenCalled(); // store reconciles accepted deletion
     expect(result.current.selectedImageIdList).toEqual([]);
     expect(result.current.editMode).toBe(false);
     expect(onClose).toHaveBeenCalled();
   });
+  it("closes without a failure alert after deferred deletion was accepted", async () => {
+    const alert = jest.spyOn(Alert, "alert").mockImplementation(jest.fn());
+    const onClose = jest.fn();
+    const onCleared = jest.fn();
+    const modal = render(<DeleteImagesModal isOpen onClose={onClose} onCleared={onCleared} selectedImageIds={["i1"]} galleryId="g1" />);
+    await act(async () => { fireEvent.press(modal.getByTestId("confirm-delete-images")); });
+    expect(onClose).toHaveBeenCalled();
+    expect(onCleared).toHaveBeenCalled();
+    expect(alert).not.toHaveBeenCalled();
+  });
+
+  it("keeps the selection and reports an unaccepted deletion", async () => {
+    const alert = jest.spyOn(Alert, "alert").mockImplementation(jest.fn());
+    mockGalleryStoreState.deleteMultipleGalleryImages.mockResolvedValueOnce(false);
+    const onClose = jest.fn();
+    const onCleared = jest.fn();
+    const modal = render(<DeleteImagesModal isOpen onClose={onClose} onCleared={onCleared} selectedImageIds={["i1"]} galleryId="g1" />);
+    await act(async () => { fireEvent.press(modal.getByTestId("confirm-delete-images")); });
+    expect(onClose).not.toHaveBeenCalled();
+    expect(onCleared).not.toHaveBeenCalled();
+    expect(alert).toHaveBeenCalledWith("Error", "Could not confirm the deletion. Please refresh and try again.");
+  });
+
 });

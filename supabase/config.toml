@@ -405,3 +405,29 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/calendar-digest/deno.json"
 entrypoint = "./functions/calendar-digest/index.ts"
+
+[functions.sign-gallery-cover-urls]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/sign-gallery-cover-urls/index.ts"
+
+[functions.delete-gallery]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/delete-gallery/index.ts"
+
+[functions.gallery-upload]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/gallery-upload/index.ts"
+
+[functions.delete-gallery-images]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/delete-gallery-images/index.ts"
+
+# Backend-only: @supabase/server independently validates the named secret API key.
+[functions.gallery-daily-cleanup]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/gallery-daily-cleanup/index.ts"

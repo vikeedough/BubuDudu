@@ -1,3 +1,4 @@
+import { File } from "expo-file-system";
 import * as ImagePicker from "expo-image-picker";
 import * as MediaLibrary from "expo-media-library";
 import { Alert } from "react-native";
@@ -154,7 +155,7 @@ describe("utils/gallery", () => {
       canAskAgain: true,
     });
 
-    const savedCount = await multipleDownloadAndSaveImage([] as any);
+    const savedCount = await multipleDownloadAndSaveImage([{ id: "1", url_orig: "https://x/a.jpg" }] as any);
 
     expect(MediaLibrary.requestPermissionsAsync).toHaveBeenCalledWith(false, [
       "photo",
@@ -164,7 +165,8 @@ describe("utils/gallery", () => {
       expect.stringContaining("Please allow full access"),
       undefined,
     );
-    expect(savedCount).toBe(0);
+    expect(savedCount.savedIds).toEqual([]);
+    expect(savedCount.skippedIds).toEqual(["1"]);
   });
 
   it("multipleDownloadAndSaveImage skips rows without url_orig", async () => {
@@ -193,7 +195,8 @@ describe("utils/gallery", () => {
       { id: "album-1" },
     );
     expect(MediaLibrary.addAssetsToAlbumAsync).not.toHaveBeenCalled();
-    expect(savedCount).toBe(2);
+    expect(savedCount.savedIds).toEqual(["1", "3"]);
+    expect(savedCount.skippedIds).toEqual(["2"]);
   });
 
   it("multipleDownloadAndSaveImage alerts when download throws", async () => {
@@ -209,8 +212,21 @@ describe("utils/gallery", () => {
       { id: "1", url_orig: "https://x/a.jpg" },
     ] as any);
 
-    expect(Alert.alert).toHaveBeenCalledWith("Error downloading images");
-    expect(savedCount).toBe(0);
+    expect(savedCount.failedIds).toEqual(["1"]);
+    expect(savedCount.savedIds).toEqual([]);
+  });
+
+  it("refreshes and retries an expired download once", async () => {
+    const download = jest.spyOn(File, "downloadFileAsync")
+      .mockRejectedValueOnce(new Error("HTTP 403 expired"))
+      .mockResolvedValueOnce({ uri: "/tmp/refreshed.jpg" } as any);
+    (MediaLibrary.requestPermissionsAsync as jest.Mock).mockResolvedValue({ status: "granted" });
+    (MediaLibrary.getAlbumAsync as jest.Mock).mockResolvedValue({ id: "album" });
+    const refresh = jest.fn().mockResolvedValue([{ id: "1", url_orig: "https://new/orig" }]);
+    expect((await multipleDownloadAndSaveImage([{ id: "1", url_orig: "https://old/orig" }] as any, refresh)).savedIds).toEqual(["1"]);
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(download).toHaveBeenCalledTimes(2);
+    expect(download.mock.calls[1][0]).toBe("https://new/orig");
   });
 
   it("normalizeGalleries converts string dates to Date", () => {

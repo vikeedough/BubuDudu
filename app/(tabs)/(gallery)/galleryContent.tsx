@@ -26,6 +26,7 @@ const GalleryContent = () => {
         galleryColor,
     } = useLocalSearchParams();
 
+    const [actionHeight, setActionHeight] = useState(90);
     const date = getDate();
     const [galleryDetails, setGalleryDetails] = useState({
         title: galleryTitle as string,
@@ -38,7 +39,13 @@ const GalleryContent = () => {
         isLoadingMoreImages,
         hasMoreImages,
         loadMoreGalleryImages,
+        isOnline,
+        imageError,
+        handleRefresh,
+        isUploading,
+        isPickingImages,
         isDownloading,
+        downloadProgress,
         isDeleting,
         images,
         isViewerOpen,
@@ -121,9 +128,10 @@ const GalleryContent = () => {
             )}
             {isDeleteGalleryModalOpen && (
                 <ConfirmModal
-                    isOpen={isDeleteGalleryModalOpen}
+                            isOpen={isDeleteGalleryModalOpen}
                     onClose={() => setIsDeleteGalleryModalOpen(false)}
                     onConfirm={handleDeleteGallery}
+                    isConfirming={isDeleting}
                     title="Are you sure?"
                     message="Are you sure you want to delete this gallery?"
                 />
@@ -150,14 +158,17 @@ const GalleryContent = () => {
                     galleryTitle={galleryDetails.title}
                     galleryDate={convertDate(galleryDetails.date)}
                     isDeleting={isDeleting}
+                    actionsDisabled={isUploading || isPickingImages || isDeleting}
                     onDeleteGallery={() => setIsDeleteGalleryModalOpen(true)}
                     onEditGallery={() => setIsEditGalleryModalOpen(true)}
                     onAddImages={handleAddImages}
                 />
 
-                {editMode && (
+                {editMode && selectedImageIds.size > 0 && (
                     <GalleryEditControls
                         isDownloading={isDownloading}
+                        progress={downloadProgress}
+                        onLayout={(event) => setActionHeight(event.nativeEvent.layout.height + 10)}
                         selectedCount={selectedImageIds.size}
                         onDownload={handleDownloadImages}
                         onDelete={() => setIsDeleteImagesModalOpen(true)}
@@ -173,7 +184,11 @@ const GalleryContent = () => {
                 />
 
                 <GalleryImageGrid
+                    bottomInset={editMode && selectedImageIds.size > 0 ? actionHeight : 12}
                     images={images}
+                    error={imageError}
+                    isOnline={isOnline}
+                    onRefresh={handleRefresh}
                     isLoadingInitial={isLoadingInitialImages}
                     isLoadingMore={isLoadingMoreImages}
                     hasMore={hasMoreImages}

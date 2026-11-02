@@ -1,4 +1,8 @@
 import * as SQLite from "expo-sqlite";
+import { Platform } from "react-native";
+
+import { supabase } from "@/api/clients/supabaseClient";
+import { getSpaceId } from "@/utils/secure-store";
 
 import type {
     Expense,
@@ -13,7 +17,7 @@ import type {
 import type { Gallery, GalleryImage } from "@/stores/GalleryStore";
 
 const DB_NAME = "bubududu-offline.db";
-const DB_VERSION = 5;
+const DB_VERSION = 7;
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
@@ -379,6 +383,17 @@ async function migrate(db: SQLite.SQLiteDatabase) {
     if (!categoryColumns.some((column) => column.name === "icon")) {
         await db.runAsync("ALTER TABLE expense_categories_cache ADD COLUMN icon TEXT");
     }
+    for (const [table, additions] of [
+        ["galleries_cache", [["cache_scope", "TEXT"], ["cover_expires_at", "TEXT"], ["storage_deleting", "INTEGER NOT NULL DEFAULT 0"]]],
+        ["gallery_images_cache", [["cache_scope", "TEXT"], ["urls_expires_at", "TEXT"], ["storage_provider", "TEXT"], ["storage_state", "TEXT NOT NULL DEFAULT 'ready'"]]],
+    ] as const) {
+        const columns = await db.getAllAsync<{ name: string }>(`PRAGMA table_info(${table})`);
+        for (const [name, type] of additions) {
+            if (!columns.some((column) => column.name === name)) await db.runAsync(`ALTER TABLE ${table} ADD COLUMN ${name} ${type}`);
+        }
+    }
+    // Old caches cannot be attributed to an account. Keep every unrelated offline/outbox row.
+    await db.execAsync("DELETE FROM galleries_cache WHERE cache_scope IS NULL; DELETE FROM gallery_images_cache WHERE cache_scope IS NULL;");
     // Advance only after all upgrades succeed so an interrupted upgrade retries.
     await db.execAsync(`PRAGMA user_version = ${DB_VERSION};`);
 }
@@ -665,102 +680,158 @@ export async function replaceCachedQuotes(spaceId: string, quotes: Quote[]) {
     }
 }
 
+export async function currentGalleryScope(spaceId?: string): Promise<string | null> {
+    try {
+        const session = await supabase.auth.getSession();
+        const userId = session?.data?.session?.user.id;
+        const space = spaceId ?? await getSpaceId();
+        return userId && space ? `${userId}/${space}` : null;
+    } catch { return null; }
+}
+
 export async function getCachedGalleries(spaceId: string): Promise<Gallery[]> {
     const db = await getOfflineDb();
+    const scope = await currentGalleryScope(spaceId);
+    if (!scope) return [];
     const rows = await db.getAllAsync<CachedGalleryRow>(
         `SELECT * FROM galleries_cache
-         WHERE space_id = ?
-         ORDER BY date DESC`,
-        spaceId,
+         WHERE space_id = ? AND cache_scope = ? AND storage_deleting = 0
+         ORDER BY date DESC, id DESC`,
+        spaceId, scope,
     );
     return rows.map((row) => ({ ...row, date: row.date }));
 }
 
-export async function replaceCachedGalleries(
-    spaceId: string,
-    galleries: Gallery[],
+export type GalleryCacheOwner = { scope: string; current: () => boolean };
+// Deletion revisions invalidate older snapshots. Disjoint partial upserts must both commit.
+const galleryCacheTickets = new Map<string, number>();
+let galleryCacheTransaction: Promise<unknown> = Promise.resolve();
+const obsoleteGalleryCacheWrite = new Error("Obsolete gallery cache write");
+
+async function publishGalleryCache(
+    collection: string, spaceId: string | undefined, scopeHint: string | undefined,
+    owner: GalleryCacheOwner | undefined, write: (db: SQLite.SQLiteDatabase) => Promise<void>, durable = false,
 ) {
-    const db = await getOfflineDb();
-    await db.runAsync("DELETE FROM galleries_cache WHERE space_id = ?", spaceId);
-    for (const gallery of galleries) {
-        await db.runAsync(
-            `INSERT OR REPLACE INTO galleries_cache
-                (
-                    id, space_id, title, date, date_date, color, location,
-                    cover_image_path, cover_image_thumb_path,
-                    cover_image_blur_hash, cover_thumb_url, created_at
-                )
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            gallery.id,
-            gallery.space_id,
-            gallery.title,
-            gallery.date instanceof Date ? gallery.date.toISOString() : gallery.date,
-            gallery.date_date ?? null,
-            gallery.color,
-            gallery.location,
-            gallery.cover_image_path ?? null,
-            gallery.cover_image_thumb_path ?? null,
-            gallery.cover_image_blur_hash ?? null,
-            gallery.cover_thumb_url ?? null,
-            gallery.created_at ?? null,
+    const scope = owner?.scope ?? scopeHint ?? await currentGalleryScope(spaceId);
+    if (!scope) return;
+    const key = `${scope}/${collection}`;
+    const ticket = (galleryCacheTickets.get(key) ?? 0) + (durable ? 1 : 0);
+    if (durable) galleryCacheTickets.set(key, ticket);
+    const current = () => durable || ((galleryCacheTickets.get(key) ?? 0) === ticket && (!owner || owner.current()));
+    const pending = galleryCacheTransaction.catch(() => undefined).then(async () => {
+        if (!current() || await currentGalleryScope() !== scope) return;
+        const db = await getOfflineDb();
+        const task = async (txn: SQLite.SQLiteDatabase) => {
+            if (!current()) throw obsoleteGalleryCacheWrite;
+            await write(txn);
+            if (!current() || await currentGalleryScope() !== scope) throw obsoleteGalleryCacheWrite;
+        };
+        try {
+            // Native exclusive transactions use a separate connection; unrelated feature queries
+            // cannot accidentally become part of a gallery commit. Web has no exclusive API.
+            if (Platform.OS !== "web" && typeof db.withExclusiveTransactionAsync === "function") {
+                await db.withExclusiveTransactionAsync(task);
+            } else if (typeof db.withTransactionAsync === "function") {
+                await db.withTransactionAsync(() => task(db));
+            } else {
+                // Small SQLite test adapters exercise the same atomic rollback contract.
+                await db.execAsync("BEGIN");
+                try { await task(db); await db.execAsync("COMMIT"); }
+                catch (error) { await db.execAsync("ROLLBACK"); throw error; }
+            }
+        } catch (error) { if (error !== obsoleteGalleryCacheWrite) throw error; }
+    });
+    // SQLite has one writer. Only commits serialize; ownership remains independent per gallery.
+    galleryCacheTransaction = pending;
+    await pending;
+}
+
+export async function replaceCachedGalleries(
+    spaceId: string, galleries: Gallery[], owner?: GalleryCacheOwner,
+) {
+    const scope = owner?.scope ?? galleries[0]?.cache_scope;
+    if (!scope || galleries.some((gallery) => gallery.cache_scope !== scope)) return;
+    await publishGalleryCache("galleries", spaceId, scope, owner, async (db) => {
+        for (const g of galleries) await db.runAsync(
+            `INSERT INTO galleries_cache
+             (id,space_id,title,date,date_date,color,location,cover_image_path,cover_image_thumb_path,
+              cover_image_blur_hash,cover_thumb_url,created_at,cache_scope,cover_expires_at,storage_deleting)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,0)
+             ON CONFLICT(id) DO UPDATE SET title=excluded.title,date=excluded.date,date_date=excluded.date_date,
+              color=excluded.color,location=excluded.location,cover_image_path=excluded.cover_image_path,
+              cover_image_thumb_path=excluded.cover_image_thumb_path,cover_image_blur_hash=excluded.cover_image_blur_hash,
+              cover_thumb_url=excluded.cover_thumb_url,created_at=excluded.created_at,cache_scope=excluded.cache_scope,
+              cover_expires_at=excluded.cover_expires_at
+             WHERE galleries_cache.storage_deleting=0`,
+            g.id,g.space_id,g.title,g.date instanceof Date ? g.date.toISOString() : g.date,
+            g.date_date??null,g.color,g.location,g.cover_image_path??null,g.cover_image_thumb_path??null,
+            g.cover_image_blur_hash??null,g.cover_thumb_url??null,g.created_at??null,scope,g.cover_expires_at??null,
         );
-    }
+    });
+}
+
+// Partial queries only upsert entities. Explicit/verified deletion writes durable local tombstones
+// into the existing tables; a delayed upsert can never undo an accepted deletion.
+export async function invalidateCachedGalleries(spaceId: string, ids: string[], owner?: GalleryCacheOwner) {
+    const scope = owner?.scope ?? await currentGalleryScope(spaceId);
+    if (!scope || !ids.length) return;
+    await publishGalleryCache("galleries", spaceId, scope, owner, async (db) => {
+        for (const id of ids) {
+            await db.runAsync(`INSERT INTO galleries_cache
+                (id,space_id,title,date,color,location,cache_scope,storage_deleting)
+                VALUES (?,?,'','','','',?,1) ON CONFLICT(id) DO UPDATE SET storage_deleting=1,
+                cover_thumb_url=NULL,cache_scope=excluded.cache_scope`,id,spaceId,scope);
+            await db.runAsync("UPDATE gallery_images_cache SET storage_state='deleting',url_thumb=NULL,url_grid=NULL,url_orig=NULL WHERE gallery_id=? AND cache_scope=?",id,scope);
+        }
+    }, true);
 }
 
 export async function getCachedGalleryImages(
     galleryId: string,
 ): Promise<GalleryImage[]> {
     const db = await getOfflineDb();
+    const scope = await currentGalleryScope();
+    if (!scope) return [];
     return await db.getAllAsync<CachedGalleryImageRow>(
         `SELECT * FROM gallery_images_cache
-         WHERE gallery_id = ?
-         ORDER BY created_at DESC`,
-        galleryId,
+         WHERE gallery_id = ? AND cache_scope = ? AND storage_state = 'ready'
+         AND NOT EXISTS (SELECT 1 FROM galleries_cache g WHERE g.id=gallery_images_cache.gallery_id AND g.storage_deleting=1)
+         ORDER BY created_at DESC, id DESC`,
+        galleryId, scope,
     );
 }
 
 export async function replaceCachedGalleryImages(
-    galleryId: string,
-    images: GalleryImage[],
+    galleryId: string, images: GalleryImage[], owner?: GalleryCacheOwner,
 ) {
-    const db = await getOfflineDb();
-    await db.runAsync(
-        "DELETE FROM gallery_images_cache WHERE gallery_id = ?",
-        galleryId,
-    );
-    for (const image of images) {
-        await db.runAsync(
-            `INSERT OR REPLACE INTO gallery_images_cache
-                (
-                    id, gallery_id, storage_path_thumb, storage_path_grid,
-                    storage_path_orig, blur_hash, created_at,
-                    width_thumb, height_thumb, width_grid, height_grid,
-                    width_orig, height_orig, bytes_thumb, bytes_grid,
-                    bytes_orig, bytes_total, url_thumb, url_grid, url_orig
-                )
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            image.id,
-            image.gallery_id,
-            image.storage_path_thumb ?? null,
-            image.storage_path_grid ?? null,
-            image.storage_path_orig ?? null,
-            image.blur_hash ?? null,
-            image.created_at,
-            image.width_thumb ?? null,
-            image.height_thumb ?? null,
-            image.width_grid ?? null,
-            image.height_grid ?? null,
-            image.width_orig ?? null,
-            image.height_orig ?? null,
-            image.bytes_thumb ?? null,
-            image.bytes_grid ?? null,
-            image.bytes_orig ?? null,
-            image.bytes_total ?? null,
-            image.url_thumb ?? null,
-            image.url_grid ?? null,
-            image.url_orig ?? null,
-        );
-    }
+    const scope = owner?.scope ?? images[0]?.cache_scope;
+    if (!scope || images.some((image) => image.cache_scope !== scope)) return;
+    await publishGalleryCache(`images/${galleryId}`, undefined, scope, owner, async (db) => {
+        for (const image of images) {
+            const columns = ["id","gallery_id","storage_path_thumb","storage_path_grid","storage_path_orig",
+                "blur_hash","created_at","width_thumb","height_thumb","width_grid","height_grid","width_orig","height_orig",
+                "bytes_thumb","bytes_grid","bytes_orig","bytes_total","url_thumb","url_grid","url_orig","cache_scope","urls_expires_at","storage_provider","storage_state"];
+            const values = [image.id,image.gallery_id,image.storage_path_thumb??null,image.storage_path_grid??null,
+                image.storage_path_orig??null,image.blur_hash??null,image.created_at,image.width_thumb??null,image.height_thumb??null,
+                image.width_grid??null,image.height_grid??null,image.width_orig??null,image.height_orig??null,image.bytes_thumb??null,
+                image.bytes_grid??null,image.bytes_orig??null,image.bytes_total??null,image.url_thumb??null,image.url_grid??null,
+                image.url_orig??null,scope,image.urls_expires_at??null,image.storage_provider??"supabase","ready"];
+            await db.runAsync(`INSERT INTO gallery_images_cache (${columns.join(",")}) SELECT ${columns.map(()=>"?").join(",")} WHERE NOT EXISTS (SELECT 1 FROM galleries_cache WHERE id=? AND storage_deleting=1)
+                ON CONFLICT(id) DO UPDATE SET ${columns.slice(1).map(c=>`${c}=excluded.${c}`).join(",")}
+                WHERE gallery_images_cache.storage_state='ready'`,...values,image.gallery_id);
+        }
+    });
+}
+
+export async function invalidateCachedGalleryImages(galleryId: string, ids: string[], owner?: GalleryCacheOwner) {
+    const scope = owner?.scope ?? await currentGalleryScope();
+    if (!scope || !ids.length) return;
+    await publishGalleryCache(`images/${galleryId}`, undefined, scope, owner, async (db) => {
+        for (const id of ids) await db.runAsync(`INSERT INTO gallery_images_cache
+            (id,gallery_id,created_at,cache_scope,storage_state) VALUES (?,?,'',?,'deleting')
+            ON CONFLICT(id) DO UPDATE SET storage_state='deleting',url_thumb=NULL,url_grid=NULL,url_orig=NULL,
+            cache_scope=excluded.cache_scope`,id,galleryId,scope);
+    }, true);
 }
 
 export async function getCachedExpenseCategories(

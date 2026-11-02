@@ -32,7 +32,7 @@ const GalleryListGrid: React.FC<GalleryListGridProps> = ({
 }) => {
     const refreshGalleries = useGalleryStore((s) => s.refreshGalleries);
     const loadMoreGalleries = useGalleryStore((s) => s.loadMoreGalleries);
-    const error = useGalleryStore((s) => s.error);
+    const error = useGalleryStore((s) => s.galleryError);
     const isLoadingInitial = useGalleryStore(
         (s) => s.galleriesPage.isLoadingInitial,
     );

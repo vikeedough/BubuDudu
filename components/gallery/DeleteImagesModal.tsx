@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { Alert } from "react-native";
 
 import ConfirmModal from "@/components/common/ConfirmModal";
@@ -20,15 +20,16 @@ const DeleteImagesModal: React.FC<DeleteImagesModalProps> = ({
     galleryId,
     onCleared,
 }) => {
+    const busy = useRef(false);
     const [isDeleting, setIsDeleting] = useState(false);
 
-    const refreshGalleryImages = useGalleryStore((s) => s.refreshGalleryImages);
     const deleteMultipleGalleryImages = useGalleryStore(
         (s) => s.deleteMultipleGalleryImages,
     );
     const isOnline = useSyncStore((s) => s.isOnline);
 
     const handleDeleteImage = async () => {
+        if (busy.current) return;
         if (!isOnline) {
             Alert.alert("Offline", "Gallery changes are unavailable offline.");
             onClose();
@@ -40,6 +41,7 @@ const DeleteImagesModal: React.FC<DeleteImagesModalProps> = ({
             return;
         }
 
+        busy.current = true;
         setIsDeleting(true);
 
         try {
@@ -49,13 +51,15 @@ const DeleteImagesModal: React.FC<DeleteImagesModalProps> = ({
             );
 
             if (ok) {
-                await refreshGalleryImages(galleryId);
                 onCleared();
                 onClose();
             } else {
-                Alert.alert("Error", "Failed to delete the selected images.");
+                Alert.alert("Error", "Could not confirm the deletion. Please refresh and try again.");
             }
+        } catch {
+            Alert.alert("Error", "Could not confirm the deletion. Please refresh and try again.");
         } finally {
+            busy.current = false;
             setIsDeleting(false);
         }
     };

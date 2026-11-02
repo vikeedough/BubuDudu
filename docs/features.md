@@ -323,103 +323,21 @@ Offline behavior:
 
 ## Gallery
 
-Routes:
+Gallery routes remain: `app/(tabs)/(gallery)/gallery.tsx` and `galleryContent.tsx`, backed by `hooks/useGalleryList.ts`, `hooks/useGalleryContent.ts`, `stores/GalleryStore.ts`, and `components/gallery/`.
 
-- `app/(tabs)/(gallery)/gallery.tsx`
-- `app/(tabs)/(gallery)/galleryContent.tsx`
+- Lists retain debounced search, date/ID keyset paging (10), sort and refresh. Images page by creation time/ID (20).
+- Gallery creation requires title, location, color, date and photos. It closes the modal and uploads with progress. Partial failures keep completed photos and the gallery for retry; there is no asynchronous whole-gallery rollback.
+- New uploads use private R2 via authenticated initialize/PUT/finalize. Supabase-backed images remain supported. Pending/deleting rows are hidden. Two JPEG objects are generated: thumb 1000/.70 and orig 2000/.90; grid fields alias orig with zero additional bytes. All 732 historical photos use R2 with three byte-for-byte verified variants. After user confirmation that historical photos display correctly, the separately authorized 2026-11-02 cleanup removed 2,196 verified Supabase source copies and retained the three excluded unreferenced objects. Backend post-cleanup signing/checksums passed; post-cleanup device visual/download testing remains manual.
+- Covers reuse completed image keys. Viewer, selection, edit details, download to the BubuDudu device album and sorting retain the existing UI. Signed URLs refresh on viewer open/download, expiry and bounded load-error retry.
+- Long-press or the visible selection control enters photo selection. Download/Delete and their action-bar container appear only with a nonempty valid selection. Deselecting the final photo exits selection consistently; Clear, completed actions, gallery changes and screen blur reset selection. IDs removed from a settled image page are pruned without discarding selection during a temporary refresh. Selection controls expose checked state and count announcements; original compact typography and visible control sizes are restored, with invisible hit areas for small controls. The grid reserves the measured selection action-bar height.
+- Single/batch/gallery deletes are server-authorized and provider-aware. Deletion requests durably queue provider-aware receipts and return 202; covers change transactionally. The deployed daily backend job at 03:00 Singapore time handles eligible cleanup independently of the app, preserving the five-minute PUT window plus two-minute drain grace. There is no client physical cleanup or polling in the updated app. Queued whole galleries stay hidden until cleanup finishes. The queue-only production endpoints are deployed; first scheduled physical cleanup and updated-device validation remain pending. See the rollout and monitoring instructions.
+- Gallery metadata and signed URLs are cached by account/space. Offline is view-only and depends on already-cached image bytes; creation/edit/upload/delete/download remain online-only. SQLite v7 adds gallery deletion tombstones; partial searches/pages upsert metadata without clearing previously browsed content. The v6 unscoped-cache upgrade and unrelated offline data/outbox remain intact.
 
-Hooks:
+- Image sort is server-paged oldest/newest first with creation-time/ID cursors. Cover renewal preserves loaded gallery pages; the viewer anchors the active photo ID and offers bounded page/image retry.
+- Read/signing failures retain usable cached images and show Retry instead of an empty gallery. Focus, foreground and reconnect reconcile ready metadata without physical-cleanup calls or periodic polling.
+- One upload job per gallery and guarded picker/delete actions prevent duplicate operations. Downloads report saved/failed/skipped photos, preserve unsuccessful selections for retry, and show saved/total progress; saved photos are excluded from the next retry.
 
-- `hooks/useGalleryList.ts`
-- `hooks/useGalleryContent.ts`
-
-Store:
-
-- `stores/GalleryStore.ts`
-
-Components:
-
-- `components/gallery/AddNewGalleryModal.tsx`
-- `components/gallery/GalleryListControls.tsx`
-- `components/gallery/GalleryListGrid.tsx`
-- `components/gallery/GalleryItem.tsx`
-- `components/gallery/GalleryControls.tsx`
-- `components/gallery/EditGalleryDetailsModal.tsx`
-- `components/gallery/GalleryImageGrid.tsx`
-- `components/gallery/GalleryImageItem.tsx`
-- `components/gallery/GalleryImageViewerModal.tsx`
-- `components/gallery/GalleryEditControls.tsx`
-- `components/gallery/DeleteImagesModal.tsx`
-
-Backend:
-
-- `galleries`
-- `date_images`
-- Storage bucket `gallery-private`
-- Edge Functions `sign-gallery-cover-urls`, `sign-gallery-urls`, `delete-gallery`
-
-Gallery list behavior:
-
-- Gallery list supports search, sort ascending/descending, pull-to-refresh, and pagination.
-- Search is debounced for 300 ms and uses `ilike("title", "%search%")` online.
-- Gallery pages are keyset-paginated with page size 10 using `date` and `id`.
-- Cover thumbnails are signed in batches through `sign-gallery-cover-urls`; per-path storage signing is used as fallback.
-- Gallery cards show cover thumbnail, location, title, and the selected gallery color as a translucent background.
-- The list shows explicit loading, empty-search, empty-gallery, and retry-by-refresh states.
-
-Create gallery behavior:
-
-- The add modal requires name, location, color, date, and at least one image.
-- It creates a `galleries` row, closes the modal, then uploads images in the background with toast progress.
-- If the initial background upload fails after the gallery row is created, the app rolls back the gallery with a silent delete and refreshes the list.
-- Date is sent as ISO string in `galleries.date`; `date_date` is also derived as `YYYY-MM-DD`.
-- Selected images are deduplicated by URI in the modal preview.
-
-Image upload behavior:
-
-- For each image, the app inserts a `date_images` row first to get an image id.
-- `generateVariants` produces thumb, grid, and original JPEG variants.
-- `generateBlurhash` creates a blurhash from the thumbnail.
-- Images are stored at:
-
-```text
-spaces/{spaceId}/galleries/{galleryId}/images/{imageId}/thumb.jpg
-spaces/{spaceId}/galleries/{galleryId}/images/{imageId}/grid.jpg
-spaces/{spaceId}/galleries/{galleryId}/images/{imageId}/orig.jpg
-```
-
-- Upload concurrency is 3 images at a time.
-- A progress toast tracks completed uploads.
-- If upload or row update fails, the app removes already uploaded storage paths and deletes the image row.
-- If the gallery has no cover, the first uploaded image becomes the cover.
-
-Gallery detail behavior:
-
-- Image pages are keyset-paginated with page size 20 using `created_at` and `id`.
-- Image rows are signed through `sign-gallery-urls` and merged with `url_thumb`, `url_grid`, and `url_orig`.
-- Tapping an image opens a full-screen zoomable viewer.
-- The viewer requests more images when the user nears the end.
-- The image grid can toggle newest-first or oldest-first ordering, and the viewer opens in the same visible order as the grid.
-- The detail controls include an edit button for gallery name, location, and date. The edit modal uses `InlineWheelDatePicker` for the date.
-- Long-press enters edit mode if online.
-- Selected images use the compact top-right selection indicator and can be downloaded to a `BubuDudu` device album or deleted.
-- Downloads request full photo-library access once per batch, create saved assets directly inside the `BubuDudu` album to avoid duplicate DCIM copies and Android per-photo modify prompts, and show a completion toast with the saved count.
-- The detail grid shows an explicit empty state when a gallery has no visible images.
-
-Delete behavior:
-
-- Deleting one image removes its three storage variants and deletes the `date_images` row.
-- If the deleted image is the gallery cover, the app selects the newest remaining image as replacement or clears the cover.
-- Deleting multiple images fetches the selected rows once, updates the cover once, removes selected storage paths in chunks, deletes selected rows in one database operation, and updates cache after success.
-- Deleting a gallery first invokes `delete-gallery` for server-side cleanup.
-- If the function is unavailable, the client falls back to deleting image storage paths, image rows, and finally the gallery row.
-- Gallery delete only navigates away after the store confirms success.
-
-Offline behavior:
-
-- Gallery metadata and image rows are cached for offline reading.
-- Missing image URLs are hidden offline; cached signed URLs may still work until they expire.
-- Gallery creation, metadata edits, uploads, image deletes, gallery deletes, and downloads are blocked offline.
+See [Private gallery storage](gallery-storage.md) for architecture, protected database state, cleanup receipts, deployment, credentials, migration/rollback, limitations and validation.
 
 ## Toasts
 

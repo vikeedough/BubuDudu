@@ -1,9 +1,11 @@
+import { isBlurhashValid } from "blurhash";
 import { Image } from "expo-image";
-import React from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
 
 import { Colors } from "@/constants/colors";
-import { Gallery as GalleryType } from "@/stores/GalleryStore";
+import { useGalleryStore , Gallery as GalleryType } from "@/stores/GalleryStore";
+import { getIsOnline } from "@/utils/offline/network";
 
 import CustomText from "../CustomText";
 
@@ -13,6 +15,22 @@ interface GalleryItemProps {
 }
 
 const GalleryItem: React.FC<GalleryItemProps> = ({ gallery, onPress }) => {
+    const retried = useRef(false);
+    const [failed, setFailed] = useState(false);
+    const refreshCover = useCallback((explicit?: unknown) => {
+        if (!getIsOnline() || (retried.current && explicit !== true)) return;
+        retried.current = true;
+        void useGalleryStore.getState().refreshCoverUrls([gallery.id], true)
+            .then(() => setFailed(false)).catch(() => setFailed(true));
+    }, [gallery.id]);
+    useEffect(() => {
+        retried.current = false; setFailed(false);
+        if (!gallery.cover_expires_at) return;
+        const expiry = Date.parse(gallery.cover_expires_at);
+        if (!Number.isFinite(expiry)) return;
+        const timer = setTimeout(refreshCover, Math.max(0, expiry - Date.now() - 30000));
+        return () => clearTimeout(timer);
+    }, [gallery.cover_expires_at, gallery.cover_image_thumb_path, refreshCover]);
     return (
         <View style={styles.shadowContainer}>
             <TouchableOpacity
@@ -20,20 +38,24 @@ const GalleryItem: React.FC<GalleryItemProps> = ({ gallery, onPress }) => {
                     styles.container,
                     { backgroundColor: `${gallery.color}40` },
                 ]}
+                accessibilityRole="button"
+                accessibilityLabel={`Open gallery ${gallery.title}`}
                 onPress={() => onPress(gallery)}
             >
                 <View>
                     {gallery.cover_thumb_url ? (
                         <Image
-                            source={{ uri: gallery.cover_thumb_url }}
+                            source={{ uri: gallery.cover_thumb_url, cacheKey: gallery.cache_scope ? `${gallery.cache_scope}/${gallery.cover_image_thumb_path}` : undefined }}
+                            onError={refreshCover}
                             placeholder={
-                                gallery.cover_image_blur_hash ?? undefined
+                                gallery.cover_image_blur_hash && isBlurhashValid(gallery.cover_image_blur_hash).result ? { blurhash: gallery.cover_image_blur_hash } : undefined
                             }
                             transition={200}
                             style={styles.image}
                             cachePolicy="memory-disk"
                         />
                     ) : null}
+                    {failed && <TouchableOpacity accessibilityRole="button" accessibilityLabel="Retry gallery cover" onPress={() => refreshCover(true)} style={{ minHeight: 44, justifyContent: "center" }}><CustomText style={{ color: Colors.darkGreenText }}>Cover unavailable. Retry</CustomText></TouchableOpacity>}
                     <View style={styles.locationContainer}>
                         <CustomText
                             weight="semibold"

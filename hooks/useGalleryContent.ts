@@ -1,8 +1,7 @@
-import { router } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert } from "react-native";
+import { router, useFocusEffect } from "expo-router";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AccessibilityInfo, Alert, AppState } from "react-native";
 
-import { supabase } from "@/api/clients/supabaseClient";
 import { useGalleryStore } from "@/stores/GalleryStore";
 import { useSyncStore } from "@/stores/SyncStore";
 import { toast } from "@/toast/api";
@@ -10,8 +9,10 @@ import {
     multipleDownloadAndSaveImage,
     pickMultipleImages,
 } from "@/utils/gallery";
+import { getIsOnline } from "@/utils/offline/network";
 
 import type { GalleryImage } from "@/stores/GalleryStore";
+import type { GalleryDownloadProgress } from "@/utils/gallery";
 
 const EMPTY_IMAGES: GalleryImage[] = [];
 
@@ -23,7 +24,11 @@ export const useGalleryContent = ({ galleryId }: { galleryId: string }) => {
         (s) => s.loadMoreGalleryImages,
     );
     const refreshGalleryImages = useGalleryStore((s) => s.refreshGalleryImages);
+    const reconcileGalleryImages = useGalleryStore((s) => s.reconcileGalleryImages ?? s.refreshGalleryImages);
+    const imageError = useGalleryStore((s) => s.imageErrorsByGalleryId?.[galleryId] ?? null);
+    const isUploading = useGalleryStore((s) => s.isUploadingByGalleryId?.[galleryId] ?? false);
 
+    const refreshImageUrls = useGalleryStore((s) => s.refreshImageUrls);
     const refreshGalleries = useGalleryStore((s) => s.refreshGalleries);
     const deleteGallery = useGalleryStore((s) => s.deleteGallery);
     const updateGalleryDetails = useGalleryStore((s) => s.updateGalleryDetails);
@@ -40,6 +45,17 @@ export const useGalleryContent = ({ galleryId }: { galleryId: string }) => {
     const isLoadingInitialImages = imagesPage?.isLoadingInitial ?? false;
     const isLoadingMoreImages = imagesPage?.isLoadingMore ?? false;
 
+    const downloadBusy = useRef(false);
+    const downloadController = useRef<AbortController | null>(null);
+    const focusRevision = useRef(0);
+    const [downloadProgress, setDownloadProgress] = useState<GalleryDownloadProgress | null>(null);
+    const addBusy = useRef(false);
+    const deleteBusy = useRef(false);
+    const focused = useRef(false);
+    const focusedGallery = useRef<string | null>(null);
+    const currentGallery = useRef(galleryId);
+    currentGallery.current = galleryId;
+    const [isPickingImages, setIsPickingImages] = useState(false);
     const [isDownloading, setIsDownloading] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [viewerInitialImageId, setViewerInitialImageId] = useState<
@@ -54,22 +70,52 @@ export const useGalleryContent = ({ galleryId }: { galleryId: string }) => {
     const [isUpdatingGalleryDetails, setIsUpdatingGalleryDetails] =
         useState(false);
     const [editMode, setEditMode] = useState(false);
-    const [selectedImageIds, setSelectedImageIds] = useState<Set<string>>(
+    const [selectedIds, setSelectedImageIds] = useState<Set<string>>(
         () => new Set(),
     );
-    const [sortingByAscending, setSortingByAscending] = useState(false);
+    const direction = useGalleryStore((s) => s.imageSortByGalleryId?.[galleryId] ?? "desc");
+    const setImageSort = useGalleryStore((s) => s.setImageSort);
+    const sortingByAscending = direction === "asc";
+
+    const handleClearSelection = useCallback(() => {
+        focusRevision.current++;
+        downloadController.current?.abort();
+        setSelectedImageIds(new Set());
+        setEditMode(false);
+        setIsDeleteImagesModalOpen(false);
+    }, []);
+
+    useEffect(handleClearSelection, [galleryId, handleClearSelection]);
+    const handleRefresh = useCallback(() => reconcileGalleryImages(galleryId), [galleryId, reconcileGalleryImages]);
+    useFocusEffect(useCallback(() => {
+        focused.current = true;
+        if (focusedGallery.current === galleryId && getIsOnline()) void handleRefresh().catch(() => undefined);
+        focusedGallery.current = galleryId;
+        let previous = AppState.currentState;
+        const subscription = AppState.addEventListener("change", (next) => {
+            if (next === "active" && previous !== "active" && getIsOnline()) void handleRefresh().catch(() => undefined);
+            previous = next;
+        });
+        return () => { focused.current = false; subscription.remove(); handleClearSelection(); };
+    }, [galleryId, handleClearSelection, handleRefresh]));
 
     useEffect(() => {
-        loadInitialGalleryImages(galleryId);
+        void loadInitialGalleryImages(galleryId).catch(() => undefined);
     }, [galleryId, loadInitialGalleryImages]);
+
+    const wasOnline = useRef(isOnline);
+    useEffect(() => {
+        if (isOnline && !wasOnline.current && focused.current) void handleRefresh().catch(() => undefined);
+        wasOnline.current = isOnline;
+    }, [handleRefresh, isOnline]);
 
     const sortedImages = useMemo(() => {
         return canonicalImages
             .slice()
             .sort((a, b) =>
                 sortingByAscending
-                    ? a.created_at.localeCompare(b.created_at)
-                    : b.created_at.localeCompare(a.created_at),
+                    ? a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id)
+                    : b.created_at.localeCompare(a.created_at) || b.id.localeCompare(a.id),
             );
     }, [canonicalImages, sortingByAscending]);
     const visibleImages = useMemo(() => {
@@ -87,6 +133,23 @@ export const useGalleryContent = ({ galleryId }: { galleryId: string }) => {
         }
         return map;
     }, [canonicalImages]);
+    const selectedImageIds = useMemo(
+        () => new Set(Array.from(selectedIds).filter((id) => imageById.has(id))),
+        [imageById, selectedIds],
+    );
+    useEffect(() => {
+        // A refresh temporarily clears rows before replacing them; keep selection until it settles.
+        if (isLoadingInitialImages) return;
+        if (selectedImageIds.size !== selectedIds.size) setSelectedImageIds(selectedImageIds);
+        setEditMode(selectedImageIds.size > 0);
+    }, [isLoadingInitialImages, selectedIds, selectedImageIds]);
+    const lastAnnouncedCount = useRef(0);
+    useEffect(() => {
+        if (lastAnnouncedCount.current !== selectedImageIds.size) {
+            lastAnnouncedCount.current = selectedImageIds.size;
+            AccessibilityInfo.announceForAccessibility(`${selectedImageIds.size} photos selected`);
+        }
+    }, [selectedImageIds.size]);
     const selectedImageIdList = useMemo(
         () => Array.from(selectedImageIds),
         [selectedImageIds],
@@ -100,26 +163,22 @@ export const useGalleryContent = ({ galleryId }: { galleryId: string }) => {
     );
 
     const handleAddImages = useCallback(async () => {
-        if (!isOnline) {
-            Alert.alert("Offline", "Gallery uploads are unavailable offline.");
-            return;
-        }
-
-        const newImages = await pickMultipleImages();
-        if (!newImages?.length) return;
-
+        if (addBusy.current || isUploading) return;
+        if (!isOnline) { Alert.alert("Offline", "Gallery uploads are unavailable offline."); return; }
+        addBusy.current = true; setIsPickingImages(true);
+        const revision = focusRevision.current;
         try {
+            const newImages = await pickMultipleImages();
+            if (!newImages?.length || !focused.current || revision !== focusRevision.current || currentGallery.current !== galleryId) return;
             const ok = await uploadGalleryImages(galleryId, newImages);
-            if (ok) {
-                await refreshGalleries();
-                return;
-            }
-            Alert.alert("Upload failed", "Please try uploading the photos again.");
-        } catch (err) {
-            console.error("Error adding gallery images:", err);
-            Alert.alert("Upload failed", "Please try uploading the photos again.");
-        }
-    }, [galleryId, isOnline, refreshGalleries, uploadGalleryImages]);
+            if (!focused.current || revision !== focusRevision.current || currentGallery.current !== galleryId) return;
+            if (ok) await refreshGalleries();
+            else Alert.alert("Upload incomplete", "Completed photos were kept. Please retry the remaining photos.");
+        } catch {
+            if (!focused.current || revision !== focusRevision.current || currentGallery.current !== galleryId) return;
+            Alert.alert("Photos unavailable", "The photo picker or upload could not finish. Please try again.");
+        } finally { addBusy.current = false; setIsPickingImages(false); }
+    }, [galleryId, isOnline, isUploading, refreshGalleries, uploadGalleryImages]);
 
     const handleDeleteGallery = useCallback(async () => {
         if (!isOnline) {
@@ -127,9 +186,13 @@ export const useGalleryContent = ({ galleryId }: { galleryId: string }) => {
             return;
         }
 
+        if (deleteBusy.current) return;
+        deleteBusy.current = true;
+        const revision = focusRevision.current;
         setIsDeleting(true);
         try {
             const ok = await deleteGallery(galleryId);
+            if (!focused.current || revision !== focusRevision.current || currentGallery.current !== galleryId) return;
             if (!ok) {
                 Alert.alert("Error", "Failed to delete gallery.");
                 return;
@@ -137,8 +200,11 @@ export const useGalleryContent = ({ galleryId }: { galleryId: string }) => {
 
             setIsDeleteGalleryModalOpen(false);
             router.back();
-            await refreshGalleries();
+            await refreshGalleries().catch(() => undefined);
+        } catch {
+            if (focused.current && revision === focusRevision.current && currentGallery.current === galleryId) Alert.alert("Error", "Could not confirm the gallery deletion. Please retry.");
         } finally {
+            deleteBusy.current = false;
             setIsDeleting(false);
         }
     }, [deleteGallery, galleryId, isOnline, refreshGalleries]);
@@ -185,9 +251,11 @@ export const useGalleryContent = ({ galleryId }: { galleryId: string }) => {
             });
             return;
         }
+        if (isOnline) void refreshImageUrls(galleryId, [image.id]).catch(() =>
+            Alert.alert("Photo unavailable", "Refresh the gallery and try again."));
         setViewerInitialImageId(image.id);
         setIsViewerOpen(true);
-    }, [editMode]);
+    }, [editMode, galleryId, isOnline, refreshImageUrls]);
 
     const handleSelectImage = useCallback((image: GalleryImage) => {
         if (!isOnline) return;
@@ -198,9 +266,6 @@ export const useGalleryContent = ({ galleryId }: { galleryId: string }) => {
                 next.delete(image.id);
             } else {
                 next.add(image.id);
-            }
-            if (next.size === 0) {
-                setEditMode(false);
             }
             return next;
         });
@@ -219,64 +284,36 @@ export const useGalleryContent = ({ galleryId }: { galleryId: string }) => {
     }, [editMode, isOnline]);
 
     const handleDownloadImages = useCallback(async () => {
-        if (!isOnline) {
-            Alert.alert("Offline", "Image downloads are unavailable offline.");
-            return;
-        }
-
-        setIsDownloading(true);
+        if (!selectedImageIdList.length || downloadBusy.current) return;
+        if (!isOnline) { Alert.alert("Offline", "Image downloads are unavailable offline."); return; }
+        downloadBusy.current = true; setIsDownloading(true); setDownloadProgress(null);
+        const controller = new AbortController(); downloadController.current = controller;
+        const revision = focusRevision.current;
         try {
-            const selectedSnapshot = selectedImages;
-            const needs = selectedSnapshot
-                .filter((i) => !i.url_orig)
-                .map((i) => i.id);
+            const imagesToDownload = await refreshImageUrls(galleryId, selectedImageIdList);
+            const result = await multipleDownloadAndSaveImage(imagesToDownload,
+                (ids) => refreshImageUrls(galleryId, ids ?? selectedImageIdList, true),
+                { signal: controller.signal, onProgress: setDownloadProgress });
+            if (!focused.current || revision !== focusRevision.current || currentGallery.current !== galleryId) return;
+            const unsuccessful = [...result.failedIds, ...result.skippedIds];
+            setSelectedImageIds(new Set(unsuccessful));
+            setEditMode(unsuccessful.length > 0);
+            if (result.savedIds.length) toast.show({
+                title: unsuccessful.length ? "Some photos saved" : "Download complete",
+                message: `Saved ${result.savedIds.length} ${result.savedIds.length === 1 ? "photo" : "photos"} to BubuDudu.${unsuccessful.length ? ` ${unsuccessful.length} remain selected for retry.` : ""}`,
+                durationMs: 3000,
+            });
+            if (unsuccessful.length && !result.permissionDenied && !result.cancelled) Alert.alert("Some photos were not saved", `${result.savedIds.length} saved. ${unsuccessful.length} remain selected; tap Download to retry only those photos.`);
+        } catch (error) {
+            if (focused.current && revision === focusRevision.current) Alert.alert("Download failed", error instanceof Error ? error.message : "Please refresh and try again.");
+        } finally { downloadBusy.current = false; downloadController.current = null; setIsDownloading(false); }
+    }, [galleryId, isOnline, refreshImageUrls, selectedImageIdList]);
 
-            let imagesToDownload = selectedSnapshot;
-            if (needs.length) {
-                const { data: signedMap, error } =
-                    await supabase.functions.invoke("sign-gallery-urls", {
-                        body: { galleryId, imageIds: needs },
-                    });
-
-                if (!error) {
-                    imagesToDownload = selectedSnapshot.map((img) => ({
-                        ...img,
-                        url_orig:
-                            img.url_orig ??
-                            signedMap?.[String(img.id)]?.url_orig,
-                    }));
-                }
-            }
-
-            const savedCount =
-                await multipleDownloadAndSaveImage(imagesToDownload);
-
-            if (savedCount > 0) {
-                toast.show({
-                    title: "Download complete",
-                    message:
-                        savedCount === 1
-                            ? "Saved 1 photo to BubuDudu."
-                            : `Saved ${savedCount} photos to BubuDudu.`,
-                    durationMs: 2000,
-                });
-            }
-        } finally {
-            setSelectedImageIds(new Set());
-            setEditMode(false);
-            setIsDownloading(false);
-        }
-    }, [galleryId, isOnline, selectedImages]);
-
-    const handleClearSelection = useCallback(() => {
-        setSelectedImageIds(new Set());
-        setEditMode(false);
-    }, []);
     const applySelectedImageIds = useCallback((imageIds: string[]) => {
         setSelectedImageIds(new Set(imageIds));
     }, []);
 
-    const handleToggleSort = useCallback(() => setSortingByAscending((v) => !v), []);
+    const handleToggleSort = useCallback(() => { void setImageSort(galleryId, sortingByAscending ? "desc" : "asc").catch(() => undefined); }, [galleryId, setImageSort, sortingByAscending]);
     const handleBack = useCallback(() => router.back(), []);
 
     return {
@@ -292,6 +329,11 @@ export const useGalleryContent = ({ galleryId }: { galleryId: string }) => {
         isViewerOpen,
         viewerInitialImageId,
 
+        downloadProgress,
+        imageError,
+        handleRefresh,
+        isUploading,
+        isPickingImages,
         isDownloading,
         isDeleting,
         images: visibleImages,

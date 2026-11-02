@@ -39,3 +39,6 @@ coverage/
 *.tsbuildinfo
 
 app-example
+
+# Gallery migration reports contain private object identifiers
+gallery-r2-*.json

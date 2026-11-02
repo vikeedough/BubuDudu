@@ -19,6 +19,7 @@ interface ModalActionButtonsProps {
     isConfirming?: boolean;
     containerStyle?: StyleProp<ViewStyle>;
     formLayout?: boolean;
+    allowFontScaling?: boolean;
 }
 
 const ModalActionButtons: React.FC<ModalActionButtonsProps> = ({
@@ -29,28 +30,35 @@ const ModalActionButtons: React.FC<ModalActionButtonsProps> = ({
     isConfirming = false,
     containerStyle,
     formLayout = false,
+    allowFontScaling = false,
 }) => {
     return (
         <View style={[styles.modalButtons, formLayout && styles.formButtons, containerStyle]}>
             <TouchableOpacity
-                style={[styles.yesButton, formLayout && styles.formButton]}
+                style={[styles.yesButton, formLayout && styles.formButton, allowFontScaling && styles.galleryButton]}
+                accessibilityRole="button"
+                accessibilityLabel={confirmLabel}
+                accessibilityState={{ busy: isConfirming, disabled: isConfirming }}
                 onPress={onConfirm}
                 disabled={isConfirming}
             >
                 {isConfirming ? (
                     <ActivityIndicator size="small" color={Colors.white} />
                 ) : (
-                    <CustomText weight="semibold" style={styles.modalButtonText}>
+                    <CustomText allowFontScaling={allowFontScaling} maxFontSizeMultiplier={1.5} weight="semibold" style={[styles.modalButtonText, allowFontScaling && { color: Colors.darkGreenText }]}>
                         {confirmLabel}
                     </CustomText>
                 )}
             </TouchableOpacity>
             <TouchableOpacity
-                style={[styles.noButton, formLayout && styles.formButton]}
+                style={[styles.noButton, formLayout && styles.formButton, allowFontScaling && styles.galleryButton]}
+                accessibilityRole="button"
+                accessibilityLabel={cancelLabel}
+                accessibilityState={{ disabled: isConfirming }}
                 onPress={onCancel}
                 disabled={isConfirming}
             >
-                <CustomText weight="semibold" style={styles.modalButtonText}>
+                <CustomText allowFontScaling={allowFontScaling} maxFontSizeMultiplier={1.5} weight="semibold" style={[styles.modalButtonText, allowFontScaling && { color: Colors.darkGreenText }]}>
                     {cancelLabel}
                 </CustomText>
             </TouchableOpacity>
@@ -61,6 +69,7 @@ const ModalActionButtons: React.FC<ModalActionButtonsProps> = ({
 export default ModalActionButtons;
 
 const styles = StyleSheet.create({
+    galleryButton: { minHeight: 44, minWidth: 83, width: undefined, flexShrink: 1 },
     formButtons: { flexDirection: "row-reverse", justifyContent: "flex-start", gap: 10, marginTop: 8 },
     formButton: { borderRadius: 10, minWidth: 88, width: undefined, height: 40, paddingHorizontal: 14 },
     modalButtons: {
